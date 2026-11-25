@@ -88,19 +88,19 @@ try{
  await panel.getByLabel('Report module',{exact:true}).selectOption('__all__');
  await expect(panel.getByRole('button',{name:/^Source records/})).toContainText('122');
  await panel.locator('.workspace-export summary').click();
- capaUnavailable=true;await panel.locator('.report-source-status button').click();
- await expect(panel.locator('.report-source-status')).toContainText('CAPA is unavailable');
+ capaUnavailable=true;await panel.locator('.report-source-status').first().locator('button').click();
+ await expect(panel.locator('.report-source-status').first()).toContainText('CAPA is unavailable');
  await assertPdfContrast(true);
  for(const label of ['HTML','CSV','PDF Report','Download Excel Report'])await expect(panel.getByRole('button',{name:label,exact:true,includeHidden:true})).toBeDisabled();
  await panel.getByLabel('Report module',{exact:true}).selectOption('BIA');
  await expect(panel.getByRole('button',{name:'HTML',exact:true,includeHidden:true})).toBeEnabled();
  for(const [status,message] of [[409,'changed during loading'],[401,'Sign in again'],[403,'administrator access']]){
-  capaFailureStatus=status;await panel.locator('.report-source-status button').click();
-  await expect(panel.locator('.report-source-status')).toContainText(message);
+  capaFailureStatus=status;await panel.locator('.report-source-status').first().locator('button').click();
+  await expect(panel.locator('.report-source-status').first()).toContainText(message);
   await panel.getByLabel('Report module',{exact:true}).selectOption('__all__');
   await expect(panel.getByRole('button',{name:'HTML',exact:true,includeHidden:true})).toBeDisabled();
  }
- capaUnavailable=false;await panel.locator('.report-source-status button').click();await expect(panel.locator('.report-source-status')).toContainText('1 records available');
+ capaUnavailable=false;await panel.locator('.report-source-status').first().locator('button').click();await expect(panel.locator('.report-source-status').first()).toContainText('1 records available');
  await page.route('**/fonts/FornostReportSans.ttf',route=>route.fulfill({status:503,body:'Unavailable'}));
  await panel.getByRole('button',{name:'PDF Report',exact:true}).click();await expect(panel.getByRole('alert')).toContainText('PDF could not be generated');await expect(panel.getByRole('button',{name:'PDF Report',exact:true})).toBeEnabled();
  await assertPdfContrast(false);

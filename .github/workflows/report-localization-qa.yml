@@ -1,0 +1,50 @@
+name: Report localization QA
+on:
+  pull_request:
+    paths:
+      - 'app/report*'
+      - 'app/api/reports/**'
+      - 'app/page.tsx'
+      - 'app/integration-settings.tsx'
+      - 'app/email-settings-display.ts'
+      - 'scripts/report-localization-qa.mjs'
+      - '.github/workflows/report-localization-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --ignore-scripts @playwright/test@1.55.0
+      - name: Use runner browser
+        run: echo "QA_CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+      - name: Generate isolated QA credentials
+        run: node scripts/prepare-local-qa.mjs
+      - name: Real PDF and email display verification
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/report-localization-runtime.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4173/api/health > /dev/null; then break; fi
+            sleep 1
+          done
+          node --import tsx scripts/report-localization-qa.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: report-localization-qa
+          path: |
+            report-localization-qa-artifacts/*.png
+            report-localization-qa-artifacts/*.json
+            report-localization-qa-artifacts/*.pdf
+            report-localization-qa-artifacts/*.txt

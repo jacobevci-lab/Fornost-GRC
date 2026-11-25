@@ -158,9 +158,10 @@ import "./record-dialog.css";
 import {useRecordDialog} from "./use-record-dialog";
 import AiWorkspaceHost from "./ai-workspace-host";
 import { AccountViewsPanel } from './account-views-panel';
-import { DEFAULT_REPORT_SECTIONS, REPORT_SECTIONS, reportSectionLabels, reportViewSchema, validateReportDefinition, type ReportSection } from './report-composer-model';
+import {reportFieldValue,reportFieldLabels,reportModuleLabels,reportValueLabel} from './report-labels';
+import { DEFAULT_REPORT_SECTIONS, REPORT_MODULES, REPORT_SECTIONS, reportSectionLabels, reportViewSchema, validateReportDefinition, type ReportSection } from './report-composer-model';
 import './report-composer.css';
-import { buildReportHtml, buildReportPdf, buildReportCsv, reportTitleOf, downloadBlob, reportMetrics, hasReportValue, type ReportOptions } from "./report-export";
+import { buildReportHtml, buildReportPdf, buildReportCsv, reportTitleOf, downloadBlob, reportMetrics, reportSnapshot, hasReportValue, type ReportOptions } from "./report-export";
 
 type Lang = "tr" | "en";
 type Row = {
@@ -3063,8 +3064,19 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa, coreState,
       }).catch(error => { if (!controller.signal.aborted) { setCapaFailure(capaReportFailure(error)); setCapaState("failed"); } });
     return () => controller.abort();
   }, [includeCapa, refreshCapa]);
-  const rows = includeCapa ? [...coreRows, ...capaRows] : coreRows;
-  const availableReportModules = includeCapa ? [...reportModules, CAPA_REPORT_MODULE] : reportModules;
+  const [workflowRows,setWorkflowRows]=useState<Row[]>([]),[workflowState,setWorkflowState]=useState<'loading'|'ready'|'failed'>('loading'),[refreshWorkflows,setRefreshWorkflows]=useState(0),[workflowFailure,setWorkflowFailure]=useState(''),[uninitialized,setUninitialized]=useState<string[]>([]);
+  useEffect(()=>{
+    const controller=new AbortController();setWorkflowState('loading');setWorkflowRows([]);
+    void requestJsonWithDeadline(withBasePath('/api/reports/sources'),{cache:'no-store',signal:controller.signal},fetch,60_000).then(({response,body})=>{
+      if(controller.signal.aborted)return;
+      if(!response.ok||body.complete!==true||!Array.isArray(body.records)||body.records.some(r=>!r||typeof r.id!=='string'||typeof r.module!=='string'||!r.data||typeof r.data!=='object'))throw new Error(String(body.error||'unavailable'));
+      setWorkflowRows(body.records as Row[]);setUninitialized(Array.isArray(body.uninitialized)?body.uninitialized:[]);setWorkflowState('ready');
+    }).catch(error=>{if(!controller.signal.aborted){setWorkflowState('failed');setWorkflowFailure(error instanceof Error?error.message:'unavailable');}});
+    return ()=>controller.abort();
+  },[refreshWorkflows,includeCapa]);
+  const rows=[...coreRows,...(includeCapa?capaRows:[]),...workflowRows];
+  const availableReportModules=REPORT_MODULES.filter(m=>includeCapa||!['AI Yönetişimi',CAPA_REPORT_MODULE].includes(m));
+  const workflowModules=['AI Yönetişimi','Politika Merkezi','Güvenlik Olayları','Denetim Yönetimi','İş Sürekliliği','Regülasyon Merkezi','Risk İştahı ve KRI'];
   const [sections,setSections]=useState<ReportSection[]>(DEFAULT_REPORT_SECTIONS),[managementNote,setManagementNote]=useState(''),[previewTab,setPreviewTab]=useState<'document'|'records'>('document'),[definitions,setDefinitions]=useState(false);
   const all = "__all__",
     allLabel = lang === "tr" ? "Tüm Modüller" : "All Modules",
@@ -3072,17 +3084,21 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa, coreState,
     [unit, setUnit] = useState(all),
     [owner, setOwner] = useState(all),
     [status, setStatus] = useState(all),
-    [template,setTemplate] = useState<"management"|"detailed">("management"),
+    [template,setTemplate] = useState<"management"|"detailed"|"pbc">("management"),
     [classification,setClassification] = useState("internal"),
     [exporting,setExporting] = useState(false),
     [exportError,setExportError] = useState(""),
     [previewPage,setPreviewPage] = useState(1),
     tr = lang === "tr",
     widths = useColumnWidths("Raporlar");
-  const reportUnavailable = (module !== CAPA_REPORT_MODULE && coreState !== "ready") || (includeCapa && (module === all || module === CAPA_REPORT_MODULE) && capaState !== "ready");
+  const needsCore=module===all||reportModules.some(m=>m===module);
+  const needsWorkflows=module===all||workflowModules.includes(module);
+  const reportUnavailable=(needsCore&&coreState!=='ready')||(needsWorkflows&&workflowState!=='ready')||(template!=='pbc'&&includeCapa&&(module===all||module===CAPA_REPORT_MODULE)&&capaState!=='ready');
+  const moduleLabel=(key:string)=>reportModuleLabels[key]?.[tr?0:1]||names[lang][key]||key;
+  const fieldLabels={...labelMap[lang],...Object.fromEntries(Object.entries(reportFieldLabels).map(([key,value])=>[key,value[tr?0:1]]))};
   const exportInFlight = useRef(false);
   useEffect(() => { setPreviewPage(1); }, [unit, owner, status]);
-  const moduleRows = rows.filter((r) => module === all || r.module === module);
+  const moduleRows = rows.filter(r=>(module===all||r.module===module)&&(template!=='pbc'||['Denetim Yönetimi','Kanıtlar'].includes(r.module)));
   const values = (k: string) =>
     [...new Set(moduleRows.map((r) => r.data[k]).filter(Boolean))].sort();
   const filtered = moduleRows.filter(
@@ -3091,12 +3107,12 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa, coreState,
       (owner === all || r.data.owner === owner) &&
       (status === all || r.data.status === status),
   );
-  const selectedModuleLabel = module === all ? allLabel : names[lang][module] || module;
+  const selectedModuleLabel = module === all ? allLabel : moduleLabel(module);
   const exportSlug = module === all ? "all-modules" : module.toLocaleLowerCase("tr-TR").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
-  const metrics = reportMetrics(module, filtered, tr);
+  const metrics = reportMetrics(template==='pbc'?'__pbc__':module, filtered, tr);
   const evidenceState = useExecutiveAssurance(coreRows);
   const assurance = buildExecutiveAssurance(evidenceState.rows, evidenceState.generatedAt, evidenceState.auditPortfolio);
-  const reportTitle = template==="detailed"?(tr?"Detaylı kayıt dökümü":"Detailed register"):(tr?"Yönetim özeti":"Management summary");
+  const reportTitle = template==="pbc"?(tr?"Denetim ve Kanıt İndeksi (PBC Özeti)":"Audit & Evidence Index (PBC Summary)"):template==="detailed"?(tr?"Detaylı kayıt dökümü":"Detailed register"):(tr?"Yönetim özeti":"Management summary");
   const lastUpdated = filtered
     .map((r) => r.updatedAt || r.createdAt)
     .filter(Boolean)
@@ -3108,7 +3124,7 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa, coreState,
     setStatus(all);
     setPreviewPage(1);
   };
-  const options=():ReportOptions=>({template,preparedBy,composer:true,hideFieldKeys:true,sections,intro:sections.includes("note")&&managementNote.trim()?[{label:tr?"Yönetici notu":"Management note",value:managementNote.trim()}]:[],classification:classification==="confidential"?(tr?"Gizli":"Confidential"):(tr?"Kurum İçi":"Internal"),fieldLabels:labelMap[lang],moduleLabels:names[lang],scope:includeCapa && (module===all || module===CAPA_REPORT_MODULE)?(tr?"Yüklenmiş çekirdek GRC ve merkezi CAPA kayıtları. AI ve diğer ayrı iş akışı depoları dahil değildir.":"Loaded core GRC and canonical CAPA records. AI and other separate workflow stores are excluded."):(tr?"Yüklenmiş çekirdek GRC kayıtları. CAPA, AI ve ayrı iş akışı depoları dahil değildir.":"Loaded core GRC records. CAPA, AI and separate workflow stores are excluded."),filters:[{label:tr?"Modül":"Module",value:selectedModuleLabel},{label:tr?"İş birimi":"Business unit",value:unit===all?(tr?"Tümü":"All"):unit},{label:tr?"Sahip":"Owner",value:owner===all?(tr?"Tümü":"All"):owner},{label:tr?"Durum":"Status",value:status===all?(tr?"Tümü":"All"):display(status,lang)}]});
+  const options=():ReportOptions=>({template,preparedBy,composer:true,hideFieldKeys:true,sections,intro:sections.includes("note")&&managementNote.trim()?[{label:tr?"Yönetici notu":"Management note",value:managementNote.trim()}]:[],classification:classification==="confidential"?(tr?"Gizli":"Confidential"):(tr?"Kurum İçi":"Internal"),fieldLabels,moduleLabels:Object.fromEntries(availableReportModules.map(m=>[m,moduleLabel(m)])),scope:template==='pbc'?(tr?'Denetim portföyü, maddeler, PBC talepleri ve kanıt sürümü referansları. Bağlantı, onay veya geçerlilik anlamına gelmez.':'Audit portfolio, requirements, PBC requests and evidence version references. Linkage does not establish approval or validity.'):(tr?'Yetkili kapsamdaki çekirdek GRC ve ayrı iş akışı kayıtları; seçili kaynakların tamamı yüklenmeden rapor üretilemez.':'Core GRC and separate workflow records within authorized scope; every selected source must load before report generation.'),filters:[{label:tr?"Modül":"Module",value:selectedModuleLabel},{label:tr?"İş birimi":"Business unit",value:unit===all?(tr?"Tümü":"All"):unit},{label:tr?"Sahip":"Owner",value:owner===all?(tr?"Tümü":"All"):owner},{label:tr?"Durum":"Status",value:status===all?(tr?"Tümü":"All"):reportValueLabel(status,tr)}]});
   const configuration=JSON.stringify({module,unit,owner,status,template,classification,sections,managementNote,lang});
   const dataVersion=JSON.stringify(filtered);
   // Keep one report identity across preview and downloads until scope or source data changes.
@@ -3118,7 +3134,7 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa, coreState,
   const documentHtml=buildReportHtml(reportTitle,filtered,metrics,tr,snapshotOptions);
   const definition={query:'',filters:{module,unit,owner,status,template,classification},columns:sections};
   const sectionLabels=Object.fromEntries(REPORT_SECTIONS.map(key=>[key,reportSectionLabels[key][tr?0:1]]));
-  function applyDefinition(value:Parameters<typeof validateReportDefinition>[0]){const next=validateReportDefinition(value),f=next.filters;if(f.module===CAPA_REPORT_MODULE&&!includeCapa)throw new Error('schema');setModule(f.module);setUnit(f.unit);setOwner(f.owner);setStatus(f.status);setTemplate(f.template as 'management'|'detailed');setClassification(f.classification);setSections(next.columns as ReportSection[]);setManagementNote('');setPreviewPage(1);}
+  function applyDefinition(value:Parameters<typeof validateReportDefinition>[0]){const next=validateReportDefinition(value),f=next.filters;if(f.module!==all&&!availableReportModules.includes(f.module as typeof availableReportModules[number]))throw new Error('schema');setModule(f.module);setUnit(f.unit);setOwner(f.owner);setStatus(f.status);setTemplate(f.template as 'management'|'detailed'|'pbc');setClassification(f.classification);setSections(next.columns as ReportSection[]);setManagementNote('');setPreviewPage(1);}
   function changeModule(value:string){setModule(value);setUnit(all);setOwner(all);setStatus(all);setPreviewPage(1);}
   function htmlReport() {
     if (reportUnavailable) return;
@@ -3139,14 +3155,12 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa, coreState,
     if (reportUnavailable||exportInFlight.current) return;
     exportInFlight.current=true;setExporting(true);setExportError("");
     try {
-    const labels = labelMap[lang];
-    const data:Record<string,unknown>[] = filtered.map((r) => ({
-      [tr ? "Modül" : "Module"]: names[lang][r.module] || r.module,
-      [tr ? "Kayıt kimliği" : "Record ID"]: r.id,
-      [tr ? "Kod" : "Code"]: r.code||r.data.code||r.id,
-      [tr ? "Son güncelleme" : "Updated at"]: r.updatedAt||r.createdAt||"",
-      ...Object.fromEntries(Object.entries(r.data).map(([k,v])=>[`${labels[k]||k} [${k}]`,v])),
-      'Report ID':stamp.reportId,'Generated UTC':stamp.generatedAt,'Classification':snapshotOptions.classification,'Scope':snapshotOptions.scope,'Filters':snapshotOptions.filters?.map(f=>`${f.label}: ${f.value}`).join(' | '),
+    const snapshot=reportSnapshot(reportTitle,filtered,metrics,tr,snapshotOptions);
+    const data:Record<string,unknown>[] = snapshot.records.map((record,index)=>({
+      ...Object.fromEntries(snapshot.labels.map((label,i)=>[label,record.cells[i]])),
+      [tr?"Kayıt kimliği":"Record ID"]:filtered[index].id,[tr?"Son güncelleme":"Updated at"]:filtered[index].updatedAt||filtered[index].createdAt||"",
+      ...(template==='pbc'?{}:Object.fromEntries(Object.entries(filtered[index].data).map(([k,v])=>[`${fieldLabels[k]||k} [${k}]`,reportFieldValue(k,v,tr)]))),
+      [tr?'Rapor kimliği':'Report ID']:stamp.reportId,[tr?'Oluşturma UTC':'Generated UTC']:stamp.generatedAt,[tr?'Sınıflandırma':'Classification']:snapshotOptions.classification,[tr?'Kapsam':'Scope']:snapshotOptions.scope,[tr?'Filtreler':'Filters']:snapshotOptions.filters?.map(f=>`${f.label}: ${f.value}`).join(' | '),
     }));
     const keys = [...new Set(data.flatMap((row) => Object.keys(row)))];
     await writeXlsxFile([
@@ -3194,19 +3208,24 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa, coreState,
         <span>{capaState === "ready" ? (tr ? `CAPA kaynağı: ${capaRows.length} kayıt hazır` : `CAPA source: ${capaRows.length} records available`) : capaState === "loading" ? (tr ? `CAPA kayıtları yükleniyor… ${capaLoaded}` : `Loading CAPA records… ${capaLoaded}`) : capaReportFailureMessage(capaFailure, tr)}</span>
         <button className="ghost" disabled={capaState === "loading"} onClick={() => setRefreshCapa(value => value + 1)}>{tr ? "Yenile" : "Refresh"}</button>
       </div>}
+      <div className="report-source-status" role={workflowState==='failed'?'alert':'status'}>
+        <span>{workflowState==='ready'?(tr?`İş akışı kaynakları: ${workflowRows.length} kayıt hazır`:`Workflow sources: ${workflowRows.length} records available`):workflowState==='loading'?(tr?'İş akışı kaynakları yükleniyor…':'Loading workflow sources…'):workflowFailure==='limit'?(tr?'Kaynak rapor sınırını aşıyor. Eksik rapor üretilmedi.':'Source exceeds the report limit. No partial report was generated.'):(tr?'İş akışı kaynakları yüklenemedi. Seçili kapsam doğrulanamıyor.':'Workflow sources could not load. The selected scope cannot be verified.')}</span>
+        <button className="ghost" disabled={workflowState==='loading'} onClick={()=>setRefreshWorkflows(v=>v+1)}>{tr?'Kaynakları yenile':'Refresh sources'}</button>
+      </div>
+      {workflowState==='ready'&&uninitialized.length>0&&<p className="report-limit-note">{tr?'Henüz başlatılmamış veri depoları':'Data stores not initialized yet'}: {uninitialized.map(moduleLabel).join(', ')}</p>}
       {exportError&&<p className="report-export-error" role="alert">{exportError}</p>}
       {definitions&&<div className="report-definitions"><AccountViewsPanel module="Raporlar" lang={lang} current={definition} schema={reportViewSchema} variant="report" labels={{...sectionLabels,module:tr?'Modül':'Module',unit:tr?'İş birimi':'Business unit',owner:tr?'Sahip':'Owner',status:tr?'Durum':'Status',template:tr?'Şablon':'Template',classification:tr?'Sınıflandırma':'Classification'}} apply={applyDefinition}/></div>}
       {coreState!=="ready"&&<div role="alert" className="report-source-status"><span>{tr?'Çekirdek kayıtlar hazır değil. Rapor kapsamı doğrulanamıyor.':'Core records are not ready. The report scope cannot be confirmed.'}</span><button disabled={coreState==='loading'} onClick={()=>void refreshRows()}>{tr?'Kayıtları tekrar yükle':'Reload records'}</button></div>}
       <div className="report-composer-grid">
       <section className="report-filter-panel" aria-label={tr?'Rapor ayarları':'Report settings'}>
-        <label>{tr?'Şablon':'Template'}<select aria-label={tr?'Şablon':'Template'} value={template} onChange={e=>setTemplate(e.target.value as 'management'|'detailed')}><option value="management">{tr?'Yönetim özeti':'Management summary'}</option><option value="detailed">{tr?'Detaylı kayıt dökümü':'Detailed register'}</option></select></label>
+        <label>{tr?'Şablon':'Template'}<select aria-label={tr?'Şablon':'Template'} value={template} onChange={e=>{setTemplate(e.target.value as 'management'|'detailed'|'pbc');if(e.target.value==='pbc'||template==='pbc')changeModule(all);if(e.target.value==='pbc')setSections(DEFAULT_REPORT_SECTIONS.filter(section=>section!=='priorities'));}}><option value="management">{tr?'Yönetim özeti':'Management summary'}</option><option value="detailed">{tr?'Detaylı kayıt dökümü':'Detailed register'}</option><option value="pbc">{tr?'Denetim ve Kanıt İndeksi (PBC Özeti)':'Audit & Evidence Index (PBC Summary)'}</option></select></label>
         <p className="report-snapshot-mode">{tr?'Anlık durum':'Point-in-time view'}<br/><time dateTime={stamp.generatedAt}>{new Date(stamp.generatedAt).toLocaleString(tr?'tr-TR':'en-GB')}</time></p>
-        <label>{tr?'Modül':'Module'}<select aria-label={tr?'Rapor modülü':'Report module'} value={module} onChange={e=>changeModule(e.target.value)}><option value={all}>{tr?'Desteklenen kaynaklar':'Supported sources'} ({rows.length})</option>{availableReportModules.map(item=><option key={item} value={item}>{names[lang][item]||item} ({rows.filter(row=>row.module===item).length})</option>)}</select></label>
+        <label>{tr?'Modül':'Module'}<select aria-label={tr?'Rapor modülü':'Report module'} value={module} onChange={e=>changeModule(e.target.value)}><option value={all}>{allLabel} ({rows.filter(r=>template!=='pbc'||['Denetim Yönetimi','Kanıtlar'].includes(r.module)).length})</option>{availableReportModules.filter(item=>template!=='pbc'||['Denetim Yönetimi','Kanıtlar'].includes(item)).map(item=><option key={item} value={item}>{moduleLabel(item)} ({rows.filter(row=>row.module===item).length})</option>)}</select></label>
         <label>{tr?'Sınıflandırma':'Classification'}<select aria-label={tr?'Sınıflandırma':'Classification'} value={classification} onChange={e=>setClassification(e.target.value)}><option value="internal">{tr?'Kurum İçi':'Internal'}</option><option value="confidential">{tr?'Gizli':'Confidential'}</option></select></label>
         <details className="report-advanced"><summary>{tr?'Gelişmiş filtreler':'Advanced filters'}{[unit,owner,status].filter(x=>x!==all).length?` (${[unit,owner,status].filter(x=>x!==all).length})`:''}</summary><div className="report-filters">
          <Filter label={tr?'İş Birimi':'Business Unit'} value={unit} set={setUnit} opts={values('businessUnit')} all={all} allLabel={tr?'Tümü':'All'}/>
          <Filter label={tr?'Sahip':'Owner'} value={owner} set={setOwner} opts={values('owner')} all={all} allLabel={tr?'Tümü':'All'}/>
-         <Filter label={tr?'Durum':'Status'} value={status} set={setStatus} opts={values('status')} all={all} allLabel={tr?'Tümü':'All'}/>
+         <label>{tr?'Durum':'Status'}<select value={status} onChange={e=>setStatus(e.target.value)}><option value={all}>{tr?'Tümü':'All'}</option>{values('status').map(value=><option key={value} value={value}>{reportValueLabel(value,tr)}</option>)}</select></label>
         </div><button type="button" onClick={resetFilters} disabled={unit===all&&owner===all&&status===all}>{tr?'Filtreleri temizle':'Clear filters'}</button></details>
         <fieldset className="report-sections"><legend>{tr?'Rapor bölümleri':'Report sections'}</legend>{REPORT_SECTIONS.map(key=><label key={key}><input type="checkbox" checked={sections.includes(key)} disabled={key==='metrics'} onChange={e=>setSections(current=>e.target.checked?REPORT_SECTIONS.filter(k=>k===key||current.includes(k)):[...current.filter(k=>k!==key)])}/>{sectionLabels[key]}</label>)}</fieldset>
         {sections.includes('note')&&<label>{tr?'Yönetici notu':'Management note'}<textarea aria-label={tr?'Yönetici notu':'Management note'} maxLength={4000} value={managementNote} onChange={e=>setManagementNote(e.target.value)} placeholder={tr?'Kararlar ve açıklamalarınızı ekleyin…':'Add your decisions and commentary…'}/></label>}
@@ -3256,19 +3275,19 @@ function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa, coreState,
               {filtered.slice((currentPage-1)*50,currentPage*50).map((r) => (
                 <tr key={r.id}>
                   <td><b className="code" title={r.id}>{displayRecordCode(r)}</b></td>
-                  <td>{names[lang][r.module] || r.module}</td>
+                  <td>{moduleLabel(r.module)}</td>
                   <td>
                     {reportTitleOf(r)}
                   </td>
                   <td>{r.data.businessUnit || "—"}</td>
                   <td>{r.data.owner || "—"}</td>
-                  <td>{display(r.data.status, lang) || "—"}</td>
+                  <td>{reportValueLabel(r.data.status, tr) || "—"}</td>
                   <td>
-                    {display(
+                    {reportValueLabel(
                       r.module === "Risk Assessment"
                         ? band(score(r))
-                        : r.data.severity || r.data.riskLevel || r.data.criticality || "—",
-                      lang,
+                        : r.data.severity || r.data.riskLevel || r.data.riskTier || r.data.criticality || "—",
+                      tr,
                     )}
                   </td>
                 </tr>

@@ -15,7 +15,9 @@ test('CAPA metrics and export formats use the same records, status and severity'
  const metrics=reportMetrics(CAPA_REPORT_MODULE,rows,false);
  assert.deepEqual(metrics.map(m=>m.value),[2,1,1,2]);
  const snapshot=reportSnapshot('CAPA',rows,metrics,false);
- assert.equal(snapshot.records[0].cells[6],'critical');
+ assert.equal(snapshot.records[0].cells[6],'Critical');
+ assert.equal(snapshot.records[0].cells[5],'In progress');
+ assert.equal(reportSnapshot('CAPA',rows,metrics,true).records[0].cells[6],'Kritik');
  const options={template:'detailed' as const};
  const csv=buildReportCsv('CAPA',rows,metrics,false,options),html=buildReportHtml('CAPA',rows,metrics,false,options);
  assert.match(csv,/RISK-1/);assert.match(csv,/CTRL-1/);assert.match(csv,/'=EVIL/);
