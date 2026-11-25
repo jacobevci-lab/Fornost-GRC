@@ -1,4 +1,6 @@
 import test from 'node:test';
+import type {AssuranceRecord} from '../app/audit-evidence-assurance';
+import {attachAuditInheritance} from '../app/audit-readiness-inheritance';
 import assert from 'node:assert/strict';
 import {fixture,actor} from './helpers/agent-fixture';
 import {ISO,SOC} from '../app/framework-posture/catalog';
@@ -40,6 +42,9 @@ test('ISO 4.1: implemented + approved evidence + independent relevance verificat
  await f.verify();assert.equal(await f.state(),'covered');assert.equal((await f.row()).links.length,0);
  const after=(await programOverview(f.db)).coverage[ISO];assert.equal(after.compliant,1);assert.equal(after.scope,before.scope);assert.ok(after.compliant/after.scope>before.compliant/before.scope);
  const baseline=makeBaseline(await readMatrix(f.db,ISO),'2026');assert.equal(baseline.withEvidence,1);assert.equal(baseline.entries[0].directEvidence?.length,1);assert.equal(baseline.entries[0].controls.length,0);
+ f.seed('simple_audits',{id:'audit',name:'Direct evidence audit',template:ISO});f.seed('simple_grc_metadata',{key:'audit_posture_audit',value:JSON.stringify(baseline)});
+ const inherited=await attachAuditInheritance<AssuranceRecord & {module:string}>(f.db,[{id:'audit-row',module:'Denetim Yönetimi',data:{auditName:'Direct evidence audit',requirementRef:'4.1'}}]);
+ assert.equal(inherited[0].inherited?.pins[0].id,'ev');
  assert.equal(f.sql.prepare("SELECT count(*) n FROM org_access_events WHERE action='requirement-independently-verified'").get()!.n,1);
 });
 test('published policy can substantiate a requirement without evidence or a control; a draft cannot',async()=>{

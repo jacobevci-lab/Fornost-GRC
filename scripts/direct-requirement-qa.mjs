@@ -62,7 +62,10 @@ try{
  for(const locale of ['tr','en'])for(const theme of ['light','dark'])for(const width of [1440,390]){
   phase=`layout ${locale}/${theme}/${width}`;await page.setViewportSize({width,height:900});await switchQaLocale(page,locale);if(await page.locator('html').getAttribute('data-theme')!==theme)await page.locator('.theme-toggle:visible').click();await waitForQaIdle(page);
   await expect(tableRow(page,'4.1').locator('.posture-status')).toHaveText(locale==='tr'?'Uyumlu':'Compliant');await expect(page.locator('.posture-direct')).toContainText(evidence.code);
-  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),phase);await page.locator('.posture-register').screenshot({path:`${out}/${locale}-${theme}-${width}.png`});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),phase);
+  if(width===1440)assert.ok(await page.locator('.posture-ledger-wrap').evaluate(el=>el.scrollWidth<=el.clientWidth+2),'Desktop columns must fit without hidden text');
+  await page.locator('.posture-direct').getByRole('button',{name:locale==='tr'?'+ Kanıt Bağla (EVD)':'+ Link evidence (EVD)',exact:true}).scrollIntoViewIfNeeded();
+  await page.locator('.posture-register').screenshot({path:`${out}/${locale}-${theme}-${width}.png`});
  }
  checks.push('TR/EN × light/dark × 1440/390 layouts; no horizontal page overflow');
  assert.deepEqual(errors,[]);await writeFile(`${out}/report.json`,JSON.stringify({result:'passed',checks,errors},null,2));console.log('DIRECT_REQUIREMENT_QA_PASS');

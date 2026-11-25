@@ -26,8 +26,9 @@ export async function attachAuditInheritance<T extends ReadinessRow>(db: D1Datab
     SELECT b.name AS audit_name, json_extract(b.value,'$.period') AS period,
       json_extract(e.value,'$.ref') AS ref, json_extract(e.value,'$.applicability') AS applicability,
       (SELECT json_group_array(DISTINCT json_object('id',p.id,'version',p.version,'hash',p.hash))
-       FROM json_each(e.value,'$.controls') c JOIN json_each(c.value,'$.evidence') v
-       JOIN pins p ON p.name=b.name AND p.key=v.value) AS pins
+       FROM pins p WHERE p.name=b.name AND p.key IN (
+         SELECT v.value FROM json_each(e.value,'$.controls') c JOIN json_each(c.value,'$.evidence') v
+         UNION SELECT value FROM json_each(e.value,'$.directEvidence'))) AS pins
     FROM baselines b JOIN json_each(b.value,'$.entries') e LIMIT 10001
   `).bind(JSON.stringify(auditNames)).all<Entry>();
   if (result.results.length > 10000) throw new Error('audit-inheritance-incomplete');

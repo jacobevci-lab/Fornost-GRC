@@ -21,7 +21,7 @@ New additive tables use the existing runtime schema compatibility pattern and a 
 - Evidence/policy links retain canonical codes; source changes invalidate old receipts. Existing control-based coverage remains functional.
 - Real browser journey, keyboard combobox selection and TR/EN × light/dark × desktop/mobile layouts are checked on the candidate revision.
 
-Implementation is complete. Local validation: 24 direct/shared-control regression checks, TypeScript and targeted lint pass; migration validation passes. The candidate pull request runs the full CI suite and `Direct requirement assurance QA`, which saves its per-revision JSON result and TR/EN light/dark desktop/mobile screenshots. Merge and production verification are tracked separately in the pull request and deployment checks.
+Implementation is complete. Local validation: 27 direct/shared-control/audit regression checks and migration validation pass. TypeScript, lint and build are required in candidate CI. The candidate pull request runs the full CI suite and `Direct requirement assurance QA`, which saves its per-revision JSON result and TR/EN light/dark desktop/mobile screenshots. Merge and production verification are tracked separately in the pull request and deployment checks.
 
 For an existing installation, `0125_direct_requirement_assurance.sql` is additive and the runtime initializes the same tables idempotently. Rollback can leave these tables intact without affecting the preceding application revision; do not delete recorded review history.
 
