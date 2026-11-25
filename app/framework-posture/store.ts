@@ -166,7 +166,7 @@ export async function saveDecision(db:D1Database, body:Record<string,unknown>, a
       AND (SELECT COUNT(*) FROM simple_grc_records WHERE module='Kontroller' AND id IN (SELECT value FROM json_each(?)))=?
       AND COALESCE((SELECT revision FROM framework_decisions WHERE program=? AND ref=?),'')=?
     ON CONFLICT(program,ref) DO UPDATE SET applicability=excluded.applicability,reason=excluded.reason,links=excluded.links,
-      revision=excluded.revision,actor=excluded.actor,updated_at=excluded.updated_at RETURNING revision`)
+      revision=excluded.revision,actor=excluded.actor,updated_at=excluded.updated_at`)
     .bind(program,ref,app,reason,JSON.stringify(links),revision,actor,new Date().toISOString(),program,ids,links.length,program,ref,body.revision),
     event(db,actor,'requirement-scope-mapping-saved',JSON.stringify({program,ref,applicability:app,reason,revision}),'changes()=1')]);
   if(!result[0].meta?.changes)throw new PostureError('conflict',409);
