@@ -185,14 +185,14 @@
 .posture-branch small{white-space:nowrap;font-variant-numeric:tabular-nums}
 .posture-branch i{display:inline-block;width:7px;height:7px;background:var(--ws-muted);border-radius:50%;margin-inline-end:5px}
 .posture-branch i[data-tone=open]{background:var(--ws-danger)}.posture-branch i[data-tone=covered]{background:var(--ws-positive)}.posture-branch i[data-tone=partial]{background:var(--ws-warning)}
-@container (min-width:581px) {
+@container (min-width:800px) {
   .posture-ledger:has(.posture-scope-cell) tbody td:nth-child(2) {width:36%}
   .posture-ledger td:has(>.posture-scope-cell) {width:1%}
   .posture-home .posture-scope-cell {min-width:max-content}
   .posture-home .posture-scope-cell select {width:auto;padding-inline:6px 2px}
   .posture-home .posture-scope-cell:has(.posture-scope-draft,details[open]) {width:10rem;min-width:0}
 }
-@container(max-width:580px){
+@container(max-width:799px){
   .posture-home table.posture-ledger,.posture-ledger tbody,.posture-ledger tbody tr{display:block;width:100%}
   .posture-ledger thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
   .posture-ledger tbody tr:not(.posture-detail-row){padding:9px 0;border-bottom:1px solid var(--ws-line-strong)}
@@ -201,4 +201,40 @@
   .posture-ledger td[data-label]::before{content:attr(data-label);color:var(--ws-muted);font-size:12px;font-weight:600}
   .posture-ledger td[data-label] .posture-reason{grid-column:2}
   .posture-scope-cell{width:min(100%,210px)}
+}
+
+/* Direct implementation keeps the existing compact workspace type scale. */
+.posture-home .posture-direct {border-block:1px solid var(--ws-line);padding:12px 0;margin:12px 0}
+.posture-home :is(.posture-implementation select,.posture-direct input,.posture-direct textarea,.capa-reference-field input) {font-size:12px;line-height:1.35;max-width:100%;min-width:0}
+.posture-home .posture-implementation select {height:32px;width:100%;min-width:125px}
+.posture-home .posture-status {white-space:normal;max-width:100%;font-size:10.5px}
+.posture-home .posture-scope-cell>small {display:block;max-width:150px;font-size:10.5px;line-height:1.35;margin-top:4px}
+.posture-home :is(h4,.posture-program-heading h3,.posture-outline h3) {font-size:13px;font-weight:600}
+.posture-home .posture-direct p {font-size:12px;line-height:1.35}
+.posture-home .posture-direct-sources {padding:0;list-style:none}
+.posture-direct-sources li {display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-block:6px}
+.posture-direct-sources li small {font-size:10.5px;color:var(--ws-muted)}
+.posture-home .capa-reference-field {position:relative;width:min(100%,580px);margin-block:12px;font-size:12px}
+.posture-home .capa-reference-input {display:flex;min-width:0}
+.posture-home .capa-reference-input input {flex:1;min-width:0;height:32px}
+.posture-home .capa-reference-field [role=listbox] {list-style:none;padding:4px;margin:0;max-height:220px;overflow:auto;border:1px solid var(--ws-line-strong);border-radius:6px;background:var(--ws-surface);color:var(--ws-ink)}
+.posture-home .capa-reference-field [role=option] {display:grid;gap:3px;padding:6px;cursor:pointer;overflow-wrap:anywhere}
+.posture-home .capa-reference-field [role=option][aria-selected=true],.posture-home .capa-reference-field [role=option]:hover {background:var(--ws-brand-soft)}
+.posture-home .capa-reference-field [role=option] span,.posture-home .capa-reference-field [role=status] {font-size:10.5px;color:var(--ws-muted)}
+@container(min-width:800px){.posture-ledger:has(.posture-implementation) tbody td:nth-child(2){width:25%}.posture-home .posture-reason{font-size:10.5px}}
+@container(max-width:799px){.posture-home .posture-implementation select{min-width:0;width:100%}.posture-implementation{width:100%}}
+/* Seven readable columns; scrolling is contained within the register, never the page. */
+@container(min-width:800px){
+ .posture-home table.posture-ledger:has(.posture-implementation){table-layout:fixed;min-width:800px}
+ .posture-ledger:has(.posture-implementation) :is(th,td){overflow-wrap:normal;word-break:normal}
+ .posture-ledger:has(.posture-implementation) thead th:nth-child(1){width:9%}
+ .posture-ledger:has(.posture-implementation) thead th:nth-child(2){width:20%}
+ .posture-ledger:has(.posture-implementation) thead th:nth-child(3){width:17%}
+ .posture-ledger:has(.posture-implementation) thead th:nth-child(4){width:18%}
+ .posture-ledger:has(.posture-implementation) thead th:nth-child(5){width:10%}
+ .posture-ledger:has(.posture-implementation) thead th:nth-child(6){width:14%}
+ .posture-ledger:has(.posture-implementation) thead th:nth-child(7){width:12%}
+ .posture-home .posture-implementation select,.posture-home .posture-scope-cell{min-width:0;max-width:100%}
+ .posture-home .posture-scope-cell select{width:100%}
+ .posture-ledger:has(.posture-implementation) .posture-detail-row>td{overflow-wrap:anywhere}
 }

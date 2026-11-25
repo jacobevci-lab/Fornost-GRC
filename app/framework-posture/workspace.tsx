@@ -4,6 +4,7 @@ import {displayTitle} from './iso-display';
 import {getCatalogStatus} from '../framework-catalog-status';
 import {postureRequest,usePosture} from './client';
 import {DecisionEditor,type WorkspaceProps} from './decision-editor';
+import {ImplementationCell} from './direct-editor';
 import {ScopeCell} from './scope-cell';
 import {matchesBranch,RequirementIndex} from './requirement-index';
 import {implementationIndex,matchesRequirement,reasonLabels,requirementState,statusLabel} from './requirements';
@@ -82,14 +83,14 @@ function Program({name,enrolled,initialRef,counts,frameworks,onSaved,...props}:W
       </div>
       <input type="search" aria-label={tr?'Madde ara':'Search requirements'} placeholder={tr?'Madde ara…':'Search requirements…'} value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}}/>
       {enrolled&&<select aria-label={tr?'Nedene göre filtrele':'Filter by reason'} value={gapFilter} onChange={e=>{setGapFilter(e.target.value);setPage(0);}}>
-        <option value="all">{tr?'Tüm nedenler':'All reasons'}</option><option value="unmapped">{tr?'Kontrol bağlantısı eksik':'Missing control mapping'}</option>
+        <option value="all">{tr?'Tüm nedenler':'All reasons'}</option><option value="self-declared">{tr?'Öz-Beyan · Kanıt Bekliyor':'Self-declared · Awaiting evidence'}</option><option value="planned">{tr?'Planlandı':'Planned'}</option><option value="unmapped">{tr?'Uygulama değerlendirilmedi':'Implementation unassessed'}</option>
         <option value="partial">{tr?'Kısmi uygulama veya eşleştirme':'Partial implementation or mapping'}</option><option value="evidence">{tr?'Onaylı kanıt eksik':'Missing approved evidence'}</option>
         <option value="implementation">{tr?'Uygulanmış kontrol yok':'No implemented control'}</option>
         <option value="verification">{tr?'Bağımsız doğrulama bekliyor':'Independent verification pending'}</option><option value="decision">{tr?'SoA kararı bekliyor':'Pending SoA decision'}</option></select>}</div>
       {message&&<p role="status" className="posture-notice">{message}</p>}
       <div className="posture-ledger-wrap"><table className="posture-ledger"><thead><tr>
         <th scope="col">{tr?'Madde':'Reference'}</th><th scope="col">{tr?'Gereksinim':'Requirement'}</th>
-        {enrolled&&<><th scope="col">{tr?'Durum':'Status'}</th><th scope="col">{tr?'Bağlı kontroller':'Linked controls'}</th>
+        {enrolled&&<><th scope="col">{tr?'Uygulama Durumu':'Implementation status'}</th><th scope="col">{tr?'Hesaplanan Uyum':'Calculated compliance'}</th><th scope="col">{tr?'Bağlı kontroller':'Linked controls'}</th>
           <th scope="col">{tr?'SoA Kapsam':'SoA scope'}</th><th scope="col">{tr?'Aksiyon':'Action'}</th></>}
       </tr></thead><tbody>{filtered.slice(current*pageSize,(current+1)*pageSize).map(({row,state})=>{
         const expanded=row.ref===selected;
@@ -102,7 +103,7 @@ function Program({name,enrolled,initialRef,counts,frameworks,onSaved,...props}:W
           <th scope="row">{row.ref}</th><td><button id={rowId(row.ref)} type="button" className="posture-row-trigger"
             aria-expanded={expanded} aria-label={row.ref+' · '+row.title}
             aria-controls={expanded?detailId:undefined} onClick={toggle}>{row.title} <span aria-hidden="true"/></button></td>
-          {enrolled&&<><td data-label={tr?'Durum':'Status'}><span className={'posture-status '+state}>{badge}</span>
+          {enrolled&&<><td data-label={tr?'Uygulama Durumu':'Implementation status'}><ImplementationCell key={row.direct?.revision||'empty'} name={name} row={row} tr={tr} write={props.write} onSave={saved} onReload={()=>refresh(v=>v+1)}/></td><td data-label={tr?'Hesaplanan Uyum':'Calculated compliance'}><span className={'posture-status '+state}>{badge}</span>
             {shared.map(link=><details key={link.id} className="ec-shared"><summary>{tr?'Ortak Kontrol ile Karşılandı':'Satisfied through shared control'} ({controls.get(link.id)?.code} · {counts[link.id]} {tr?'Çerçeve':'Frameworks'})</summary><ul>{frameworks[link.id]?.map(f=><li key={f.name}>{f.name} · {f.refs.join(', ')}</li>)}</ul></details>)}
             <small className="posture-reason">{reasonLabels[state][tr?0:1]}</small></td>
             <td data-label={tr?'Bağlı kontroller':'Linked controls'}><div className="posture-chips">{row.links.map(link=><span className="posture-control-chip" key={link.id} title={controls.get(link.id)?.title}>
@@ -110,11 +111,10 @@ function Program({name,enrolled,initialRef,counts,frameworks,onSaved,...props}:W
               {!row.links.length&&<span aria-label={tr?'Kontrol yok':'No controls'}>—</span>}</div></td>
             <td data-label={tr?'SoA Kapsam':'SoA scope'}><ScopeCell key={row.revision} name={name} row={row} tr={tr} write={props.write} onEdit={()=>select('')} onSave={saved} onReload={()=>refresh(v=>v+1)}/></td>
             <td data-label={tr?'Aksiyon':'Action'}><button type="button" className="posture-link-action" onClick={toggle} aria-expanded={expanded}
-              aria-controls={expanded?detailId:undefined}>{!row.links.length && props.write?(tr?'+ Kontrol bağla':'+ Link control'):
-                props.write?(tr?'Bağları düzenle':'Edit links'):(tr?'Ayrıntılar':'Details')}</button></td></>}
+              aria-controls={expanded?detailId:undefined}>{props.write?(tr?'Kanıt / Politika / Kontrol':'Evidence / Policy / Control'):(tr?'Ayrıntılar':'Details')}</button></td></>}
         </tr>
-        {expanded&&<tr className="posture-detail-row"><td id={detailId} colSpan={enrolled?6:2}>
-          {enrolled?<DecisionEditor key={row.ref+row.revision} row={row} matrix={data} {...props}
+        {expanded&&<tr className="posture-detail-row"><td id={detailId} colSpan={enrolled?7:2}>
+          {enrolled?<DecisionEditor key={row.ref+row.revision+(row.direct?.revision||'')} row={row} matrix={data} {...props}
             onClose={()=>close(row.ref)} onReload={()=>refresh(v=>v+1)} onSave={saved}/>:
             <p>{tr?'Kontrol bağlamak ve kanıt kapsamını izlemek için bu çerçeveyi kapsama ekleyin.':'Add this framework to scope to link controls and track evidence coverage.'}</p>}
         </td></tr>}</Fragment>;
@@ -172,7 +172,7 @@ export function FrameworkWorkspace(props:WorkspaceProps & {initialProgram?:strin
             select(name);setAdding(false);setTarget({ref:item.ref,revision:target.revision+1});
           }}><b>{item.ref}</b><strong>{displayTitle(name,item.ref,item.title,tr)}</strong>
             <span>{reasonLabels[item.state][tr?0:1]}</span>{item.controlCode&&<code>{item.controlCode}</code>}
-            <small>{write && item.state==='unmapped'?(tr?'Kontrol bağla':'Link control'):(tr?'Maddeyi aç':'Open requirement')}</small>
+            <small>{tr?'Maddeyi aç':'Open requirement'}</small>
           </button>)}
         </div>}</div>;
       })}</div>}

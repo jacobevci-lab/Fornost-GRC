@@ -3,9 +3,9 @@ import {useState} from 'react';
 import {withBasePath} from '../base-path';
 import type {Control} from './types';
 
-export function CreateControl({tr,onCreated}:{tr:boolean;onCreated:(control:Control)=>void}){
+export function CreateControl({tr,onCreated,initialTitle='',initialRef=''}:{tr:boolean;initialTitle?:string;initialRef?:string;onCreated:(control:Control)=>void}){
   const [open,setOpen]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(false);
-  const [ref,setRef]=useState(''),[title,setTitle]=useState(''),[owner,setOwner]=useState(''),[frequency,setFrequency]=useState('');
+  const [ref,setRef]=useState(initialRef),[title,setTitle]=useState(initialTitle),[owner,setOwner]=useState(''),[frequency,setFrequency]=useState('');
   async function create(){
     setBusy(true);setError(false);
     const implementation='Uygulama Hazırlığında';

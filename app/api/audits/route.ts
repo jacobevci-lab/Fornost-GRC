@@ -182,9 +182,9 @@ export async function POST(req: NextRequest) {
       if(imported || typeof input?.period!=='string' || typeof input.token!=='string')throw new PostureError('fields');
       if(range && input.period!==range)throw new PostureError('preview-changed',409);
       await ensurePosture(d);
-      const baseline=makeBaseline(await readMatrix(d,programName(template)),input.period.trim());
+      const baseline=makeBaseline(await readMatrix(d,programName(template),null,canReadModule(auth.actor,'Politika Merkezi')),input.period.trim());
       if(await baselineToken(baseline)!==input.token)throw new PostureError('preview-changed',409);
-      for(const r of baseline.entries)if(r.controls.some(c=>c.evidence.length)) referencesWithEvidence.add(r.ref);
+      for(const r of baseline.entries)if(r.directEvidence?.length||r.controls.some(c=>c.evidence.length)) referencesWithEvidence.add(r.ref);
       const value=JSON.stringify({...baseline,capturedAt:now});
       if(new TextEncoder().encode(value).length>1750000)throw new PostureError('snapshot-size',413);
       snapshots.push(d.prepare("INSERT INTO simple_grc_metadata(key,value,updated_at) VALUES(?,?,?)").bind(`audit_posture_${id}`,value,now));

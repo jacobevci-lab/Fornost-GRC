@@ -3,10 +3,13 @@ export type Applicability = 'required' | 'undecided' | 'included' | 'excluded';
 export type Mapping = { id:string; coverage:Coverage };
 export type Pin = {verified?:boolean;verifiedBy?:string;code?:string; collectedAt?:string; id:string; evidenceId:string; fileKey:string; title:string; version:number; hash:string; period:string};
 export type Control = {owner?:string; id:string; code:string; title:string; implementation:string};
-export type Requirement = {ref:string; title:string; group:string; annex:boolean; applicability:Applicability; reason:string; revision:string; links:Mapping[]};
+export type Implementation = 'open' | 'planned' | 'partial' | 'implemented';
+export type DirectDocument = {id:string;kind:'evidence'|'policy';code:string;title:string;eligible:boolean;version:string;pin?:Pin};
+export type DirectWork = {implementation:Implementation;evidenceIds:string[];policyIds:string[];revision:string;actor:string;sources:DirectDocument[];verified:boolean;verifiedBy?:string};
+export type Requirement = {direct?:DirectWork;ref:string; title:string; group:string; annex:boolean; applicability:Applicability; reason:string; revision:string; links:Mapping[]};
 export type Matrix = {name:string; requirements:Requirement[]; controls:Control[]; pins:Record<string,Pin[]>};
 export type Baseline = {framework:string; period:string; total:number; excluded:number; withEvidence:number;
-  entries:{ref:string; title:string; applicability:Applicability; reason:string; controls:(Control & {coverage:Coverage; evidence:string[]})[]}[];
+  entries:{directEvidence?:string[];directPolicies?:DirectDocument[];ref:string; title:string; applicability:Applicability; reason:string; controls:(Control & {coverage:Coverage; evidence:string[]})[]}[];
   evidence:Record<string,Pin>};
 export type ControlClause = Pick<Requirement,"ref"|"title"|"revision"> & {linked:boolean};
 export type ControlCatalog = {programs:{name:string;clauses:ControlClause[]}[]};
@@ -14,6 +17,6 @@ export type ControlMappingChange = {name:string;ref:string;revision:string;linke
 export type ProgramIndex = {catalog:string[]; enrolled:string[]};
 
 export type ProgramCoverage = {scope:number; assessed:number; evidenced:number; compliant:number};
-export type OpenItem = {ref:string;title:string;state:"unmapped"|"implementation"|"partial"|"evidence"|"verification"|"decision";controlCode?:string};
+export type OpenItem = {ref:string;title:string;state:"unmapped"|"implementation"|"partial"|"evidence"|"verification"|"decision"|"planned"|"self-declared";controlCode?:string};
 export type Comparison = {openCount:number;items:OpenItem[]};
 export type Overview = ProgramIndex & {controlFrameworks:Record<string,{name:string;refs:string[]}[]>;controlFrameworkCounts:Record<string,number>;coverage:Record<string,ProgramCoverage>;comparison:Record<string,Comparison>};
