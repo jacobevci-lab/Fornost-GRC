@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,mkdirSync,writeFileSync} from 'node:fs';
-import {buildReportHtml,buildReportCsv,buildReportPdf,reportSnapshot,type ReportRecord} from '../app/report-export';
+import {buildReportHtml,buildReportCsv,buildReportPdf,reportSnapshot,reportMetrics,type ReportRecord} from '../app/report-export';
 import {reportFieldValue,reportValueLabel} from '../app/report-labels';
 import {wrapReportText} from '../app/report-text-layout';
 import {emailSettingsForDisplay} from '../app/email-settings-display';
@@ -46,6 +46,7 @@ test('PBC index carries audit, requirement, evidence version, owner, reviewer, p
  const s=reportSnapshot('PBC',[request],[],true,{template:'pbc'}),joined=s.records[0].cells.join(' ');
  for(const v of ['ARQ-001','AUD-001','AUD-002','EVD-001 · v2','Owner','Reviewer','2026-01-01','2026-12-31','2026-12-15'])assert.ok(joined.includes(v),v);
  assert.ok(!joined.includes('Onaylandı'));assert.equal(s.labels[6],'Termin');
+ assert.deepEqual(reportMetrics('__pbc__',[request],true).map(m=>m.value),[1,1,0,0]);
 });
 test('known email examples become empty display values while real settings and caller input are preserved',()=>{
  const config={applicationUrl:'https://grc.company.com/fornost-grc/',bridgeUrl:'https://mail-bridge.company.test/send',sender:'name@company.com',username:'real@fornost.test',smtpPort:'587'};

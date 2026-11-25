@@ -45,11 +45,12 @@ export async function renderReportPdf(s:Snapshot,suppliedFont?:Uint8Array,scopeL
   if(section==='quality'&&s.quality.length){paragraph(s.tr?'Veri kalitesi / eksik alanlar':'Data quality / missing fields',12,accent);paragraph(s.quality.map(q=>`${q.label}: ${q.missing}`).join(' · '),9);}
   if(section==='distribution'){paragraph(s.tr?'Durum dağılımı':'Status distribution',12,accent);paragraph(s.distribution.map(([key,value])=>`${key}: ${value}`).join(' · ')||'—',9);}
   if(section==='priorities'||section==='register'){
-   if(section==='register')addPage();else ensure(100);
+   ensure(100);
    paragraph(section==='register'?(s.tr?'Kayıt dökümü':'Record register'):(s.tr?'Yüksek / kritik kayıtlar':'High / critical records'),15,accent);
    if(section==='priorities')paragraph(s.tr?'Riskler: değerlendirilmiş puan ≥10. Diğer kayıtlar: bildirilen yüksek/kritik seviye.':'Risks: assessed score ≥10. Other records: reported high/critical severity.',9,muted);
    const records=section==='register'?s.records:s.priorityRows;drawRow(s.labels,true);
    for(let i=0;i<records.length;i++){drawRow(records[i].cells);if(i%100===0)await new Promise(resolve=>setTimeout(resolve,0));}
+   y-=14;
    if(!records.length)paragraph(s.tr?'Seçili kapsamda kayıt yok.':'No records in the selected scope.');
    if(section==='register'&&s.template==='detailed'){
     addPage();paragraph(s.tr?'Kayıt ayrıntıları':'Record details',15,accent);
