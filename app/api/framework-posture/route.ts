@@ -1,3 +1,5 @@
+import {directDocumentCatalog,saveDirectWork,verifyDirectWork} from '../../framework-posture/direct-store';
+import {EnterpriseError} from '../../enterprise/http';
 import {entityIds} from '../../enterprise/access';
 import {verifyControl} from '../../framework-posture/verification';
 import { NextRequest, NextResponse } from 'next/server';
@@ -10,7 +12,7 @@ import { baselineToken, ensurePosture, evidenceControlStandards,controlCatalog, 
 
 const reply = (value:unknown,status=200) => NextResponse.json(value,{status,headers:{'cache-control':'private, no-store'}});
 function failure(error:unknown) {
-  return error instanceof PostureError ? reply({error:error.code},error.status) : reply({error:'unavailable'},503);
+  return error instanceof EnterpriseError ? reply({error:error.message},error.status) : error instanceof PostureError ? reply({error:error.code},error.status) : reply({error:'unavailable'},503);
 }
 export async function GET(req:NextRequest) {
   const auth=await requireRole(req,['Admin','Editor','Viewer']);
@@ -24,18 +26,21 @@ export async function GET(req:NextRequest) {
     if(query.has('auditId')){
       if(!canReadModule(auth.actor,'Denetim Yönetimi'))return reply({error:'forbidden'},403);
       const result=await db.prepare("SELECT m.value FROM simple_grc_metadata m JOIN simple_audits a ON m.key='audit_posture_'||a.id WHERE a.id=?").bind(query.get('auditId')).first<{value:string}>();
-      return reply({baseline:result?JSON.parse(result.value):null});
+      const baseline=result?JSON.parse(result.value):null;
+      if(baseline&&!canReadModule(auth.actor,'Politika Merkezi'))for(const entry of baseline.entries||[])delete entry.directPolicies;
+      return reply({baseline});
     }
     await ensurePosture(db);
+    if(query.has('documents'))return reply(await directDocumentCatalog(db,canReadModule(auth.actor,'Politika Merkezi'),scopeIds));
     if(query.has('evidenceControls'))return reply(await evidenceControlStandards(db));
     if(query.has('controlEditor'))return reply(await controlCatalog(db,query.get('controlEditor')||''));
     if(query.has('controlId'))return reply({impact:await readImpact(db,query.get('controlId')||'')});
-    if(query.has('overview'))return reply(await programOverview(db,scopeIds));
+    if(query.has('overview'))return reply(await programOverview(db,scopeIds,canReadModule(auth.actor,'Politika Merkezi')));
     if(query.has('preview'))return reply(previewCatalog(query.get('name')||''));
     if(!query.has('name'))return reply(await indexPrograms(db));
     if(query.has('period') && !canReadModule(auth.actor,'Denetim Yönetimi'))return reply({error:'forbidden'},403);
-    const matrix=await readMatrix(db,programName(query.get('name')||''),scopeIds);
-    if(query.has('periods'))return reply({periods:[...new Set(Object.values(matrix.pins).flat().map(p=>p.period))].sort()});
+    const matrix=await readMatrix(db,programName(query.get('name')||''),scopeIds,canReadModule(auth.actor,'Politika Merkezi'));
+    if(query.has('periods'))return reply({periods:[...new Set([...Object.values(matrix.pins).flat(),...matrix.requirements.flatMap(r=>r.direct?.sources.flatMap(d=>d.pin?[d.pin]:[])||[])].map(p=>p.period))].sort()});
     if(!query.has('period'))return reply(matrix);
     const baseline=makeBaseline(matrix,(query.get('period')||'').trim());
     if(query.has('counts'))return reply({withEvidence:baseline.withEvidence,controls:new Set(baseline.entries.filter(r=>r.applicability!=='excluded').flatMap(r=>r.controls.map(c=>c.id))).size,evidence:new Set(Object.values(baseline.evidence).map(p=>p.evidenceId)).size,token:await baselineToken(baseline)});
@@ -53,8 +58,10 @@ export async function POST(req:NextRequest) {
     const body=parsed as Record<string,unknown>;
     const {env:{DB:db}}=await import('cloudflare:workers');
     await ensurePosture(db);
-    if(body.action==='save')await ensureCoreGrcSchemaCompatibility(db);
+    if(['save','save-requirement','verify-requirement'].includes(String(body.action)))await ensureCoreGrcSchemaCompatibility(db);
     if(body.action==='enroll')await enroll(db,String(body.name||''),auth.actor.email);
+    else if(body.action==='save-requirement')await saveDirectWork(db,auth.actor,body);
+    else if(body.action==='verify-requirement')await verifyDirectWork(db,auth.actor,body);
     else if(body.action==='verify-control')await verifyControl(db,auth.actor,body);
     else if(body.action==='save')await saveDecision(db,body,auth.actor.email);
     else return reply({error:'action'},400);

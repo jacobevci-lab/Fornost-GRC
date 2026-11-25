@@ -1,10 +1,14 @@
+import {ensureEnterprise} from '../enterprise/schema';
+import {event} from '../enterprise/http';
+import {directSchema} from './direct-schema';
+import {attachDirectWork} from './direct-store';
 import {verificationSchema,verificationIndex,markVerifiedPins} from './verification';
 import {evidenceReviewerIsIndependent} from '../evidence/intake';
 import { approvedAuditEvidence, inAuditPeriod } from '../audit-engagement';
 import { completedInitialization } from '../completed-initialization';
 import { evaluateEvidenceEligibility } from '../evidence/eligibility';
 import { ensureEvidenceHistorySchema, verifyEvidenceVersionChainWithAnchor, splitEvidenceControlRefs, normalizeEvidenceControlRef, type EvidenceVersionRow } from '../evidence/versioning';
-import { catalogFor, frameworkNames, programName } from './catalog';
+import { catalogFor, frameworkNames, programName, ISO } from './catalog';
 import { implementationIndex, requirementState } from './requirements';
 import type { Baseline, Control, Mapping, Matrix, OpenItem, ProgramCoverage, Pin, Requirement } from './types';
 
@@ -14,7 +18,7 @@ export class PostureError extends Error {
 const ready=completedInitialization();
 export async function ensurePosture(db:D1Database) {
   await ready(db,()=>db.batch([
-    db.prepare(verificationSchema),db.prepare(verificationIndex),
+    db.prepare(verificationSchema),db.prepare(verificationIndex),...directSchema.map(sql=>db.prepare(sql)),
     db.prepare('CREATE TABLE IF NOT EXISTS framework_programs(name TEXT PRIMARY KEY, created_by TEXT NOT NULL, created_at TEXT NOT NULL)'),
     db.prepare('CREATE TABLE IF NOT EXISTS framework_decisions(program TEXT NOT NULL,ref TEXT NOT NULL, applicability TEXT NOT NULL,reason TEXT NOT NULL,links TEXT NOT NULL,revision TEXT NOT NULL, actor TEXT NOT NULL,updated_at TEXT NOT NULL, PRIMARY KEY(program,ref))')
   ]));
@@ -55,20 +59,21 @@ function project(inputs:Awaited<ReturnType<typeof readSources>>,name:string){
     if(ref && ids?.size===1)add(ref,[...ids][0]);
   }
   const saved=new Map(inputs.decisions.filter(d=>d.program===name).map(d=>[d.ref,d]));
-  const requirements=catalogFor(name).map(r=>{
+  const requirements:Requirement[]=catalogFor(name).map(r=>{
     const decision=saved.get(r.ref);
-    return {...r, applicability:decision?.applicability??(r.annex?'undecided':'required'),reason:decision?.reason??'',revision:decision?.revision??'',
+    return {...r, applicability:name===ISO&&!r.annex?'required':decision?.applicability??(r.annex?'undecided':'required'),reason:decision?.reason??'',revision:decision?.revision??'',
       links:decision?JSON.parse(decision.links) as Mapping[]:[...(legacyLinks.get(key(r.ref))??[])].map(id=>({id,coverage:'supports' as const}))};
   });
   const liveIds=new Set(controls.map(c=>c.id));
   for(const r of requirements) r.links=r.links.filter(l=>liveIds.has(l.id));
   return {aliases,controls,requirements};
 }
-export async function readMatrix(db:D1Database,name:string,scopeIds?:string[]|null):Promise<Matrix> {
+export async function readMatrix(db:D1Database,name:string,scopeIds?:string[]|null,allowPolicies=true):Promise<Matrix> {
   if (!frameworkNames.includes(name)) throw new PostureError('framework');
   if (!await db.prepare('SELECT 1 FROM framework_programs WHERE name=?').bind(name).first()) throw new PostureError('not-enrolled',404);
   const {aliases,controls,requirements}=project(await readSources(db,name,scopeIds),name);
   const pins=await readPins(db,aliases,new Set(requirements.flatMap(r=>r.links.map(l=>l.id))),scopeIds);
+  await attachDirectWork(db,[{name,requirements}],scopeIds,allowPolicies);
   return {name,requirements,controls,pins};
 }
 
@@ -79,11 +84,12 @@ export function previewCatalog(name:string):Matrix {
   }))};
 }
 
-export async function programOverview(db:D1Database,scopeIds?:string[]|null) {
+export async function programOverview(db:D1Database,scopeIds?:string[]|null,allowPolicies=true) {
   const index=await indexPrograms(db);
   if(!index.enrolled.length)return {...index,coverage:{},comparison:{},controlFrameworkCounts:{},controlFrameworks:{}};
   const sources=await readSources(db,undefined,scopeIds);
   const programs=index.enrolled.map(name=>({name,...project(sources,name)}));
+  await attachDirectWork(db,programs,scopeIds,allowPolicies);
   const mapped=new Set(programs.flatMap(p=>p.requirements.flatMap(r=>r.links.map(l=>l.id))));
   // Shared controls use the same verified evidence across all enrolled frameworks.
   const pins=await readPins(db,programs[0].aliases,mapped,scopeIds);
@@ -100,8 +106,8 @@ export async function programOverview(db:D1Database,scopeIds?:string[]|null) {
       const state=requirementState(row,pins,implementation);
       if(state==='excluded')continue;
       scope++;
-      if(row.links.some(link=>implementation.get(link.id)))assessed++;
-      if(row.links.some(link=>pins[link.id]?.length))evidenced++;
+      if(row.direct || row.links.some(link=>implementation.get(link.id)))assessed++;
+      if(row.direct?.sources.some(s=>s.eligible) || row.links.some(link=>pins[link.id]?.length))evidenced++;
       for(const link of row.links)linkedInScope.add(link.id);
       if(state==='covered')compliant++;
       else if(items.length<3)items.push({ref:row.ref,title:row.title,state,controlCode:codes.get(row.links[0]?.id)});
@@ -147,27 +153,33 @@ export async function saveDecision(db:D1Database, body:Record<string,unknown>, a
   const program=str(body.name),ref=str(body.ref),item=catalogFor(program).find(r=>r.ref===ref),app=str(body.applicability),reason=str(body.reason);
   if(!item || !Array.isArray(body.links) || body.links.length>250 || typeof body.revision!=='string' || reason.length>2000 ||
      !['included','excluded',item.annex?'undecided':'required'].includes(app) ||
-     (app==='excluded'&&!reason))throw new PostureError('decision');
+     (app==='excluded'&&(!reason || program===ISO&&!item.annex)))throw new PostureError('decision');
   const links:Mapping[]=[];
   for(const link of body.links){
     if(!link || !str(link.id) || !['partial','supports'].includes(link.coverage) || links.some(l=>l.id===link.id))throw new PostureError('mapping');
     links.push({id:link.id,coverage:link.coverage});
   }
   const revision=crypto.randomUUID(),ids=JSON.stringify(links.map(l=>l.id));
-  const result=await db.prepare(`INSERT INTO framework_decisions(program,ref,applicability,reason,links,revision,actor,updated_at)
+  await ensureEnterprise(db);
+  const result=await db.batch([db.prepare(`INSERT INTO framework_decisions(program,ref,applicability,reason,links,revision,actor,updated_at)
     SELECT ?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM framework_programs WHERE name=?)
       AND (SELECT COUNT(*) FROM simple_grc_records WHERE module='Kontroller' AND id IN (SELECT value FROM json_each(?)))=?
       AND COALESCE((SELECT revision FROM framework_decisions WHERE program=? AND ref=?),'')=?
     ON CONFLICT(program,ref) DO UPDATE SET applicability=excluded.applicability,reason=excluded.reason,links=excluded.links,
       revision=excluded.revision,actor=excluded.actor,updated_at=excluded.updated_at RETURNING revision`)
-    .bind(program,ref,app,reason,JSON.stringify(links),revision,actor,new Date().toISOString(),program,ids,links.length,program,ref,body.revision).first();
-  if(!result)throw new PostureError('conflict',409);
+    .bind(program,ref,app,reason,JSON.stringify(links),revision,actor,new Date().toISOString(),program,ids,links.length,program,ref,body.revision),
+    event(db,actor,'requirement-scope-mapping-saved',JSON.stringify({program,ref,applicability:app,reason,revision}),'changes()=1')]);
+  if(!result[0].meta?.changes)throw new PostureError('conflict',409);
 }
 
 export function makeBaseline(matrix:Matrix, period:string):Baseline {
   if(!period.trim() || period.length>120)throw new PostureError('period');
   const controls=new Map(matrix.controls.map(c=>[c.id,c])), evidence:Record<string,Pin>=Object.create(null);
-  const entries=matrix.requirements.map(r=>({
+  const entries=matrix.requirements.map(r=>{
+    const directEvidence=(r.applicability==='excluded'?[]:r.direct?.sources||[]).flatMap(d=>d.eligible&&d.pin&&inAuditPeriod(d.pin.period,d.pin.collectedAt||'',period)?[d.pin]:[]);
+    for(const p of directEvidence)evidence[p.id]=p;
+    return {
+    ...(r.direct?{directEvidence:directEvidence.map(p=>p.id),directPolicies:r.applicability==='excluded'?[]:r.direct.sources.filter(d=>d.kind==='policy'&&d.eligible)}:{}),
     ref:r.ref,title:r.title,applicability:r.applicability,reason:r.reason,
     controls:(r.applicability==='excluded'?[]:r.links).flatMap(link=>{
       const c=controls.get(link.id);if(!c)return [];
@@ -175,9 +187,9 @@ export function makeBaseline(matrix:Matrix, period:string):Baseline {
       for(const p of pins)evidence[p.id]=p;
       return [{...c,coverage:link.coverage,evidence:pins.map(p=>p.id)}];
     })
-  }));
+  };});
   return {framework:matrix.name,period,total:matrix.requirements.length,excluded:entries.filter(r=>r.applicability==='excluded').length,
-    withEvidence:entries.filter(r=>r.controls.some(c=>c.evidence.length)).length,entries,evidence};
+    withEvidence:entries.filter(r=>r.directEvidence?.length||r.controls.some(c=>c.evidence.length)).length,entries,evidence};
 }
 export async function baselineToken(b:Baseline) {
   const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(b)));

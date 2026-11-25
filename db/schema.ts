@@ -16,6 +16,16 @@ export const simpleGrcRecords = sqliteTable("simple_grc_records", {
   updatedAt: text("updated_at").notNull(),
 }, (table) => [index("simple_grc_records_module_idx").on(table.module, table.updatedAt)]);
 
+export const frameworkRequirementWork = sqliteTable('framework_requirement_work', {
+ program:text('program').notNull(),ref:text('ref').notNull(),orgEntityId:text('org_entity_id').notNull().default('root'),
+ implementation:text('implementation').notNull(),evidenceIds:text('evidence_ids').notNull(),policyIds:text('policy_ids').notNull(),
+ revision:text('revision').notNull(),actor:text('actor').notNull(),contributors:text('contributors').notNull(),updatedAt:text('updated_at').notNull(),
+},table=>[primaryKey({columns:[table.program,table.ref]})]);
+export const frameworkRequirementReviews = sqliteTable('framework_requirement_reviews', {
+ id:text('id').primaryKey(),program:text('program').notNull(),ref:text('ref').notNull(),workRevision:text('work_revision').notNull(),
+ sourceFingerprint:text('source_fingerprint').notNull(),reviewer:text('reviewer').notNull(),note:text('note').notNull(),createdAt:text('created_at').notNull(),
+},table=>[index('framework_requirement_review_source').on(table.program,table.ref,table.workRevision)]);
+
 export const controlEffectivenessReviews = sqliteTable('control_effectiveness_reviews', {
   id:text('id').primaryKey(),controlId:text('control_id').notNull(),evidenceVersion:text('evidence_version').notNull(),
   controlSnapshot:text('control_snapshot').notNull(),evidenceSnapshot:text('evidence_snapshot').notNull(),
