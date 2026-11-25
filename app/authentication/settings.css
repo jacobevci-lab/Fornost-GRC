@@ -108,3 +108,16 @@
     padding: 12px;
   }
 }
+
+.enterprise-auth-settings .identity-toggle {
+  flex-direction: row !important;
+  justify-content: flex-start;
+  text-align: left;
+}
+.enterprise-auth-settings .identity-toggle input[type="checkbox"] {
+  width: 14px !important;
+  min-width: 14px !important;
+  height: 14px !important;
+  min-height: 14px !important;
+  padding: 0 !important;
+}

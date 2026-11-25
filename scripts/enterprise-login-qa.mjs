@@ -477,6 +477,8 @@ try {
     .getByRole("button", { name: "Enterprise SSO and SCIM", exact: true })
     .click();
   const panel = page.locator(".enterprise-auth-settings");
+  await expect(panel.getByLabel("Provider", { exact: true })).toHaveValue("generic-oidc");
+  assert.ok(await panel.locator("input[type=checkbox]").first().evaluate(e=>e.getBoundingClientRect().height<=16));
   await expect(panel.getByLabel("Client ID", { exact: true })).toHaveValue(
     "qa-client",
   );

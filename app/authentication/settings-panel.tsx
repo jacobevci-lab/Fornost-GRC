@@ -351,6 +351,7 @@ export default function AuthenticationSettings({
                   <label>
                     {tr ? "Sağlayıcı" : "Provider"}
                     <select
+                      aria-label={tr ? "Sağlayıcı" : "Provider"}
                       value={draft.config.sso.provider}
                       onChange={(e) => {
                         const provider = e.target
@@ -518,6 +519,7 @@ export default function AuthenticationSettings({
                   <label>
                     {tr ? "Bağlantı güvenliği" : "Connection security"}
                     <select
+                      aria-label={tr ? "Bağlantı güvenliği" : "Connection security"}
                       value={draft.config.directory.transport}
                       onChange={(e) => {
                         const transport = e.target

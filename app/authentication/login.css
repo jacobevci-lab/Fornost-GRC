@@ -219,3 +219,28 @@
     top: 16px;
   }
 }
+
+/* Scope legacy authentication styles to the compact workspace contract. */
+.enterprise-login.auth-screen .auth-card {
+  padding: 24px !important;
+  border-radius: 14px !important;
+  border-color: var(--ws-line) !important;
+  box-shadow: 0 12px 32px #071e1810 !important;
+}
+.enterprise-login.auth-screen .auth-card :is(p, button, label, input) {
+  margin: 0 !important;
+}
+.enterprise-login.auth-screen .auth-card p {
+  color: var(--ws-muted) !important;
+}
+.enterprise-login.auth-screen .demo-login-box {
+  margin: 0;
+  background: var(--ws-surface-2) !important;
+  border-color: var(--ws-line) !important;
+  box-shadow: none !important;
+}
+.enterprise-login.auth-screen .demo-login-box b { color: var(--ws-ink) !important; }
+.enterprise-login.auth-screen .demo-login-box span { color: var(--ws-muted) !important; }
+@media (max-width: 480px) {
+  .enterprise-login.auth-screen .auth-card { padding: 18px !important; }
+}
