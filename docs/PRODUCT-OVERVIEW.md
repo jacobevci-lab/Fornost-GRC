@@ -2,7 +2,7 @@
 
 [Dokümantasyon dizini](README.md) · [Kullanıcı rehberi](USER-GUIDE.md) · [Yönetici rehberi](ADMIN-GUIDE.md)
 
-Kapsam tarihi: 19 Ekim 2026. Bu belge mevcut ürünü anlatır; [2027 ürün vizyonu](FORNOST_PRODUCT_VISION_2027.md) gelecek yönünü, [teslim durumu](research-delivery-status.md) ise kalan işleri gösterir.
+Kapsam tarihi: 25 Kasım 2026. Bu belge mevcut ürünü anlatır; [2027 ürün vizyonu](FORNOST_PRODUCT_VISION_2027.md) gelecek yönünü, [teslim durumu](research-delivery-status.md) ise kalan işleri gösterir.
 
 ## Hangi problemi çözer?
 
@@ -19,13 +19,13 @@ Menüler kullanıcı rolü ve modül izinlerine göre görünür. Aşağıdaki a
 | Alan | İşlev ve üretilen çıktı |
 | --- | --- |
 | Ana Sayfa, Benim İşlerim | Öncelikler, sahip olunan ve inceleme bekleyen işler, kaynağa doğrudan geçiş |
-| Risk Assessment | Risk sicili, değerlendirme, sorumlu ve aksiyon bağlamı |
+| Risk Değerlendirmesi | Risk sicili, değerlendirme, sorumlu ve aksiyon bağlamı |
 | Risk İştahı ve KRI | Eşikler, kanıtlı ölçümler, ihlaller, stres senaryoları ve yönetim paketi |
 | Varlık Envanteri | Risk ve kontrollerin bağlandığı varlık kayıtları |
 | BIA | İş etkisi ve süreklilik hedefleri için süreç/hizmet bağlamı |
 | İş Sürekliliği | BIA bağlantılı planlar, onay, tatbikat, hedef ihlali ve iyileştirme açıkları |
 | Tedarikçiler | Üçüncü taraf sicili; tam çalışma alanında due diligence, değerlendirme, bulgu ve offboarding |
-| Uyum, Kontroller | Gereksinim ve ortak kontrol kayıtları; uygulama etkinliği ve kanıt bağlamı |
+| Uyum Yönetimi, Kontrol Kütüphanesi | Doğrudan madde uygulaması, EVD/POL bağlantısı ve bağımsız doğrulama; isteğe bağlı ortak kontrol ve çapraz çerçeve eşleme |
 | Kanıtlar | Dosya, sürüm, hash, inceleme ve bağlı kayıtlar |
 | Kanıt Otomasyonu | Kaynak bağlantıları, veri toplama, test kuralları, tazelik ve çalışma sonuçları |
 | Denetim Yönetimi | Portföy, kapsam/plan, sahip ve tarihli görevler, gereksinim, kanıt talepleri, çalışma kâğıtları, durum raporu ve kapanış |
@@ -41,7 +41,7 @@ Menüler kullanıcı rolü ve modül izinlerine göre görünür. Aşağıdaki a
 ## Örnek uçtan uca kullanım
 
 1. İş birimi, varlıklarını ve kritik süreçlerini kaydeder; risk değerlendirmesini oluşturur.
-2. Kontrol sahibi kontrolü ilgili gereksinimlere bağlar; kanıt yükler veya desteklenen kaynaktan toplama kurar.
+2. Madde sahibi uygulama durumunu ve doğrudan kanıt/politika bağlantısını yönetebilir; ortak kontrol kullanımı isteğe bağlıdır. Kanıtsız beyan tam uyum sayılmaz; bağımsız doğrulama ve güncel kaynak gerekir.
 3. Denetçi kapsamı ve gereksinimleri belirler; kanıt talebinin sahibini, bağımsız reviewer'ını, kabul ölçütünü ve tarihlerini atar.
 4. Sahip belirli kanıt sürümlerini sunar. Reviewer kabul eder veya gerekçeyle geri gönderir. Örneklemli test gerekiyorsa çalışma kâğıdı kullanılır.
 5. Tespitler CAPA üzerinden sorumlu ve tarihle izlenir. Denetim kapanışı ayrı bir bağımsız onay paketidir; açık bulgular varsa takip planı görünür kalır.
@@ -53,9 +53,13 @@ Ask Fornost, OpenAI-compatible veya Ollama sağlayıcısıyla kullanılabilir. Y
 
 AI yönetişimi; model envanteri, kullanım senaryosu, risk/olay, değerlendirme, veri ve tedarik zinciri bağlamı, istisna, izleme, release gate ve emeklilik kayıtlarını içerir. Sağlayıcı kurulmadan çalışabilen GRC kayıt işlevleri ile model çağrısı gerektiren AI işlevleri ayrıdır. Harici servis ücretleri veya yerel modelin donanım/işletim maliyeti üründen bağımsızdır. [AI mimarisi](AI-ARCHITECTURE.md) güven sınırlarını açıklar.
 
+## Dış paydaşlar ve kurumsal AI
+
+Süreli ve iptal edilebilir tedarikçi portalı anket/belge kabul eder; otomatik tedarikçi onayı vermez. Trust Center yalnız yayındaki politikaları açar; kısıtlı belgeler insan erişim kararıyla sunulur. Güvenlik Anketi Copilot ve tedarikçi rapor analizörü LLMGateway, veri maskeleme, RBAC ve insan incelemesiyle çalışır. [Portallar](external-stakeholder-delivery.md) · [AI for GRC](AI-FOR-GRC.md).
+
 ## Dağıtım ve erişim
 
-Her müşteri kendi kurulumunu ve verisini yönetir. Yerel Admin/Editor/Viewer rolleri ve sekiz çekirdek sicil için isteğe bağlı modül izinleri bulunur. Modül izni o modülün bütün kayıtlarını kapsar; departman, kayıt, alan veya dış denetçi engagement bazlı izolasyon sağlamaz. Admin olmak, atanmış bağımsız reviewer'ın yerine her kararı verebilmek anlamına gelmez.
+Her müşteri kendi kurulumunu ve verisini yönetir. Yerel Admin/Editor/Viewer rolleri ve sekiz çekirdek sicil için isteğe bağlı modül izinleri bulunur. Modül izinlerine ek olarak `org_entity` iştirak/iş birimi kapsamı sunucuda uygulanır. Yetkili grup hesapları konsolide görünümü, iştirak hesapları atanmış kapsamlarını kullanır. Bu, alan bazlı veya dış denetçi engagement bazlı yetkilendirme değildir. [Kapsam sözleşmesi](enterprise-scale-delivery.md). Admin olmak, atanmış bağımsız reviewer'ın yerine her kararı verebilmek anlamına gelmez.
 
 Kurumsal kimlik, e-posta ve ticket profilleri kurulumdaki gerçek sistemlerle doğrulanmalıdır. Bir bağlantı profili kaydetmek tam SSO veya uçtan uca senkronizasyonun tamamlandığı anlamına gelmez. Native veri toplayıcılar yalnız [belgelenen datasetleri](integrations/product-connectors.md) okur; katalogdaki **Collector required** kaydı hazır çalışan bir adaptör değildir.
 

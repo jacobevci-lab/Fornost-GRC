@@ -61,3 +61,7 @@ __pycache__/
 /enterprise-login-qa-artifacts/
 
 /report-localization-qa-artifacts/
+
+# Local browser QA evidence (published as CI artifacts)
+/typography-qa-artifacts/
+/layout-qa-artifacts/

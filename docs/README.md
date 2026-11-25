@@ -1,6 +1,15 @@
 # Fornost GRC Dokümantasyon Dizini
 
-Güncelleme: 19 Ekim 2026. Başlangıç belgeleri Türkçedir; ayrıntılı teknik iş akışı belgelerinin bir bölümü İngilizcedir. Arayüzdeki TR/EN seçimi belgelerin dilinden bağımsızdır.
+Güncelleme: 25 Kasım 2026. Başlangıç belgeleri Türkçedir; ayrıntılı teknik iş akışı belgelerinin bir bölümü İngilizcedir. Arayüzdeki TR/EN seçimi belgelerin dilinden bağımsızdır.
+
+## Güncel kurumsal kapsam
+
+- [Kompakt tasarım sözleşmesi](DESIGN-SYSTEM.md): font, yoğunluk, tema sahipliği ve tarayıcı doğrulaması.
+- [Doğrudan madde güvencesi](direct-requirement-assurance.md): isteğe bağlı CTL, doğrudan EVD/POL, bağımsız doğrulama ve kapsam paydası.
+- [Enterprise](enterprise-scale-delivery.md): iştirak/RBAC, çapraz çerçeve ve FAIR-Lite.
+- [Kurumsal giriş](roadmap/enterprise-workspace-login.md), [dış portallar/entegrasyonlar](external-stakeholder-delivery.md).
+- [LLMGateway / HITL araçları](modular-agent-tools.md), [anket ve tedarikçi analizi](AI-FOR-GRC.md), [agentic GRC](agentic-grc.md).
+- [Raporlama ve yerelleştirme](roadmap/report-localization-complete-scope.md).
 
 ## Başlangıç ve işletim
 

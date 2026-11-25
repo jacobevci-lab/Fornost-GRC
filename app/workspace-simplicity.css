@@ -15,7 +15,7 @@
 .shell .risk-metrics{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:8px!important}
 .shell .risk-metrics article{padding:10px!important;min-height:0!important}
 .risk-analysis-disclosure{margin-top:8px!important;border:1px solid var(--ws-line)!important;border-radius:9px!important;background:var(--ws-surface)!important}
-.risk-analysis-disclosure>summary{padding:12px 14px!important;cursor:pointer!important;font-weight:600!important;color:var(--ws-ink)!important}
+.risk-analysis-disclosure>summary{padding:12px 14px!important;cursor:pointer!important;color:var(--ws-ink)!important}
 .risk-analysis-disclosure>.matrix{box-shadow:none!important}
 .shell .audit-overview{padding:12px 14px!important;box-shadow:none!important}
 .shell .audit-overview>div:first-child{display:none!important}
@@ -31,7 +31,7 @@
 #ai-governance-workspace .fornost-ai-tab-group{flex-basis:100%!important}
 #ai-governance-workspace .fornost-ai-head{padding:14px 16px!important}
 .workspace-export{position:relative!important}
-.workspace-export>summary{cursor:pointer!important;padding:10px 14px!important;border-radius:8px!important;background:var(--ws-brand)!important;color:var(--ws-surface)!important;font-weight:600!important;list-style-position:inside!important}
+.workspace-export>summary{cursor:pointer!important;padding:10px 14px!important;border-radius:8px!important;background:var(--ws-brand)!important;color:var(--ws-surface)!important;list-style-position:inside!important}
 .workspace-export>div{position:absolute!important;right:0!important;top:100%!important;z-index:30!important;display:grid!important;gap:6px!important;min-width:190px!important;padding:10px!important;background:var(--ws-surface)!important;border:1px solid var(--ws-line)!important;border-radius:9px!important;box-shadow:var(--ws-shadow)!important}
 @media(max-width:640px){
  .shell .risk-metrics{grid-template-columns:repeat(2,minmax(0,1fr))!important}
@@ -42,10 +42,10 @@
 
 .shell main .risk-summary{background:var(--ws-surface)!important;border:1px solid var(--ws-line)!important}
 .shell .ea-stats>div{padding:12px!important;border:0!important;border-inline-end:1px solid var(--ws-line)!important;border-radius:0!important;background:none!important;box-shadow:none!important}
-.ai-section-picker>summary{cursor:pointer;padding:12px 16px;color:var(--ws-ink);font-size:12px;font-weight:600;border-bottom:1px solid var(--ws-line)}
+.ai-section-picker>summary{cursor:pointer;padding:12px 16px;color:var(--ws-ink);border-bottom:1px solid var(--ws-line)}
 #ai-governance-workspace .fornost-ai-tabs{display:flex!important;flex-wrap:wrap!important;overflow:visible!important}
 .workspace-empty{display:grid;justify-items:start;gap:8px;padding:24px;border:1px solid var(--ws-line);border-radius:9px;background:var(--ws-surface);color:var(--ws-ink)}
-.workspace-empty p{margin:0;color:var(--ws-muted);line-height:1.5}
+.workspace-empty p{margin:0;color:var(--ws-muted)}
 .workspace-empty button{padding:9px 12px;border:1px solid var(--ws-line);border-radius:8px;background:var(--ws-brand-soft);color:var(--ws-brand-2);cursor:pointer}
 /* Keep save actions in reach when long forms scroll. */
 .shell>.overlay .form-actions{position:sticky;bottom:0;background:var(--ws-surface);padding-block:12px;border-top:1px solid var(--ws-line);z-index:2}

@@ -10,7 +10,6 @@
 }
 .ai-regulatory h3 {
   margin: 4px 0;
-  font-size: 23px;
 }
 .ai-regulatory p {
   color: var(--text-secondary);
@@ -22,7 +21,6 @@
   border-radius: 7px;
   background: #8f451b;
   color: #fff;
-  font-weight: 750;
 }
 .ai-regulatory .stats {
   display: grid;
@@ -40,10 +38,8 @@
 }
 .ai-regulatory .stats b {
   display: block;
-  font-size: 21px;
 }
 .ai-regulatory .stats span {
-  font-size: 11px;
   color: var(--text-secondary);
 }
 .ai-regulatory > form {
@@ -59,7 +55,6 @@
   display: grid;
   gap: 5px;
   margin: 7px 0;
-  font-size: 11px;
 }
 .ai-regulatory input,
 .ai-regulatory select,
@@ -109,15 +104,11 @@
   display: block;
   color: var(--text-secondary);
 }
-.ai-regulatory .list header span {
-  font-size: 10px;
-}
 .ai-regulatory dl {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
 }
 .ai-regulatory dt {
-  font-size: 10px;
   color: var(--text-secondary);
 }
 .ai-regulatory dd {
@@ -133,7 +124,6 @@
   padding: 4px 7px;
   border: 1px solid var(--border);
   border-radius: 99px;
-  font-size: 10px;
 }
 .ai-regulatory .obligations .gap {
   color: #e28b61;

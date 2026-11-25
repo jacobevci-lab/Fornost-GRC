@@ -8,7 +8,7 @@
 .module-trail-body { display:grid; grid-template-columns:minmax(180px, .6fr) minmax(0,1.4fr); }
 .trail-picker,.trail-session { min-width:0; padding:clamp(14px,2vw,26px); }
 .trail-picker { border-inline-end:1px solid var(--ws-line); }
-.trail-picker label,.trail-branch { display:grid; gap:5px; margin:10px 0; color:var(--ws-muted); font-size:12px; }
+.trail-picker label,.trail-branch { display:grid; gap:5px; margin:10px 0; color:var(--ws-muted); }
 .trail-picker :is(input,select), .module-trail .trail-branch select { width:100%; min-width:0; max-width:100%; border-radius:6px; border:1px solid var(--ws-line-strong); background:var(--ws-surface); color:var(--ws-ink); min-height:34px; padding:5px 8px; margin:0; }
 .trail-picker button,.trail-session > button,.trail-controls button { padding:8px 12px; border:1px solid var(--ws-line-strong); background:var(--ws-surface); border-radius:6px; color:var(--ws-brand); cursor:pointer; }
 .trail-session > button { margin-bottom:12px; }

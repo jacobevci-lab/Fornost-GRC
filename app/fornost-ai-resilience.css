@@ -10,7 +10,6 @@
   margin-bottom: 18px;
 }
 .ai-resilience h3 {
-  font-size: 24px;
   margin: 4px 0;
 }
 .ai-resilience p {
@@ -23,7 +22,6 @@
   color: #fff;
   border-radius: 8px;
   padding: 9px 13px;
-  font-weight: 700;
 }
 .ai-resilience-stats {
   display: grid;
@@ -39,10 +37,8 @@
 }
 .ai-resilience-stats b {
   display: block;
-  font-size: 22px;
 }
 .ai-resilience-stats span {
-  font-size: 12px;
   color: var(--text-secondary);
 }
 .ai-resilience-form,
@@ -58,7 +54,6 @@
 .ai-resilience .action label {
   display: grid;
   gap: 5px;
-  font-size: 12px;
   margin: 8px 0;
 }
 .ai-resilience .grid {
@@ -86,7 +81,6 @@
   color: var(--text-secondary);
 }
 .ai-resilience-list header span {
-  font-size: 11px;
   border: 1px solid #c37a35;
   border-radius: 99px;
   padding: 5px 9px;
@@ -97,7 +91,6 @@
   gap: 8px;
 }
 .ai-resilience-list dt {
-  font-size: 11px;
   color: var(--text-secondary);
 }
 .ai-resilience-list dd {

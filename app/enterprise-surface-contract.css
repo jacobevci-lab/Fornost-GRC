@@ -25,7 +25,7 @@ body{overflow-x:hidden}
 .demo-data-actions button{border-color:var(--ws-line)!important;background:var(--ws-surface-2)!important;color:var(--ws-ink)!important}.demo-data-actions button.danger{border-color:color-mix(in srgb,var(--ws-danger) 42%,var(--ws-line))!important;background:color-mix(in srgb,var(--ws-danger) 10%,var(--ws-surface))!important;color:var(--ws-danger)!important}.demo-data-message{background:color-mix(in srgb,var(--ws-positive) 10%,var(--ws-surface))!important;color:var(--ws-positive)!important}
 .setting-toggle i,.integration-switch i{background:var(--ws-line-strong)!important}.setting-toggle input:checked+i,.integration-switch input:checked+i{background:var(--ws-brand)!important}
 .setting-toggle i::after,.integration-switch i::after{background:var(--ws-surface)!important}
-.local-user-list>div{grid-template-columns:minmax(180px,1.4fr) minmax(90px,.65fr) minmax(110px,.75fr) minmax(120px,1fr) auto!important;align-items:center;min-width:0}.local-user-identity{display:flex;min-width:0;flex-direction:column;gap:4px}.local-user-identity small{overflow:hidden;text-overflow:ellipsis;color:var(--ws-muted)!important}.local-user-list select{width:100%;min-width:0;height:34px;border:1px solid var(--ws-line-strong);border-radius:7px;background:var(--ws-surface);color:var(--ws-ink)}.local-user-security{font-size:9px;color:var(--ws-muted)!important}.local-user-list button{height:34px;padding:0 12px;border:1px solid var(--ws-line);border-radius:7px;background:var(--ws-surface-2);color:var(--ws-ink);font-weight:800}
+.local-user-list>div{grid-template-columns:minmax(180px,1.4fr) minmax(90px,.65fr) minmax(110px,.75fr) minmax(120px,1fr) auto!important;align-items:center;min-width:0}.local-user-identity{display:flex;min-width:0;flex-direction:column;gap:4px}.local-user-identity small{overflow:hidden;text-overflow:ellipsis;color:var(--ws-muted)!important}.local-user-list select{width:100%;min-width:0;height:34px;border:1px solid var(--ws-line-strong);border-radius:7px;background:var(--ws-surface);color:var(--ws-ink)}.local-user-security{color:var(--ws-muted)!important}.local-user-list button{height:34px;padding:0 12px;border:1px solid var(--ws-line);border-radius:7px;background:var(--ws-surface-2);color:var(--ws-ink)}
 
 /* Ask Fornost uses the same petrol/teal system as the main workspace. */
 .fornost-ai-launcher{right:22px!important;bottom:22px!important;border:1px solid color-mix(in srgb,var(--ws-brand) 58%,var(--ws-line))!important;background:var(--ws-brand)!important;background-image:none!important;color:#fff!important;box-shadow:0 16px 42px color-mix(in srgb,var(--ws-brand) 22%,transparent)!important}
@@ -131,10 +131,10 @@ html[data-theme="dark"] :where(.auth-card,.settings-card,.integration-hub,.integ
 }
 
 /* Shared typography and navigation sizing across all module workspaces. */
-.shell #fornost-navigation .nav-group-items button{min-width:0;font-size:13px!important;line-height:1.4!important}
+.shell #fornost-navigation .nav-group-items button{min-width:0}
 .shell #fornost-navigation .nav-group-items button>span{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.shell #fornost-navigation .nav-group-trigger{font-size:11px!important;letter-spacing:.06em}
+.shell #fornost-navigation .nav-group-trigger{letter-spacing:.06em}
 .shell>main{min-width:0}
 .module-head{flex-wrap:wrap;gap:16px}
 .module-head>div{min-width:0}
-.module-head h2{overflow-wrap:anywhere;line-height:1.25}
+.module-head h2{overflow-wrap:anywhere}

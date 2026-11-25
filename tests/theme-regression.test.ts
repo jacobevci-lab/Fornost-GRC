@@ -6,7 +6,7 @@ const reporting = readFileSync("app/reporting.css", "utf8");
 const product = readFileSync("app/product-experience.css", "utf8");
 const surface = readFileSync("app/enterprise-surface-contract.css", "utf8");
 const premium = readFileSync("app/fornost-premium.css", "utf8");
-const finalPolish = readFileSync("app/final-polish.css", "utf8");
+const workspace = readFileSync("app/workspace-system.css", "utf8");
 const register = readFileSync("app/module-registers.css", "utf8");
 
 test("reporting cannot inherit the retired multicolour KPI skin", () => {
@@ -22,12 +22,12 @@ test("Ask Fornost keeps one stable desktop geometry across every tab", () => {
 });
 
 test("reporting and register affordances use the graphite teal token contract", () => {
-  for (const source of [reporting, product, finalPolish, register]) {
+  for (const source of [reporting, product, workspace, register]) {
     for (const retired of ["#635bff", "#9d98ff", "#151f2f", "#314057", "#26344b"]) {
       assert.ok(!source.toLowerCase().includes(retired), `retired theme token leaked: ${retired}`);
     }
   }
-  assert.match(finalPolish, /color:var\(--ws-brand-2\)/);
+  assert.match(workspace, /color:var\(--ws-brand-2\)/);
   assert.match(register, /accent-color:var\(--ws-brand\)/);
 });
 

@@ -2,6 +2,10 @@
 
 **Govern Risk. Prove Compliance. Control AI.**
 
+Connected GRC · Continuous Assurance · AI-native GRC
+
+Kaynak kapsamı: 25 Kasım 2026. [Canlı uygulama](https://app.fornostsecurity.com) · [Güncel tasarım sözleşmesi](docs/DESIGN-SYSTEM.md) · [Dokümantasyon](docs/README.md). Canlı revizyon `/api/health` ve yayın smoke kontrolüyle doğrulanır; roadmap tamamlanma iddiası değildir.
+
 Fornost GRC, kurumların risklerini, kontrollerini, kanıtlarını, denetimlerini ve iyileştirme çalışmalarını aynı çalışma alanında yönetmesini sağlayan ticari bir **GRC ve AI yönetişimi platformudur**. Amaç, ayrı dosyalarda tutulan kayıtları sorumlu, tarih, kanıt ve bağımsız inceleme kararlarıyla birbirine bağlamaktır.
 
 Ürün müşterinin kendi ortamına kurulur. Çekirdek GRC kullanımı için harici AI hizmeti gerekmez; veri toplayıcılar, kurumsal kimlik, e-posta, ticket ve AI sağlayıcıları ihtiyaca göre yapılandırılır. Paylaşımlı çok müşterili SaaS, bu ürünün dağıtım modeli değildir.
@@ -37,7 +41,7 @@ Bir kontrolün kaydedilmesi onun etkin olduğunu, bir kanıtın yüklenmesi kabu
 
 ## Başlıca iş akışları
 
-- **Risk ve güvence:** Risk Assessment, varlık envanteri, BIA, risk iştahı/KRI, ortak kontrol kütüphanesi ve ilişkili kanıtlar.
+- **Risk ve güvence:** Risk Değerlendirmesi, varlık envanteri, BIA, risk iştahı/KRI, ortak kontrol kütüphanesi ve ilişkili kanıtlar.
 - **Uyum ve denetim:** Gereksinim katalogları, kapsam planı, [tarihli, isteğe bağlı bağımsız onaylı görevler](docs/audit-milestones.md), sürüme sabitlenmiş kanıt talepleri, bağımsız inceleme, [manuel ve tekrarlanabilir rastgele örneklemli çalışma kâğıtları](docs/audit-workpapers.md#reproducible-random-selection), [tekil/toplu görev, çalışma kâğıdı ve kanıt taleplerinde iş günü termin önerileri](docs/audit-deadline-planning.md), kaydedilmiş durum raporları ve bütün denetim için kapanış/onay.
 - **Kanıt kullanımı:** [Kanıt Kütüphanesi’nde kullanım ve değişiklik etkisi](docs/evidence-usage.md); kontrol/uyum, denetim maddesi, talep, çalışma kâğıdı ve CAPA bağlantıları, süreklilik/regülasyon/tedarikçi kararlarının sabit kanıt geçmişi ve kaynak kayda doğrudan geçiş; açık işlerde eski sürüm incelemesi, [kaynak iziyle sorumlu/tarihli takip görevi](docs/evidence-change-followups.md) ve kapsamı belirtilen JSON raporu.
 - **Sürekli kontrol:** Desteklenen veri kaynaklarından toplama, zamanlanmış testler, kanıt tazeliği, başarısızlıkların izlenmesi ve CAPA bağlantısı. [Native kaynakların kapsamı](docs/integrations/product-connectors.md) ve [hazır testler](docs/integrations/ready-control-tests.md) ayrı tanımlıdır.
@@ -66,24 +70,20 @@ Tekrarlayan dönem, sorumlu, doğrulayıcı ve kanıtla **operasyonel regülasyo
 | Güvenlik olayı | [Enterprise Incident & Crisis Management](docs/ENTERPRISE-INCIDENT-CRISIS-MANAGEMENT.md) |
 | İş sürekliliği | [Enterprise Business Continuity](docs/ENTERPRISE-BUSINESS-CONTINUITY.md) |
 
-## Son tamamlanan geliştirmeler
+## Güncel kurumsal iş akışları
 
-27 Ekim 2026 itibarıyla bu kaynak sürümünün başlıca geliştirmeleri:
+| Alan | Mevcut davranış ve ayrıntılı sözleşme |
+| --- | --- |
+| Doğrudan madde güvencesi | Kontrol bağlamak isteğe bağlıdır. Uygulama beyanı, onaylı EVD/yayındaki POL ve bağımsız madde doğrulamasıyla değerlendirilir. Kanıtsız beyan tam uyum sayılmaz. [İşleyiş](docs/direct-requirement-assurance.md) |
+| Ortak kontrol ve iştirak | Çoklu çerçeve eşleme, `org_entity` kapsamı, yetkili konsolide görünüm ve para birimi bazlı FAIR-Lite SLE/ALE. [Enterprise](docs/enterprise-scale-delivery.md) |
+| Kurumsal giriş | Yapılandırılmış SSO, AD/LDAP köprüsü ve yetkili yerel acil durum hesapları; giriş yöntemi denetim izi. [Kimlik](docs/roadmap/enterprise-workspace-login.md) |
+| AI destekli işler | LLMGateway, yerel/BYOK/kural modu; RBAC/SoD korumalı araçlar, insan onaylı taslaklar. [Araçlar](docs/modular-agent-tools.md) · [Anket ve tedarikçi analizi](docs/AI-FOR-GRC.md) |
+| Dış paydaşlar | Süreli/iptal edilebilir tedarikçi anketi, kısıtlı belge için NDA ve insan erişim onayı. Simülasyon canlı telemetriden ayrıdır. [Portallar ve entegrasyonlar](docs/external-stakeholder-delivery.md) |
+| Raporlama | Modüller arası kaynak toplama, yerelleştirilmiş HTML/PDF, Unicode font, PBC özeti ve Board paketi. [Raporlama](docs/roadmap/report-localization-complete-scope.md) |
+| Kayıt deneyimi | Kompakt TR/EN, açık/koyu; hesap/ekip görünümleri, kolon eşleme ve doğrulamalı XLSX içe aktarım. [Görünümler](docs/account-team-views.md) · [İçe aktarma](docs/register-import.md) |
+| Bağımsız kararlar | Politika/CAPA/olay/tedarikçi/süreklilik kararlarında kaynak dosya sürümü, değişiklik kontrolü ve korunmuş geçmiş. [Kullanıcı rehberi](docs/USER-GUIDE.md) |
 
-- [Tedarikçi kararlarında bağlı kanıt](docs/tprm-connected-evidence.md): etkin sorumlu seçimi, dosya sürümüne sabit kararlar, kaynak değişikliğinde taslak koruma ve kanıttan ilgili işe dönüş.
-- [İşlerim'de süreklilik sorumlulukları](docs/continuity-my-work.md): plan onayı/etkinleştirme, gözden geçirme, tatbikat ve iyileştirme açıkları; doğrudan kaynak kayda geçiş ve gerçek kapanış tarihleri.
-- [İşlerim'de olay sorumlulukları](docs/incident-my-work.md): sahip ve müdahale yöneticisinin işleri, bağımsız kapanış incelemesi, doğrudan olay kaydına geçiş ve kapanış/yeniden açma sonrası güncel kuyruk.
-- [Periyodik plan incelemesi](docs/continuity-plan-review.md): plan ayrıntıları, atanmış bağımsız incelemeci kararı, sonraki inceleme tarihi ve değişmez plan kopyasıyla karar geçmişi.
-
-- [Ortak denetim şablon kütüphanesi](docs/audit-template-library.md): yönetici yayını, sürüm geçmişi, arşivleme ve denetimler arasında plan/görev/paket kullanımı.
-- Tarihli görevler, ön koşul zincirleri, özelleştirilebilir toplu görev paketleri, açıkça başlatılan tekrar dönemleri ve isteğe bağlı hatırlatmalar.
-- [Ortak iş günü/tatil takvimleri](docs/audit-reminder-profiles.md#shared-organization-calendars): yönetici sürümlemesi, denetimde kaynak sürümü takibi, önizlemeli güncelleme, JSON aktarımı, hatırlatma eşikleri ve tek alıcıya eskalasyon.
-- Bağımsız bütün-denetim kapanışı, değişiklik kilitleri, gerekçeli yeniden açma ve doğrulanabilir karar paketi.
-- Kanıt sürümüne bağlı çalışma kâğıtları, manuel ve CSV evreninden tekrarlanabilir rastgele örnekleme; sahip/reviewer işlerinin Benim İşlerim'e taşınması.
-- Sekiz çekirdek sicil, denetim talebi ve çalışma kâğıdı için kayıt bağlantıları; yapılandırılmış uygulama adresi üzerinden e-posta görev bağlantıları.
-- E-posta ekranında bağlantı ve bildirim ayarlarına odaklanan sade kullanım.
-
-Teslim edilenlerle planlananları ayıran güncel kapsam: [Araştırma ve Teslim Durumu](docs/research-delivery-status.md). Yıllık risk bazlı planlama, istatistiksel güven/örneklem büyüklüğü hesaplama ve süreli dış denetçi yetkileri mevcut özellik olarak sunulmaz.
+Yıllık risk bazlı denetim planlama, istatistiksel örneklem büyüklüğü ve süreli dış **denetçi** çalışma alanı yetkisi mevcut özellik olarak sunulmaz. Tedarikçi/Trust Center bağlantıları bu yetkiyi vermez. [2027 vizyonu](docs/FORNOST_PRODUCT_VISION_2027.md) hedefleri, tarihli teslim belgeleri kendi sürüm kapsamını anlatır.
 
 ## Kurulum
 
@@ -109,6 +109,7 @@ npm run dev
 ```
 
 ```bash
+npm run check:design
 npm run lint
 npm run typecheck
 npm test
@@ -121,35 +122,3 @@ Gizli değerleri repoya eklemeyin. Entegrasyon şifreleme anahtarı, AI paket m�
 ## Lisans
 
 Bu depo kuruma özel/proprietary kaynak kod içerir. Açık kaynak kullanım veya dağıtım lisansı vermez. Yetkisiz kopyalama, dağıtma ve üçüncü taraf ortamlarında çalıştırma izni verilmez.
-
-Kayıtlı görünümler yedi çekirdek liste ve Benim İşlerim'de tekrar kullanılabilir. **Hesap ve ortak görünümler** kişisel tercihleri cihazlar arasında saklar; yöneticiler mevcut modül yetkileriyle kullanılan ortak görünümler yayınlayabilir. Kaydetme önizlemesi, eşzamanlı değişiklik kontrolü ve onaylı kaldırma bulunur. Ortak tanımların sürüm geçmişi değiştireni, gerekçeyi ve eski ölçütleri gösterir; Admin önceki tanımı önizleyip gerekçeyle yeni sürüm olarak geri yükleyebilir. [Hesap ve ortak görünümler](docs/account-team-views.md); mevcut [tarayıcıya özel görünümler](docs/saved-register-views.md) de korunur.
-
-
-Register XLSX import supports column mapping, row-level validation, paginated record preview, explicit server validation and atomic creation across seven register entry points. Tokenized retries recover lost responses without creating the same batch twice. See [register import](docs/register-import.md) for limits, permissions and recovery; this is not an upsert or content-deduplication service.
-
-Politika kabul kampanyalarında Admin, bağlı politika sürümünü ve kabul/ret/cevapsız sonuçlarını inceleyip gerekçeli kapanış yapabilir. Kapanış yanıtları değiştirmez; aktif iş kuyruğunu ve politika kaldırma engelini günceller. [Kampanya sonuçları ve kapanış](docs/policy-campaign-completion.md).
-
-Politika kararlarında kütüphaneden gerçek dosya sürümü, sorumlu/incelemeci atamalarında etkin kullanıcı seçilebilir. Karar bağlamı, ayrı gönderim/onay/yayın/istisna/kaldırma kanıtları ve Kanıt Kullanımı üzerinden kaynağa dönüş korunur. [Bağlı politika kararları](docs/policy-connected-evidence.md).
-
-CAPA atamalarında etkin kullanıcılar, gönderim/kapanış/risk kabulünde kütüphanedeki gerçek dosya sürümleri seçilebilir. Güncel bulgu ve plan incelemesi, hata sonrası taslak kurtarma, ayrı karar kanıtları ve Kanıt Kullanımı üzerinden bulguya dönüş korunur. [Bağlı CAPA kararları](docs/capa-connected-evidence.md).
-
-Güvenlik Olayları artık etkin ekip seçimi, kütüphaneden kanıt sürümü ve olaya özel karar geçmişiyle ilerler. Bağlantı kesintisinde taslaklar korunur; aynı ilan formunun tekrar gönderilmesi kayıt çoğaltmaz. [Bağlı olay kararları](docs/incident-connected-evidence.md).
-
-Tedarikçi detayında **İncelemeciyi değiştir** ile Admin, devre dışı kalan incelemecinin açık işlerini etkin bağımsız Admin’e devredebilir. Gerekçeli devir geçmişi ve gerçek karar sahipleri korunur. [İş akışı ve sınırlar](docs/tprm-reviewer-handoff.md).
-
-
-### Tedarikçi değerlendirmesinde düzeltme
-
-Atanmış risk sahibi taslak değerlendirmeyi gerekçeyle düzenleyebilir; bağımsız Admin incelemeci gönderilmiş değerlendirmeyi düzeltme için geri verebilir. İş, mevcut My Work akışında risk sahibine döner; düzeltmeden sonra kanıt sürümü seçilerek yeniden gönderilir. Önceki/sonraki içerik, gerekçe ve kanıt geçmişi korunur. Yetkisiz Admin düzenlemesi, eşzamanlı değişiklik ve aynı isteğin tekrar kaydı engellenir. [İş akışı, yetkiler ve kurtarma](docs/tprm-assessment-correction.md).
-
-### Supplier finding feedback and decisions
-
-Vendor Management now exposes per-finding decision history from Findings & CAPA and the existing action dialog. Owners can read return reasons before resubmitting; full-access readers can inspect earlier submissions, closures and reopenings with each event's retained evidence version. Twenty-event cursor pages and explicit read/pin failures keep historical coverage truthful. See [workflow and limits](docs/tprm-finding-history.md).
-
-Assigned independent reviewers can now record reasoned deadline changes for open supplier findings. My Work uses the revised date; prior deadlines/lateness, feedback and evidence remain retained. Source conflicts and lost responses preserve the draft for explicit review. See [deadline planning and recovery](docs/tprm-finding-deadline.md).
-
-### Modular AI gateway and governed tools
-
-Ask Fornost now uses a six-tool registry with live module/entity filtering, editable human-approved CAPA/risk/evidence-note cards, and the common LLMGateway (Ollama/vLLM, customer BYOK, deterministic fallback). AI never approves evidence/vendors or closes CAPA. Administration → Audit Trail exposes metadata-only call and human-approval receipts. See [configuration, permissions, limits and tests](docs/modular-agent-tools.md).
-
-External stakeholder workflows support expiring/revocable vendor invitations, scoped pending evidence, published-policy Trust Center content, document-specific NDA requirements and audited human access decisions. Connector simulations remain distinct from live telemetry; see [external stakeholder delivery](docs/external-stakeholder-delivery.md).

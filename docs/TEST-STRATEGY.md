@@ -4,7 +4,7 @@
 
 | Alan | Kontrol |
 | --- | --- |
-| Statik kalite | ESLint ve TypeScript/build |
+| Statik kalite | `check:design`, ESLint ve TypeScript/build |
 | Unit | Parola politikası, sabit süreli karşılaştırma, tarih/modül/veri validasyonu |
 | Render | Worker üzerinden ana HTML yanıtı ve preview metadata |
 | Paket | Production dependency audit |
@@ -54,3 +54,7 @@ Canlı ortamda authenticated OWASP ZAP/Nessus WAS taraması, oran sınırlı ve 
 - On-prem: Docker/Podman, kurulum kalıcılığı, yedek checksum ve ayrı volume üzerinde uygulamayla geri dönüş.
 
 İlgili scriptler `.github/workflows/workspace-layout-qa.yml`, CI ve yayın workflow'larında tanımlıdır. Layout workflow'u uygulama/QA yolu değişikliklerinde çalışır; yalnız dokümantasyon değişikliği yeni 324 görünüm taraması anlamına gelmez. Son tarihli sürüm kanıtı ve müşteri UAT ayrımı için [Production Readiness](PRODUCTION-READINESS.md) okunmalıdır.
+
+## Kompakt arayüz regresyonu
+
+Kaynak kontrolü modül bazlı eski font/ölçek tanımlarının geri dönmesini engeller. Render ölçümleri `Compact Typography QA` iş akışında tüm navigasyon hedeflerini, temaları, dilleri ve mobil/masaüstü form/drawer/portal görünümlerini kapsar. Eski, import edilmeyen CSS dosyalarının içerik testleri güncel kaynaklara taşınmıştır; kaldırılmış dashboard sürümleri güncel ürün testi sayılmaz. [Tasarım sözleşmesi](DESIGN-SYSTEM.md).
