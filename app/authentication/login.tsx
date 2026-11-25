@@ -201,10 +201,10 @@ export default function EnterpriseLogin({
           </h1>
           {state?.loadFailed && (
             <>
-              <p role="alert">
-                {tr
+              <p className="auth-error" role="alert">
+                {message || (tr
                   ? "Kimlik servisi geçici olarak yanıt veremedi. Tekrar deneyin."
-                  : "The identity service is temporarily unavailable. Try again."}
+                  : "The identity service is temporarily unavailable. Try again.")}
               </p>
               <button type="button" className="primary" onClick={onRetry}>
                 {tr ? "Tekrar Dene" : "Retry"}

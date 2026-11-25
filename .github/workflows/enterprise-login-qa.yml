@@ -2,7 +2,7 @@ name: Enterprise Login QA
 on:
   workflow_dispatch:
   pull_request:
-    paths: ['app/authentication/**', 'app/api/auth/**', 'app/api/users/**', 'app/identity-profile-panel.tsx', 'app/local-auth-submit.ts', 'services/identity-bridge/**', 'scripts/enterprise-login-qa.mjs', 'tests/authentication-*', '.github/workflows/enterprise-login-qa.yml']
+    paths: ['app/authentication/**', 'app/api/auth/**', 'app/api/users/**', 'app/identity-profile-panel.tsx', 'app/local-auth-submit.ts', 'services/identity-bridge/**', 'scripts/enterprise-login-qa.mjs', 'scripts/session-startup-qa.mjs', 'tests/authentication-*', '.github/workflows/enterprise-login-qa.yml']
 permissions:
   contents: read
 concurrency:
@@ -49,6 +49,7 @@ jobs:
           curl --fail --silent -H 'Content-Type: application/json' -H 'Origin: http://127.0.0.1:4173' --data-binary @/tmp/fornost-qa-bootstrap.json http://127.0.0.1:4173/api/auth >/tmp/enterprise-bootstrap.json
           node scripts/enterprise-login-qa.mjs
           node scripts/local-login-recovery-qa.mjs
+          node scripts/session-startup-qa.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
