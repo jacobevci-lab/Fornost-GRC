@@ -255,6 +255,14 @@ try {
         await expect(p.locator("form.auth-card")).toBeVisible();
         await expect(p.locator("html")).toHaveAttribute("lang", lang);
         await expect(p.locator("html")).toHaveAttribute("data-theme", theme);
+        // Stored preferences alone cannot detect decorative layers intercepting
+        // the actual button: exercise both pointer transitions at every size.
+        const otherTheme = theme === "light" ? "dark" : "light";
+        await p.locator(".login-preferences .theme-toggle").click();
+        await expect(p.locator("html")).toHaveAttribute("data-theme", otherTheme);
+        assert.equal(await p.evaluate(() => localStorage.getItem("fornost-grc-theme-v5")), otherTheme);
+        await p.locator(".login-preferences .theme-toggle").click();
+        await expect(p.locator("html")).toHaveAttribute("data-theme", theme);
         assert.ok(
           await p.evaluate(
             () => document.documentElement.scrollWidth <= innerWidth + 1,
@@ -302,7 +310,7 @@ try {
         await context.close();
       }
   checks.push(
-    "16 login method/locale/theme/viewport layouts; 12px controls, keyboard tabs, domain hint, Trust Center",
+    "16 login method/locale/theme/viewport layouts; real bidirectional theme clicks, 12px controls, keyboard tabs, domain hint, Trust Center",
   );
   phase = "wrong local and LDAP credentials";
   let client = await browser.newContext();
