@@ -327,3 +327,13 @@ Only the assigned active independent Admin reviewer may replan an open/in-progre
 The login screen supports TR/EN, light/dark, configured-provider OIDC/SAML SSO, AD/LDAP, local emergency access, exact-domain SSO suggestions and the public Trust Center link. Configure **Identity & Access → Enterprise SSO and SCIM → SSO / Active Directory / LDAP / Emergency access**. New methods default to disabled; existing local accounts continue to work. Only existing active accounts can authenticate, with their current roles and entity scope.
 
 Native OIDC uses `/api/auth/callback`; SAML uses `/api/auth/saml`. Include the deployment's base path when registering these URLs. SAML/LDAP require the optional [identity bridge](../services/identity-bridge/README.md). Secrets are encrypted and never returned to the browser; blank secret inputs retain saved values. Connection tests do not prove user sign-in or MFA. Verify a real user before requiring SSO and retain tested, explicitly authorized Break-Glass administrators. Audit Trail lists successes and failures by method. Legacy integration-profile metadata is imported for editing but never automatically enables authentication.
+
+## Güncel kimlik, kapsam ve AI yapılandırması
+
+**Kimlik ve Erişim** kullanıcı paneli/düzenlemesi, yetkili `org_entities` kapsamlarını yönetir. Grup kapsamı ve iştirak ataması sunucuda modül izinleriyle birlikte uygulanır. **Kurumsal SSO ve SCIM**, **Active Directory / LDAP** ve yerel acil durum erişimi farklı giriş yöntemleridir; gerçek sağlayıcı kurulumu ve bağlantı testi gerekir. [Giriş ve köprü gereksinimleri](roadmap/enterprise-workspace-login.md).
+
+**AI Yapılandırması** yerel Ollama/vLLM, müşteri BYOK veya kural modunu; uç nokta/model, maskelenmiş anahtar ve PII maskelemeyi yönetir. Model kanıt/tedarikçi onayı veya CAPA kapanışı yapamaz. [LLMGateway ve izinli araçlar](modular-agent-tools.md).
+
+**E-posta ve Bildirimler** örnek adresleri placeholder olarak gösterir; uygulama adresi boşken mevcut origin önerilir. Gerçek SMTP/köprü sırları yapılandırılır ve test edilir. **Trust Center Yönetimi** yalnız yayındaki politikaları dışa açar; NDA erişim kararı ve süreli belge erişimi denetim izine girer. [Dış paydaşlar](external-stakeholder-delivery.md).
+
+UI değişikliklerinde [güncel tasarım sözleşmesi](DESIGN-SYSTEM.md) esas alınır; eski roadmap ekran ölçekleri yeni bir tema standardı değildir.

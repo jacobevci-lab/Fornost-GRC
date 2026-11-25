@@ -9,15 +9,14 @@ dialog.cm-dialog{position:fixed;inset:0;margin:auto;max-height:85dvh;overflow:au
 .cm-workspace .cg-heading {display:grid;grid-template-columns:minmax(132px,1fr) minmax(420px,3.6fr) auto;align-items:center;gap:14px}
 .cm-workspace .cg-heading>div:first-child{min-width:0}
 .cm-workspace .cg-heading small{letter-spacing:.08em}
-.cm-workspace .cg-heading p{line-height:1.24!important;font-size:11px!important;margin-top:3px}
+.cm-workspace .cg-heading p{margin-top:3px}
 .cm-workspace .cg-source-controls{justify-self:end;position:relative}
 .cm-workspace .cg-source-state{position:absolute;overflow:hidden;clip-path:inset(50%);width:1px;height:1px}
 .cm-health{display:grid;grid-template-columns:1.25fr repeat(4,minmax(0,1fr));gap:5px;min-width:0}
 .cm-health>button,.cm-coverage{min-width:0;min-height:48px;border:1px solid var(--ws-line);border-radius:8px;padding:5px 10px;background:var(--ws-surface);color:var(--ws-ink)}
 .cm-health>button,.cm-coverage>div{display:flex;align-items:center;justify-content:space-between;gap:6px;text-align:start}
 .cm-health>button{cursor:pointer}.cm-health>button[aria-pressed=true]{border-color:var(--ws-brand);background:var(--ws-brand-soft)}
-html[data-theme] body .shell>main .cm-workspace .cm-health strong{white-space:nowrap;flex-shrink:0;font-size:18px!important;line-height:1!important;font-variant-numeric:tabular-nums}
-.cm-health span,.cm-coverage b{font-size:11px!important;line-height:1.2!important}
+html[data-theme] body .shell>main .cm-workspace .cm-health strong{white-space:nowrap;flex-shrink:0;font-variant-numeric:tabular-nums}
 .cm-coverage{align-content:center}.cm-coverage progress{display:block;width:100%;height:4px;margin:4px 0 0;border:0;background:var(--ws-surface-2);accent-color:var(--ws-brand);border-radius:8px;overflow:hidden}.cm-coverage progress::-webkit-progress-bar{background:var(--ws-surface-2)}.cm-coverage progress::-webkit-progress-value{background:var(--ws-brand)}
 .cm-coverage small{display:none}
 .cm-workspace .cm-command{display:flex;align-items:center;gap:8px;min-width:0}
@@ -42,10 +41,9 @@ html[data-theme] body .shell>main .cm-workspace .cm-health strong{white-space:no
 .cm-network button.cm-node{position:absolute;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;align-content:center;align-items:center;gap:6px;min-height:0;max-height:none;border:1px solid var(--ws-line-strong);border-radius:10px;padding:12px 15px 12px 18px;background:var(--ws-surface);color:var(--ws-ink);box-shadow:0 2px 6px #0000000b;overflow:hidden;text-align:start}
 .cm-node::before{content:'';position:absolute;inset:0 auto 0 0;width:4px;background:var(--cm-node-tone)}
 .cm-network .cm-node[data-root=true]{border:2px solid var(--ws-brand);background:var(--ws-brand-soft);box-shadow:0 0 0 4px color-mix(in srgb,var(--ws-brand) 13%,transparent)}
-.cm-node .cm-node-code{grid-column:1;grid-row:1;color:var(--ws-brand-2);font-variant-numeric:tabular-nums;font-weight:750}.cm-node .cm-status{grid-column:2;grid-row:1;max-width:112px;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.cm-network .cm-node b{display:block;grid-column:1/-1;grid-row:2;min-width:0;width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4}
-.cm-status{display:inline-block;border-radius:999px;background:var(--ws-surface-2);color:var(--ws-ink);padding:2px 7px}
-#connected-grc-workbench .cm-node .cm-status{font-size:10px!important}.cm-node[data-dim=true]{opacity:.25}.cm-network .cm-node[data-lit=true]{border-color:var(--ws-brand);box-shadow:0 0 0 2px var(--ws-brand);background:var(--ws-brand-soft)}
+.cm-node .cm-node-code{grid-column:1;grid-row:1;color:var(--ws-brand-2);font-variant-numeric:tabular-nums}.cm-node .cm-status{grid-column:2;grid-row:1;max-width:112px;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.cm-network .cm-node b{display:block;grid-column:1/-1;grid-row:2;min-width:0;width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cm-status{display:inline-block;border-radius:999px;background:var(--ws-surface-2);color:var(--ws-ink);padding:2px 7px}.cm-node[data-dim=true]{opacity:.25}.cm-network .cm-node[data-lit=true]{border-color:var(--ws-brand);box-shadow:0 0 0 2px var(--ws-brand);background:var(--ws-brand-soft)}
 .cm-canvas-controls{position:absolute;bottom:16px;right:16px;display:flex;gap:1px;padding:3px;border:1px solid var(--ws-line-strong);background:var(--ws-surface);border-radius:8px;box-shadow:var(--ws-shadow)}
 .cm-canvas-controls button{min-height:28px;padding:2px 7px;border:0}
 .cm-workspace .cm-empty{min-height:75dvh;align-content:center;background:var(--ws-surface-2)}
@@ -53,7 +51,7 @@ html[data-theme] body .shell>main .cm-workspace .cm-health strong{white-space:no
 dialog.cm-drawer{position:fixed;inset:0 0 0 auto;margin:0;width:min(430px,100%);max-width:100%;height:100dvh;max-height:none;box-sizing:border-box;border:0;border-inline-start:1px solid var(--ws-line-strong);padding:0;background:var(--ws-surface);color:var(--ws-ink);overflow:auto;box-shadow:-8px 0 36px #0002;overscroll-behavior:contain}
 .cm-drawer[open]{animation:cm-enter .18s ease-out}.cm-drawer::backdrop{background:rgb(11 23 29 /.3)}
 .cm-drawer>header{display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:1;padding:14px 18px;border-bottom:1px solid var(--ws-line);background:var(--ws-surface)}
-.cm-drawer>header h2{margin:0;font-size:16px}.cm-drawer>header button{min-width:34px}
+.cm-drawer>header h2{margin:0}.cm-drawer>header button{min-width:34px}
 .cm-drawer .cm-inspector{border:0;border-radius:0}.cm-drawer .cm-inspector .primary{margin-right:6px}
 @keyframes cm-enter{from{transform:translateX(100%)}to{transform:none}}
 @media(prefers-reduced-motion:reduce){.cm-drawer[open]{animation:none}}
@@ -78,7 +76,6 @@ dialog.cm-drawer{position:fixed;inset:0 0 0 auto;margin:0;width:min(430px,100%);
 }
 @container(max-width:660px){
   .cm-workspace .cg-heading{grid-template-columns:minmax(85px,.8fr) minmax(0,1.7fr) auto;gap:5px}
-  .cm-workspace .cg-heading p{font-size:10px!important}
   .cm-workspace .cm-health{display:flex;overflow:auto;scrollbar-width:thin}
   .cm-health>button,.cm-coverage{flex:0 0 auto;min-height:38px;max-width:135px}.cm-health>button span{max-width:82px}
   .cm-command .cm-search{min-width:68px}.cm-command .cgw-filters>select{max-width:90px}

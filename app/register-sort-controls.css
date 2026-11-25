@@ -1,8 +1,8 @@
 .register-sort-controls{display:flex;align-items:end;flex-wrap:wrap;gap:8px;min-width:0;color:var(--ws-ink)}
-.register-sort-controls label{display:grid;gap:4px;min-width:0;font-size:12px;font-weight:650}
-.register-sort-controls select{max-width:100%;min-height:36px;padding:6px 8px;border:1px solid var(--ws-line-strong);border-radius:7px;background:var(--ws-surface);color:var(--ws-ink);font:inherit}
+.register-sort-controls label{display:grid;gap:4px;min-width:0}
+.register-sort-controls select{max-width:100%;min-height:36px;padding:6px 8px;border:1px solid var(--ws-line-strong);border-radius:7px;background:var(--ws-surface);color:var(--ws-ink)}
 .register-sort-controls select:focus-visible{outline:2px solid var(--ws-brand);outline-offset:2px}
-.register-sort-controls small{color:var(--ws-muted);font-size:12px;padding-bottom:8px}
+.register-sort-controls small{color:var(--ws-muted);padding-bottom:8px}
 .register-toolbar-main:has(.register-sort-controls){flex-wrap:wrap}
 .register-toolbar-main:has(.register-sort-controls)>.register-search{flex:1 1 auto;min-width:min(240px,100%)}
 .register-view-actions:has(.register-sort-controls){flex-wrap:wrap;max-width:100%;min-width:0}
@@ -27,7 +27,7 @@
 }
 .compact-register-toolbar .register-search svg { flex: none; color: var(--ws-muted); }
 .compact-register-toolbar .register-search:focus-within { outline: 2px solid var(--ws-brand); outline-offset: 1px; }
-.compact-register-toolbar .register-result-count { font-size: 12px; font-weight: 500; color: var(--ws-muted); }
+.compact-register-toolbar .register-result-count { color: var(--ws-muted); }
 .compact-register-toolbar .register-view-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 6px; }
 .compact-register-toolbar .register-sort-controls { width: auto; align-items: center; gap: 4px; }
 .compact-register-toolbar .register-sort-controls label { display: flex; flex: initial; }
@@ -42,7 +42,6 @@
   box-sizing: border-box; height: 36px; min-height: 36px !important; margin: 0;
   padding: 0 10px; border: 1px solid var(--ws-line-strong); border-radius: 7px;
   background: var(--ws-surface); color: var(--ws-ink);
-  font-size: 12px !important; font-weight: 600; line-height: 1.2;
 }
 .compact-register-toolbar .register-sort-controls select { field-sizing: content; max-width: 100%; }
 .compact-register-toolbar .register-views-panel[hidden] { display: none; }

@@ -26,7 +26,9 @@ test("navigation uses scalable icons and the final UI layer restores readable ty
   assert.match(page, /import NavIcon from "\.\/nav-icon"/);
   assert.match(icons, /function NavIcon/);
   assert.match(icons, /<svg\s+viewBox="0 0 24 24"/);
-  assert.match(ui, /\.nav-group button\{[^}]*font-size:12px!important/);
-  assert.match(ui, /table\{font-size:12px!important/);
+  const typography = readFileSync("app/compact-typography.css", "utf8");
+  assert.match(typography, /--grc-text-data: \.75rem/);
+  assert.match(typography, /font-size: var\(--grc-text-data\)/);
+  assert.match(typography, /\.nav-group-trigger[\s\S]*font-weight: 700/);
   assert.match(ui, /\.evidence-stage img\{[^}]*object-fit:contain/);
 });

@@ -28,29 +28,21 @@
   border-radius: 14px;
   background: #d65f20;
   color: #fff;
-  font-size: 20px;
-  font-weight: 900;
 }
 
 .secure-setup-card > small {
   color: #8f451d;
-  font-size: 11px;
-  font-weight: 800;
   letter-spacing: 0.08em;
 }
 
 .secure-setup-card h1 {
   margin: 8px 0 10px;
   color: #1c2c31;
-  font-size: clamp(24px, 5vw, 31px);
-  line-height: 1.12;
 }
 
 .secure-setup-card > p {
   margin: 0;
   color: #536469;
-  font-size: 13px;
-  line-height: 1.65;
 }
 
 .setup-progress {
@@ -67,8 +59,6 @@
   border-radius: 10px;
   color: #67777b;
   background: #f7f9fa;
-  font-size: 11px;
-  font-weight: 700;
   text-align: center;
 }
 
@@ -98,8 +88,6 @@
   display: block;
   margin-top: 4px;
   color: #24383e;
-  font-size: 12px;
-  font-weight: 800;
 }
 
 .secure-setup-card input {
@@ -110,7 +98,6 @@
   border-radius: 9px;
   background: #fff;
   color: #18282d;
-  font: inherit;
   outline: none;
 }
 
@@ -123,9 +110,7 @@
   display: block;
   margin: 11px 0 18px;
   color: #64757a;
-  font-size: 11px;
   font-style: normal;
-  line-height: 1.55;
 }
 
 .secure-setup-card code {
@@ -143,8 +128,6 @@
   border-radius: 8px;
   background: #fff1f1;
   color: #8e2525;
-  font-size: 12px;
-  line-height: 1.5;
 }
 
 .secure-setup-card .primary {
@@ -152,7 +135,6 @@
   min-height: 44px;
   border-color: #bd4e15;
   background: #c65318;
-  font-size: 12px;
 }
 
 .secure-setup-card .primary:hover:not(:disabled) {

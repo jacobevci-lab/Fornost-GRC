@@ -46,18 +46,18 @@ test("core registers open with decision-oriented readable columns", () => {
 });
 
 test("light, dark, desktop, tablet and mobile share the final experience contract", () => {
-  for (const selector of [".module-overview", ".my-work-page", ".ai-settings-page", ".table-wrap table", ".dashboard-intelligence"]) {
+  for (const selector of [".module-overview", ".my-work-page", ".ai-settings-page",  ".dashboard-intelligence"]) {
     assert.ok(css.includes(selector), selector);
   }
   assert.match(css, /html\[data-theme="dark"\]/);
   assert.match(css, /@media\(max-width:1100px\)/);
   assert.match(css, /@media\(max-width:760px\)/);
   assert.match(css, /@media\(max-width:520px\)/);
-  assert.match(css, /font-size:12px!important/);
+  assert.match(readFileSync("app/compact-typography.css", "utf8"), /--grc-text-data: \.75rem/);
   assert.match(css, /overflow:auto!important/);
   assert.match(css, /\.ai-control-summary/);
   assert.match(css, /\.ai-readiness-list/);
-  assert.match(css, /\.fornost-ai-panel :where\(p,dd,li,label,input,select,textarea,button\)/);
+  assert.match(readFileSync("app/compact-typography.css", "utf8"), /:where\(body \*\)/);
 });
 
 test("dark mode keeps the approved green graphite palette instead of navy", () => {

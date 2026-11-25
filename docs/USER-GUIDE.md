@@ -88,9 +88,9 @@ Doğal risk skoru, olasılıkla en yüksek etki değerinin çarpımıdır. **Gel
 
 Karşılaştırmada yalnızca kapsama eklenmiş çerçeveler görünür. Katalog şeridindeki **+ SOC 2 Ekle** gibi düğmeler çerçeveyi tek tıkla etkinleştirir. **Diğer çerçeveler** kataloğun kalanını açar. Her sütun uyumlu/kapsamdaki madde oranını ve ilk üç açık maddeyi gösterir. Üçten fazla açık madde varsa tüm listeye çerçeve başlığından ulaşabilirsiniz.
 
-**Uyumlu** durumuna geçmek için en az bir kontrol maddeyi tam desteklemeli, uygulanmış olmalı ve aynı kontrolün güncel, onaylı kanıtı bulunmalıdır. Açık veya kısmi satırda eksik koşulu görebilirsiniz. **+ Kontrol bağla** ile kütüphaneden seçim yapıp kaydedin. Aynı kontrol birden fazla aktif çerçevede kapsam içi bir maddeye bağlandıysa kodunun altında çerçeve sayısı görünür. **Ortak Gereksinimler** bu satırları listeler.
+**Uyumlu** için iki yol vardır: (1) maddeyi doğrudan **Uygulanıyor** olarak belirtip onaylı/güncel EVD veya yayındaki POL bağlamak ve bağımsız madde doğrulamasını tamamlamak; (2) güncel onaylı kanıtla bağımsız doğrulanmış ortak kontrolü bağlamak. Kontrol zorunlu değildir. Yalnız **Uygulanıyor** seçmek **Öz-Beyan · Kanıt Bekliyor** anlamına gelir. Açık veya kısmi satırda eksik koşulu görebilirsiniz. **+ Kontrol bağla** ile kütüphaneden seçim yapıp kaydedin. Aynı kontrol birden fazla aktif çerçevede kapsam içi bir maddeye bağlandıysa kodunun altında çerçeve sayısı görünür. **Ortak Gereksinimler** bu satırları listeler.
 
-**SoA Kapsam** sütunundan yerel kapsam kararınızı kaydedin. **Kapsam dışı** için gerekçe zorunludur. Bu seçim maddeyi yerel uyum oranının paydasından çıkarır. Standart kataloğundaki gereksinim ve geçmiş denetimlerin kapsamı korunur. ISO Ek A’da kararı bekleyen bir madde, kapsam netleşene kadar uyumlu sayılmaz. Madde ağacındaki sayılar uyumlu/kapsamdaki madde sayısını gösterir. Dalı seçerek listeyi daraltabilir, **Tüm dallar** ile kapsamın tamamına dönebilirsiniz.
+**SoA Kapsam** sütunundan yerel kapsam kararınızı kaydedin. **Kapsam dışı** için gerekçe zorunludur. Gerekçeli hariç bırakma, uygulanabilir maddelerde açık sayacı ve uyum paydasından düşer. ISO 27001 yönetim sistemi maddeleri 4–10 hariç bırakılamaz. Kaynak geçerliliği ve bağımsız onay kuralları için [doğrudan madde güvencesini](direct-requirement-assurance.md) okuyun. Standart kataloğundaki gereksinim ve geçmiş denetimlerin kapsamı korunur. ISO Ek A’da kararı bekleyen bir madde, kapsam netleşene kadar uyumlu sayılmaz. Madde ağacındaki sayılar uyumlu/kapsamdaki madde sayısını gösterir. Dalı seçerek listeyi daraltabilir, **Tüm dallar** ile kapsamın tamamına dönebilirsiniz.
 
 **Özel gereksinimler ve mevcut kayıtlar** görünümü aynı sekmede sayfayı yenilediğinizde korunur.
 
@@ -176,7 +176,7 @@ Bu kurumsal alanların ayrıntılı belgeleri [dokümantasyon dizinindedir](READ
 
 ## 7. Rapor alma
 
-**Raporlar** ekranında kapsam ve filtreleri seçin, veri/eksiklik uyarılarını kontrol edin. **PDF Raporu** doğrudan indirilebilir PDF üretir; **Dışa aktar** altında HTML, CSV ve Excel seçenekleri bulunur. Önizleme sayfası ile dışa aktarma kapsamını karıştırmayın; ekrandaki kapsam açıklamasını kontrol edin.
+**Raporlama** ekranında çekirdek kayıtlara ek AI, politika, olay, denetim, süreklilik ve regülasyon kaynaklarını; **Denetim ve Kanıt İndeksi (PBC Özeti)** veya Board paketini seçebilirsiniz. Kapsam ve filtreleri seçin, veri/eksiklik uyarılarını kontrol edin. **PDF Raporu** doğrudan indirilebilir PDF üretir; **Dışa aktar** altında HTML, CSV ve Excel seçenekleri bulunur. Önizleme sayfası ile dışa aktarma kapsamını karıştırmayın; ekrandaki kapsam açıklamasını kontrol edin.
 
 **Genel GRC güvencesi · ayrı kapsam** bölümünü açarak genel güvence değerlendirmesini, kaynak durumunu ve yeniden değerlendirme aksiyonunu görebilirsiniz. **Genel Güvence Paketi** bu bölümden indirilir; değerlendirme tamamlanmamışsa indirme kapalı kalır ve nedeni yanında açıklanır. Bu pakete yukarıdaki rapor filtreleri ve CAPA kapsamı uygulanmaz.
 

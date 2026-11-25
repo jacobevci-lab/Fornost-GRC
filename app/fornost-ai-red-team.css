@@ -9,7 +9,6 @@
 }
 .ai-red-team h3 {
   margin: 4px 0;
-  font-size: 23px;
 }
 .ai-red-team p,
 .ai-red-team small {
@@ -22,7 +21,6 @@
   border-radius: 7px;
   background: #a64916;
   color: #fff;
-  font-weight: 750;
 }
 .ai-red-team .stats {
   display: grid;
@@ -40,12 +38,10 @@
 }
 .ai-red-team .stats b {
   display: block;
-  font-size: 21px;
 }
 .ai-red-team .stats span,
 .ai-red-team small {
   display: block;
-  font-size: 11px;
 }
 .ai-red-team .grid {
   display: grid;
@@ -57,7 +53,6 @@
   display: grid;
   gap: 5px;
   margin: 7px 0;
-  font-size: 11px;
 }
 .ai-red-team input,
 .ai-red-team select,
@@ -106,7 +101,6 @@
   margin: 10px 0;
 }
 .ai-red-team .score strong {
-  font-size: 27px;
   color: #f09b55;
 }
 .ai-red-team dl {
@@ -114,7 +108,6 @@
   grid-template-columns: repeat(4, 1fr);
 }
 .ai-red-team dt {
-  font-size: 10px;
   color: var(--text-secondary);
 }
 .ai-red-team dd {
@@ -131,7 +124,6 @@
   border: 1px solid #9e4c30;
   border-radius: 99px;
   color: #f08b69;
-  font-size: 10px;
 }
 .ai-red-team footer {
   display: flex;

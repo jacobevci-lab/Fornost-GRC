@@ -33,7 +33,7 @@ Standart on-prem image amd64 ve `/fornost-grc` için derlenir. Host üzerinde uy
 
 1. Rol ve izinler sunucuda çözülür; tarayıcı beyanı yetki vermez. Trusted upstream kimlik yalnız açıkça yapılandırılmış sınır içinde kabul edilir; on-prem proxy ilgili kimlik başlıklarını temizler.
 2. Yazma işlemleri kimlik, rol/modül, same-origin, payload ve alan kontrollerinden geçer. Yaşam döngüleri ek atama/bağımsızlık ve güncel sürüm kontrolleri uygular.
-3. Modül izni bütün modül kayıtlarını kapsar; satır/departman/alan bazlı yetkilendirme değildir. Paylaşılan kurumsal veri kümeleri kısıtlı hesaplara açık sayılmaz.
+3. Modül izinleri, `org_entity` iştirak/iş birimi kapsamıyla birlikte sunucuda uygulanır. Grup hesabının konsolide okuması ile iştirak hesabının atanmış kapsamı ayrıdır; istemci kapsam seçimi yetki vermez. Alan bazlı veya dış denetçi engagement yetkisi değildir. [Enterprise kapsamı](enterprise-scale-delivery.md).
 4. Kanıt dosyaları yetkili endpoint üzerinden okunur; kullanıcı URL'si kanıt yetkisini aşmaz. İncelemeye sunulan sürüm kimliği sonraki upload ile değiştirilmez.
 5. Entegrasyon sırları AES-GCM ile saklanır. Model veritabanına doğrudan bağlanmaz; sunucu izinli bağlamı ve veri çıkış politikasını uygular.
 6. Connector uçları sunucu tarafında HTTP istekleri oluşturur; public/private adres politikası, redirect yasağı ve süre/boyut sınırları kullanılır. Bu kontroller her olası ağ saldırısının veya DNS rebinding'in engellendiği iddiası değildir.
@@ -58,3 +58,9 @@ Denetim talepleri mevcut notification outbox/dispatcher'ı kullanır. Gönderimd
 Build `dist/server/index.js` ve hosting manifestini üretir. Sürüm; CI kalite/güvenlik kontrolleri, Docker/Podman testleri ve değişiklik kapsamına göre browser QA ile doğrulanır. Main dağıtımlarında canlı revision kontrolü yapılır. Şema değişiklikleri [şema başlatma sözleşmesine](onprem/schema-initialization.md) uymalıdır.
 
 [TEST-STRATEGY.md](TEST-STRATEGY.md) test kapsamını, [PRODUCTION-READINESS.md](PRODUCTION-READINESS.md) kurulum özelinde kabul koşullarını tanımlar.
+
+## Arayüz kaynak sahipliği
+
+Güncel arayüz [tasarım sözleşmesini](DESIGN-SYSTEM.md) kullanır. `compact-typography.css` font/ölçek, `compact-density.css` alan/tablo/KPI geometrisi, `workspace-system.css` shell ve tema token’larının sahibidir. Modül CSS’leri yerleşimi tanımlar. Kullanılmayan dashboard/tema denemeleri çalışma ağacından kaldırılmıştır; tarihsel kaynaklar Git geçmişindedir.
+
+Doğrudan madde güvencesi, isteğe bağlı ortak kontrol yoluna ek olarak onaylı EVD/yayındaki POL ve bağımsız madde kararını değerlendirir. Kaynak değişirse karar güncelliği yeniden hesaplanır. Ayrıntılar: [madde güvencesi](direct-requirement-assurance.md).

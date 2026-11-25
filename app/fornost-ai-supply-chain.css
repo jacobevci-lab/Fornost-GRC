@@ -9,7 +9,6 @@
 }
 .ai-supply h3 {
   margin: 4px 0;
-  font-size: 23px;
 }
 .ai-supply p {
   color: var(--text-secondary);
@@ -21,7 +20,6 @@
   border-radius: 7px;
   background: #8f451b;
   color: #fff;
-  font-weight: 750;
 }
 .ai-supply .stats {
   display: grid;
@@ -39,10 +37,8 @@
 }
 .ai-supply .stats b {
   display: block;
-  font-size: 21px;
 }
 .ai-supply .stats span {
-  font-size: 11px;
   color: var(--text-secondary);
 }
 .ai-supply .grid {
@@ -55,7 +51,6 @@
   display: grid;
   gap: 5px;
   margin: 7px 0;
-  font-size: 11px;
 }
 .ai-supply input,
 .ai-supply select,
@@ -99,15 +94,11 @@
   display: block;
   color: var(--text-secondary);
 }
-.ai-supply code {
-  font-size: 11px;
-}
 .ai-supply dl {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
 }
 .ai-supply dt {
-  font-size: 10px;
   color: var(--text-secondary);
 }
 .ai-supply dd {
@@ -124,7 +115,6 @@
   border: 1px solid #87503b;
   border-radius: 99px;
   color: #e28b61;
-  font-size: 10px;
 }
 .ai-supply footer {
   display: flex;

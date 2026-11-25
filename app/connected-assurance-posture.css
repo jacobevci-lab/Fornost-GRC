@@ -16,22 +16,17 @@
 .connected-lifecycle-posture article span{display:block}
 .connected-lifecycle-posture article small{
   color:var(--ws-faint);
-  font-size:7px;
-  font-weight:800;
   letter-spacing:.07em;
   text-transform:uppercase;
 }
 .connected-lifecycle-posture article strong{
   margin:7px 0 4px;
   color:var(--ws-ink);
-  font-size:20px;
-  line-height:1;
   letter-spacing:-.04em;
 }
 .connected-lifecycle-posture article span{
   overflow:hidden;
   color:var(--ws-muted);
-  font-size:7px;
   text-overflow:ellipsis;
   white-space:nowrap;
 }

@@ -1,6 +1,6 @@
 .record-dialog .risk-editor-group { display:grid; align-content:start; gap:.6rem; min-width:0; margin:0; padding:.8rem; border:1px solid var(--ws-line); border-radius:10px; color:var(--ws-ink); background:var(--ws-surface) }
-.risk-editor-group legend { padding:0 .35rem; font-weight:650 }
-.risk-editor-group button { font:inherit; color:var(--ws-ink); cursor:pointer }
+.risk-editor-group legend { padding:0 .35rem }
+.risk-editor-group button { color:var(--ws-ink); cursor:pointer }
 .risk-editor-group button:focus-visible,.risk-choice input:focus-visible { outline:2px solid var(--ws-brand); outline-offset:2px }
 .risk-choice { min-width:0 }
 .risk-choice input { width:100% }

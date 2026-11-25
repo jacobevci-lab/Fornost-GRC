@@ -6,7 +6,7 @@ const schema = readFileSync("app/register-view-schema.ts", "utf8");
 const page = readFileSync("app/page.tsx", "utf8");
 const importDialog = readFileSync("app/register-import-modal.tsx", "utf8");
 const css = readFileSync("app/module-registers.css", "utf8");
-const finalCss = readFileSync("app/final-polish.css", "utf8");
+const actionsCss = readFileSync("app/production-hardening.css", "utf8");
 
 test("module registers expose persistent column selection and module filters", () => {
   assert.match(page, /fornost-grc-columns/);
@@ -49,7 +49,7 @@ test("record timestamps are mapped from the API and visible in every register", 
 });
 
 test("register layout contains readable and overflow-safe desktop and mobile rules", () => {
-  assert.match(css, /\.smart-table td,.risk-table td\{max-width:320px;font-size:13px!important/);
+  assert.match(css, /\.smart-table td,.risk-table td\{max-width:320px;/);
   assert.match(css, /@media\(max-width:1500px\)\{\.risk-overview\{grid-template-columns:1fr!important/);
   assert.match(css, /@media\(max-width:720px\)/);
   assert.match(css, /\.column-picker\{position:fixed/);
@@ -60,9 +60,9 @@ test("register layout contains readable and overflow-safe desktop and mobile rul
 test("record actions remain readable in every shared register", () => {
   assert.equal((page.match(/className="row-actions-column" style=\{\{ width: 180 \}\}/g) || []).length, 2);
   assert.equal((page.match(/className="row-actions-cell"/g) || []).length, 2);
-  assert.match(finalCss, /\.row-actions\{[^}]*min-width:max-content[^}]*flex-wrap:nowrap[^}]*opacity:1!important/);
-  assert.match(finalCss, /\.row-actions button\{[^}]*min-width:66px[^}]*white-space:nowrap[^}]*word-break:keep-all/);
-  assert.match(finalCss, /\.row-actions button:last-child\{[^}]*#d92d20/);
+  assert.match(actionsCss, /\.row-actions button\{[^}]*opacity:1 !important/);
+  assert.match(css, /\.row-actions-cell,\.row-actions-heading/);
+  assert.match(css, /position:sticky;right:0/);
   assert.doesNotMatch(page, /<col style=\{\{ width: 120 \}\} \/>/);
 });
 

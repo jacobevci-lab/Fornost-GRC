@@ -19,6 +19,7 @@ jobs:
           node-version: 22.13.0
           cache: npm
       - run: npm ci
+      - run: npm run check:design
       - run: npm run lint
       - run: npm run db:validate
       - name: Typecheck

@@ -54,21 +54,21 @@ html[data-theme][data-palette] body .shell>main>header .header-context :is(h1,sm
 html[data-theme][data-palette="nar"] .header-actions .header-live {background:var(--ws-surface)!important;color:var(--ws-ink)!important}
 html[data-theme][data-palette] .shell>main {background:var(--ws-bg)!important}
 
-.shell>aside button.appearance-launcher{flex:none;display:flex;align-items:center;gap:9px;margin:2px 10px;padding:7px 10px;background:transparent;border:0;border-radius:6px;color:var(--ws-muted);font:inherit;cursor:pointer}
+.shell>aside button.appearance-launcher{flex:none;display:flex;align-items:center;gap:9px;margin:2px 10px;padding:7px 10px;background:transparent;border:0;border-radius:6px;color:var(--ws-muted);cursor:pointer}
 .appearance-launcher svg{width:18px;height:18px;flex:none}
 .shell>aside .appearance-launcher:hover{background:var(--ws-brand-soft)}
 @media(min-width:901px){.shell.sidebar-compact button.appearance-launcher{justify-content:center}.sidebar-compact .appearance-launcher span{display:none}.sidebar-hidden .appearance-launcher{visibility:hidden}}
-.appearance-dialog {width:min(520px,calc(100vw - 28px));max-height:calc(100dvh - 28px);box-sizing:border-box;overflow:auto;margin:auto;padding:24px;border:1px solid var(--ws-line-strong);border-radius:14px;background:var(--ws-surface);color:var(--ws-ink);font:inherit}
+.appearance-dialog {width:min(520px,calc(100vw - 28px));max-height:calc(100dvh - 28px);box-sizing:border-box;overflow:auto;margin:auto;padding:24px;border:1px solid var(--ws-line-strong);border-radius:14px;background:var(--ws-surface);color:var(--ws-ink)}
 .appearance-dialog::backdrop {background:rgb(15 18 19 / 32%)}
-.appearance-dialog h2{margin:0;font-size:20px}.appearance-dialog p{font-size:14px;color:var(--ws-muted);line-height:1.5;margin:8px 0 16px}
-.appearance-dialog fieldset{border:0;padding:0;margin:0;min-inline-size:0}.appearance-dialog legend{padding:0;font-weight:650;margin-bottom:8px}
+.appearance-dialog h2{margin:0}.appearance-dialog p{color:var(--ws-muted);margin:8px 0 16px}
+.appearance-dialog fieldset{border:0;padding:0;margin:0;min-inline-size:0}.appearance-dialog legend{padding:0;margin-bottom:8px}
 .appearance-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .appearance-options label{min-width:0;position:relative;cursor:pointer}
 .appearance-options input{position:absolute;opacity:0;width:1px;height:1px}
 .appearance-card{display:block;padding:9px;border:1px solid var(--ws-line-strong);border-radius:8px}
 .appearance-options input:checked+.appearance-card{box-shadow:inset 0 0 0 2px var(--ws-brand)}
 .appearance-options input:focus-visible+.appearance-card{outline:2px solid var(--ws-ink);outline-offset:2px}
-.appearance-caption{display:flex;justify-content:space-between;align-items:center;gap:4px;margin-top:8px;font-size:13px;font-weight:650}
+.appearance-caption{display:flex;justify-content:space-between;align-items:center;gap:4px;margin-top:8px}
 .appearance-caption b{visibility:hidden}.appearance-options input:checked+.appearance-card b{visibility:visible}
 .appearance-sample[data-sample="default"]{--ap-page:#eeeae3;--ap-rail:#f4f1eb;--ap-bar:#f4f1eb;--ap-panel:#fffdf9;--ap-mark:#087169}
 html[data-theme="dark"] .appearance-sample[data-sample="default"]{--ap-page:#0f1516;--ap-rail:#121b1c;--ap-bar:#172021;--ap-panel:#1d292a;--ap-mark:#59d0c5}
@@ -78,6 +78,6 @@ html[data-theme="dark"] .appearance-sample[data-sample="default"]{--ap-page:#0f1
 .appearance-sample span{position:absolute;inset:37% 6% 12% 28%;background:var(--ap-panel);border:1px solid rgb(120 120 120 / 25%)}
 .appearance-sample em{position:absolute;inset:32% auto auto 3%;height:12%;width:17%;background:var(--ap-mark);border-radius:2px}
 .appearance-dialog footer{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
-.appearance-dialog button{font:inherit;font-size:14px;padding:8px 14px;border-radius:6px;background:var(--ws-surface-2);color:var(--ws-ink);border:1px solid var(--ws-line-strong);cursor:pointer}
+.appearance-dialog button{padding:8px 14px;border-radius:6px;background:var(--ws-surface-2);color:var(--ws-ink);border:1px solid var(--ws-line-strong);cursor:pointer}
 .appearance-dialog button.primary{background:var(--ws-brand)!important;color:var(--fornost-on-brand)!important}
 .appearance-dialog button:disabled{opacity:.55;cursor:default}

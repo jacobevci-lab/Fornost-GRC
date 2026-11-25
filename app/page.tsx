@@ -2917,7 +2917,7 @@ function Field({
   return (
     <label className={wide ? "wide" : ""}>
       {module==="Varlık Envanteri" && k==="status" ? (lang==="tr"?"Yaşam Döngüsü":"Lifecycle") : labelMap[lang][k]}
-      {k === "framework" && <span style={{display:"block",fontWeight:400}}>{getCatalogStatus(String(value))[lang]}</span>}
+      {k === "framework" && <span style={{display:"block"}}>{getCatalogStatus(String(value))[lang]}</span>}
       {k === "framework" ? (
         <select
           name={k}

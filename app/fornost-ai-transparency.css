@@ -9,7 +9,6 @@
 }
 .ai-transparency h3 {
   margin: 4px 0;
-  font-size: 23px;
 }
 .ai-transparency p,
 .ai-transparency small {
@@ -22,7 +21,6 @@
   border-radius: 7px;
   background: #9f4316;
   color: #fff;
-  font-weight: 750;
 }
 .ai-transparency .stats {
   display: grid;
@@ -40,12 +38,10 @@
 }
 .ai-transparency .stats b {
   display: block;
-  font-size: 21px;
 }
 .ai-transparency .stats span,
 .ai-transparency small {
   display: block;
-  font-size: 11px;
 }
 .ai-transparency > nav {
   display: flex;
@@ -67,7 +63,6 @@
   display: grid;
   gap: 5px;
   margin: 7px 0;
-  font-size: 11px;
 }
 .ai-transparency input,
 .ai-transparency select,
@@ -95,7 +90,6 @@
   gap: 10px;
 }
 .ai-transparency dt {
-  font-size: 10px;
   color: var(--text-secondary);
 }
 .ai-transparency dd {
@@ -118,7 +112,6 @@
   border: 1px solid #98503a;
   border-radius: 99px;
   color: #ed8b68;
-  font-size: 10px;
 }
 .ai-transparency footer {
   display: flex;

@@ -1,5 +1,5 @@
 /* Imported as the FIRST cascade layer by globals.css. Important declarations in
- * this layer outrank legacy unlayered module rules without a specificity race.
+ * this layer own native controls and detached surfaces without a specificity race.
  * Compact spacing is owned by compact-density.css in the same layer.
  * Components retain their layout, colors and visibility. The root stays at 100%.
  */

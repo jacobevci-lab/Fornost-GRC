@@ -50,14 +50,13 @@ __pycache__/
 # Local Cloudflare development secrets
 .dev.vars
 
-/integration-desk-qa-artifacts/
 *.tsbuildinfo
 
 /public/fornost-ocr/
 
-/ai-grc-qa-artifacts/
 
 /services/identity-bridge/node_modules/
-/enterprise-login-qa-artifacts/
 
-/report-localization-qa-artifacts/
+
+# Local browser QA evidence (published as CI artifacts)
+/*-qa-artifacts/

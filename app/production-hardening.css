@@ -37,19 +37,6 @@ html[data-theme="dark"]{
   filter:none !important;
 }
 
-.platform-state,
-.aside-note b,.aside-note p,
-.sidebar-view-controls>span,.sidebar-view-controls em,
-.settings-page footer,.catalog-grid footer,
-.workspace-dashboard footer{
-  font-size:11px !important;
-  line-height:1.4 !important;
-}
-.workspace-dashboard i:not(:empty){
-  font-size:11px !important;
-  line-height:1 !important;
-}
-
 .rap-grid>section>header small,
 .plm-grid>section>header small{
   color:#a64b0b !important;
@@ -147,7 +134,6 @@ input.fornost-hit-target[type="radio"]{
 
 .context-ai-trigger,.command-trigger,.theme-toggle,.language-switch button{
   white-space:nowrap !important;
-  line-height:1 !important;
 }
 .language-switch button{
   min-height:32px !important;

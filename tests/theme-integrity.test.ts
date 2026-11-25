@@ -32,11 +32,11 @@ test("the final authority contains no retired blue, navy or violet literals", ()
   assert.doesNotMatch(css, retired);
 });
 
-test("desktop typography follows the requested compact scale", () => {
-  assert.match(css, /html\[data-theme\] body \.shell>main :where\(div,p,span,small,b,strong,label,button,a,td,th,dt,dd,li,em,time,code,input,select,textarea,kbd,summary\):not\(:where\(\.executive-action-workspace, \.executive-action-workspace \*\)\)\{font-size:max\(10px,\.625rem\)!important/);
-  assert.match(css, /html\[data-theme\] body \.shell>main :where\(input,select,textarea\)\{font-size:max\(11px,\.6875rem\)!important/);
-  assert.match(css, /\.shell>aside :where\(small,span,b,p,em\)\{font-size:10px!important/);
-  assert.match(css, /\.fornost-ai-launcher :where\(span,i\)\{font-size:10px!important/);
+test("typography is owned by the shared compact contract, not theme skins", () => {
+  const typography = readFileSync("app/compact-typography.css", "utf8");
+  assert.doesNotMatch(css, /font-size:max\(|font-size:18px/);
+  for (const token of ["--grc-text-data: .75rem", "--grc-text-page: .9375rem", "--grc-text-kpi: 1.0625rem"])
+    assert.ok(typography.includes(token), token);
 });
 
 test("dark modules use the approved amber heading accent without changing body copy", () => {
@@ -51,8 +51,8 @@ test("dark modules use the approved amber heading accent without changing body c
   ]) assert.ok(css.includes(selector), selector);
   assert.match(css, /html\[data-theme="dark"\] body :is\(\.code,td>a,/);
   assert.match(css, /html\[data-theme="dark"\] body :is\(\.audit-overview,\.module-overview,\.integration-hub>header,\.settings-card-head,\.soc2-readiness-card\)/);
-  assert.match(css, /\.module-head h2\{font-size:18px!important;font-weight:740!important/);
-  assert.match(css, /\.smart-table \.evidence-link b,\.audit-requirement-cell b\{font-size:10px!important/);
+  assert.match(css, /\.module-head h2\{letter-spacing:/);
+  assert.match(css, /\.evidence-link small\{color:var\(--ws-muted\)/);
   assert.match(page, /className="module-kicker"/);
 });
 

@@ -1,29 +1,28 @@
 
 #ai-governance-workspace .ag-workspace{display:grid;align-content:start;gap:16px;min-width:0;color:var(--ws-ink)}
-.ag-workspace h2,.ag-dialog h2,.ag-workspace h3{margin:0;line-height:1.3}
+.ag-workspace h2,.ag-dialog h2,.ag-workspace h3{margin:0}
 .ag-row,.ag-actions,.ag-links,.ag-filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .ag-row{justify-content:space-between}.ag-actions{align-items:stretch}.ag-links{justify-content:flex-end}
-.ag-workspace button,.ag-workspace a,.ag-dialog button{font:inherit;font-size:.875rem;line-height:1.35;text-decoration:none;cursor:pointer;border:1px solid var(--ws-line);border-radius:7px;background:var(--ws-surface);color:var(--ws-ink);padding:8px 12px}
+.ag-workspace button,.ag-workspace a,.ag-dialog button{text-decoration:none;cursor:pointer;border:1px solid var(--ws-line);border-radius:7px;background:var(--ws-surface);color:var(--ws-ink);padding:8px 12px}
 .ag-workspace button:hover,.ag-workspace a:hover,.ag-dialog button:hover{border-color:var(--ws-brand)}
-.ag-workspace .ag-primary,.ag-dialog .ag-primary{background:var(--ws-brand);color:var(--ws-on-brand,#fff);font-weight:650}
+.ag-workspace .ag-primary,.ag-dialog .ag-primary{background:var(--ws-brand);color:var(--ws-on-brand,#fff)}
 .ag-workspace button:disabled,.ag-dialog button:disabled{cursor:default;opacity:.6}
 .ag-workspace :is(button,a,input,select,textarea):focus-visible,.ag-dialog :focus-visible{outline:2px solid var(--ws-brand);outline-offset:2px}
 .ag-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
-.ag-workspace .ag-kpis button{display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;gap:12px;padding:14px;text-align:start}
-.ag-kpis strong{font-size:1.6rem;line-height:1}.ag-kpis button[aria-pressed=true],.ag-nav button[aria-current]{border-color:var(--ws-brand);box-shadow:inset 0 -3px var(--ws-brand)}
+.ag-workspace .ag-kpis button{display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;gap:12px;padding:14px;text-align:start}.ag-kpis button[aria-pressed=true],.ag-nav button[aria-current]{border-color:var(--ws-brand);box-shadow:inset 0 -3px var(--ws-brand)}
 .ag-nav{display:flex;gap:5px;overflow-x:auto;padding:3px 2px 6px}.ag-nav button{white-space:nowrap}
 .ag-content,.ag-assess,.ag-form{display:grid;gap:15px;min-width:0}.ag-content{padding:16px;border:1px solid var(--ws-line);border-radius:10px;background:var(--ws-surface);align-content:start}
-.ag-workspace p,.ag-dialog p{margin:4px 0;line-height:1.5}.ag-empty{padding:16px 4px;color:var(--ws-muted)}
+.ag-workspace p,.ag-dialog p{margin:4px 0}.ag-empty{padding:16px 4px;color:var(--ws-muted)}
 .ag-queue{display:grid;gap:0;margin:0;padding:0;list-style:none}.ag-queue li{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 0;border-bottom:1px solid var(--ws-line)}
 .ag-workspace small{display:block;color:var(--ws-muted);padding-block:3px}.ag-table{overflow-x:auto;max-width:100%}
-.ag-table table{width:100%;border-collapse:collapse;font-size:.875rem}.ag-table th,.ag-table td{padding:10px 8px;text-align:start;vertical-align:top;border-bottom:1px solid var(--ws-line)}
-.ag-table th{color:var(--ws-muted);white-space:nowrap}.ag-tag{display:inline-block;border:1px solid var(--ws-line);border-radius:6px;padding:2px 6px;font-size:.8rem}.ag-tag[data-risk=high],.ag-tag[data-risk=prohibited]{font-weight:bold;border-style:double;border-width:3px}
+.ag-table table{width:100%;border-collapse:collapse}.ag-table th,.ag-table td{padding:10px 8px;text-align:start;vertical-align:top;border-bottom:1px solid var(--ws-line)}
+.ag-table th{color:var(--ws-muted);white-space:nowrap}.ag-tag{display:inline-block;border:1px solid var(--ws-line);border-radius:6px;padding:2px 6px}.ag-tag[data-risk=high],.ag-tag[data-risk=prohibited]{border-style:double;border-width:3px}
 .ag-dialog{width:min(840px,calc(100vw - 24px));max-height:88dvh;overflow:auto;box-sizing:border-box;border:1px solid var(--ws-line);border-radius:12px;background:var(--ws-surface);color:var(--ws-ink);padding:0 20px 20px;overscroll-behavior:contain}.ag-dialog[open]{display:block}
 .ag-dialog::backdrop{background:rgb(0 0 0 / .55)}.ag-dialog>header{background:var(--ws-surface);padding:16px 0;margin-bottom:12px;border-bottom:1px solid var(--ws-line)}
-.ag-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.ag-workspace fieldset,.ag-dialog fieldset{display:grid;gap:10px;border:1px solid var(--ws-line);padding:12px;border-radius:8px;min-width:0;margin:0}.ag-workspace legend,.ag-dialog legend{font-weight:650;padding:0 5px}
-.ag-workspace label,.ag-dialog label{display:grid;gap:5px;align-content:start;min-width:0;font-size:.875rem}
+.ag-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.ag-workspace fieldset,.ag-dialog fieldset{display:grid;gap:10px;border:1px solid var(--ws-line);padding:12px;border-radius:8px;min-width:0;margin:0}.ag-workspace legend,.ag-dialog legend{padding:0 5px}
+.ag-workspace label,.ag-dialog label{display:grid;gap:5px;align-content:start;min-width:0}
 .ag-workspace .ag-check,.ag-dialog .ag-check{display:flex;align-items:center;gap:8px}
-.ag-workspace :is(input:not([type=checkbox]),select,textarea),.ag-dialog :is(input:not([type=checkbox]),select,textarea){box-sizing:border-box;background:var(--ws-bg,var(--ws-surface));color:var(--ws-ink);border:1px solid var(--ws-line);min-height:36px;border-radius:6px;padding:7px 9px;max-width:100%;width:100%;font:inherit}
+.ag-workspace :is(input:not([type=checkbox]),select,textarea),.ag-dialog :is(input:not([type=checkbox]),select,textarea){box-sizing:border-box;background:var(--ws-bg,var(--ws-surface));color:var(--ws-ink);border:1px solid var(--ws-line);min-height:36px;border-radius:6px;padding:7px 9px;max-width:100%;width:100%}
 .ag-workspace input[type=checkbox],.ag-dialog input[type=checkbox]{width:16px;height:16px;accent-color:var(--ws-brand)}.ag-filters{align-items:end}.ag-select{max-width:32rem}
 .ag-dialog footer{display:flex;justify-content:flex-end}.ag-dialog [role=alert],.ag-workspace [role=alert]{border-inline-start:3px solid currentColor;padding:8px 12px}
 @media(max-width:940px){.ag-kpis{grid-template-columns:repeat(auto-fit,minmax(135px,1fr))}}

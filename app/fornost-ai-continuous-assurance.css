@@ -9,7 +9,6 @@
 }
 .ai-assurance h3 {
   margin: 4px 0;
-  font-size: 23px;
 }
 .ai-assurance p,
 .ai-assurance small {
@@ -22,7 +21,6 @@
   border-radius: 7px;
   background: #9f4316;
   color: #fff;
-  font-weight: 750;
 }
 .ai-assurance .stats {
   display: grid;
@@ -40,12 +38,10 @@
 }
 .ai-assurance .stats b {
   display: block;
-  font-size: 21px;
 }
 .ai-assurance .stats span,
 .ai-assurance small {
   display: block;
-  font-size: 11px;
 }
 .ai-assurance .grid {
   display: grid;
@@ -57,7 +53,6 @@
   display: grid;
   gap: 5px;
   margin: 7px 0;
-  font-size: 11px;
 }
 .ai-assurance input,
 .ai-assurance select,
@@ -98,7 +93,6 @@
   padding: 5px 8px;
   border: 1px solid var(--border);
   border-radius: 99px;
-  font-size: 10px;
 }
 .ai-assurance .breaches span {
   border-color: #98503a;
@@ -109,7 +103,6 @@
   grid-template-columns: repeat(4, 1fr);
 }
 .ai-assurance dt {
-  font-size: 10px;
   color: var(--text-secondary);
 }
 .ai-assurance dd {
