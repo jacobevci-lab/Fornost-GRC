@@ -65,6 +65,22 @@ body {
   text-transform: uppercase !important;
   letter-spacing: .08em !important;
 }
+/* Navigation hierarchy belongs in this layer so generic button rules cannot
+ * flatten group headings and selected pages to the same medium weight. */
+:where(.nav-group-trigger, .nav-group>small, .nav-section>small) {
+  font-size: var(--grc-text-detail) !important;
+  font-weight: 700 !important;
+  color: var(--ws-ink) !important;
+}
+:where(.nav-group.is-open>.nav-group-trigger) {
+  color: var(--ws-brand-2) !important;
+}
+:where(.nav-group-items>button, .nav-section>button) {
+  font-weight: 500 !important;
+}
+:where(.nav-group-items>button[aria-current="page"], .nav-section>button.active) {
+  font-weight: 600 !important;
+}
 :where(td small, td .code, td code, td .row-subtitle, td .subline) {
   font-size: var(--grc-text-detail) !important;
   line-height: var(--grc-leading-data) !important;

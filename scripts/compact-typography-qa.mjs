@@ -35,7 +35,8 @@ async function check(p,name,{screenshot=true}={}){
    // fields/actions still have an exact twelve-pixel contract.
    const controlSize=el.matches('button.domain-link')?13
     :el.matches('button.code')&&el.closest('td')?10.5
-    :el.matches('button.nav-group-trigger,button.tag,button.risk')||(el.matches('button')&&/(badge|pill|state|status)/.test(el.className))?10:12;
+    :el.matches('button.nav-group-trigger')?10.5
+    :el.matches('button.tag,button.risk')||(el.matches('button')&&/(badge|pill|state|status)/.test(el.className))?10:12;
    if(el.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea,button')&&Math.abs(size-controlSize)>.1)controls.push({element:describe(el),size,expected:controlSize});
    if(el.matches('h1,h2,h3,h4,h5,h6')&&(size>15||s.fontWeight!=='600'))headings.push({element:describe(el),size,weight:s.fontWeight});
    if(el.matches('h1,h2,h3,h4,h5,h6,th,td,label,input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea,button')){
