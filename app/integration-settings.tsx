@@ -1,11 +1,14 @@
 "use client";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {emailFieldLabels,emailSettingsForDisplay} from './email-settings-display';
 import { withBasePath } from "./base-path";
 import AssuranceNotificationSettings from "./assurance-notification-settings";
 import AssuranceNotificationStormSettings from "./assurance-notification-storm-settings";
 import IntegrationConnectionDesk from "./integration-connection-desk";
 
+const subscribeToOrigin=()=>()=>{};
+const currentApplicationUrl=()=>window.location.origin+withBasePath("/");
+const serverApplicationUrl=()=>"";
 type Lang="tr"|"en";
 type Kind="ticketing"|"email"|"identity";
 type Form={provider:string;enabled:boolean;secret:string;config:Record<string,string|boolean>};
@@ -60,8 +63,7 @@ function LegacyIntegrationSettings({lang,kind}:{lang:Lang;kind:Kind}){
 }
 
 function IntegrationCard({kind,title,desc,form,tr,busy,setForm,setConfig,save,test,extra,wide,note}:{kind:Kind;title:string;desc:string;form:Form;tr:boolean;busy:string;setForm:(k:Kind,p:Partial<Form>)=>void;setConfig:(k:Kind,key:string,value:string|boolean)=>void;save:(k:Kind,e:FormEvent)=>void;test:()=>void;extra?:React.ReactNode;wide?:boolean;note?:string}){
- const [suggestedUrl,setSuggestedUrl]=useState("");
- useEffect(()=>{setSuggestedUrl(window.location.origin+withBasePath("/"));},[]);
+ const suggestedUrl=useSyncExternalStore(subscribeToOrigin,currentApplicationUrl,serverApplicationUrl);
  const fields=useMemo(()=>fieldMap[form.provider]||[],[form.provider]);
  return <form className={`integration-card${wide?" integration-wide":""}`} onSubmit={e=>save(kind,e)}><header><div><h4>{title}</h4><p>{desc}</p></div><label className="integration-switch"><input type="checkbox" checked={form.enabled} onChange={e=>setForm(kind,{enabled:e.target.checked})}/><i/><span>{form.enabled?(tr?"Etkin":"Enabled"):(tr?"Kapalı":"Off")}</span></label></header><div className="integration-fields"><label className="integration-field wide"><span>{tr?"Sağlayıcı":"Provider"}</span><select value={form.provider} onChange={e=>setForm(kind,{provider:e.target.value,config:kind==="email"?{applicationUrl:form.config.applicationUrl||""}:{}})}>{providers[kind].map(x=><option key={x.value} value={x.value}>{tr&&kind==="email"?(emailFieldLabels[x.label]||x.label):x.label}</option>)}</select></label>{kind==="email"&&<label className="integration-field wide"><span>{tr?"Uygulama adresi (görev bağlantıları)":"Application URL (task links)"}</span><input aria-label={tr?"Uygulama adresi (görev bağlantıları)":"Application URL (task links)"} type="url" value={String(form.config.applicationUrl||"")} placeholder={suggestedUrl} onChange={e=>setConfig(kind,"applicationUrl",e.target.value)}/><small>{!form.config.applicationUrl&&suggestedUrl&&<><span>{tr?"Önerilen adres: ":"Suggested URL: "}{suggestedUrl}</span> <button type="button" className="ghost" onClick={()=>setConfig(kind,"applicationUrl",suggestedUrl)}>{tr?"Bu adresi kullan":"Use this URL"}</button><br/></>}{tr?"Denetim e-postalarından ilgili görevi açar. Kurulumun tam HTTPS adresini girin; boşsa e-posta menü yolunu gösterir. Bağlantılar oturum ve mevcut yetkileri gerektirir.":"Opens the matching task from audit emails. Enter the full installation HTTPS URL; leave blank to keep menu instructions. Links require sign-in and existing permissions."}</small></label>}{fields.map(field=><label className="integration-field" key={field.key}><span>{tr&&kind==="email"?(emailFieldLabels[field.label]||field.label):field.label}</span><input type={field.type||"text"} value={String(form.config[field.key]??"")} placeholder={field.placeholder} onChange={e=>setConfig(kind,field.key,e.target.value)}/></label>)}<label className="integration-field"><span>{kind==="identity"?(tr?"Client Secret / Bind Secret":"Client Secret / Bind Secret"):(tr?"API Anahtarı / Parola":"API Token / Password")}</span><input type="password" autoComplete="new-password" value={form.secret} onChange={e=>setForm(kind,{secret:e.target.value})} placeholder={tr?"Kaydedildikten sonra gösterilmez":"Never shown after saving"}/></label>{extra}{note&&<p className="integration-note wide">{note}</p>}</div><footer><button type="button" className="ghost" disabled={!form.enabled||!!busy} onClick={test}>{busy===`${kind}:test`?(tr?"Test ediliyor…":"Testing…"):(tr?"Bağlantıyı Test Et":"Test Connection")}</button><button className="primary" disabled={!!busy}>{busy===`${kind}:save`?(tr?"Kaydediliyor…":"Saving…"):(tr?"Kaydet":"Save")}</button></footer></form>;
 }
