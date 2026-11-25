@@ -1,5 +1,6 @@
 "use client";
 import IntegrationCenter from "./exchange/integration-center";
+import AuthenticationAudit from "./authentication/audit";
 import {EnterpriseAudit} from './enterprise/audit';
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { withBasePath } from "./base-path";
@@ -68,7 +69,7 @@ export default function Settings({ lang, currentUser, catalogs, onCatalogChange,
     <section className="module-head settings-head"><div><small>{tr?"YÖNETİM KONSOLU":"ADMIN CONSOLE"}</small>{page==="workflow"&&<h2>{title}</h2>}<p>{description}</p></div><span className="admin-badge">{tr?"Yalnızca Yönetici":"Administrators only"}</span></section>
     {page==="workflow"&&<IntegrationCenter lang={lang}/>}
     {page==="email"&&<IntegrationSettings lang={lang} kind="email"/>}
-    {page==="ai"&&<AiSettings lang={lang}/>}{page==="audit"&&<><EnterpriseAudit tr={tr}/><AgentAuditTrail lang={lang}/></>}
+    {page==="ai"&&<AiSettings lang={lang}/>}{page==="audit"&&<><AuthenticationAudit lang={lang}/><EnterpriseAudit tr={tr}/><AgentAuditTrail lang={lang}/></>}
     {page==="identity"&&<IdentityAccessDesk lang={lang}/>}
     {page==="catalogs"&&<CatalogManager lang={lang} catalogs={catalogs} onChange={onCatalogChange}/>}
     {page==="system"&&<nav className="settings-subnav" aria-label={tr?"Sistem ayarı bölümleri":"System settings sections"}>{(["general","status","history"] as const).map(tab=><button type="button" key={tab} aria-current={systemTab===tab?"page":undefined} onClick={()=>setSystemTab(tab)}>{tab==="general"?(tr?"Genel Ayarlar":"General Settings"):tab==="status"?(tr?"Sistem Durumu":"System Status"):(tr?"Değişiklik Geçmişi":"Change History")}</button>)}<button type="button" aria-haspopup="dialog" onClick={onAppearance}>{tr?"Görünüm":"Appearance"}</button></nav>}

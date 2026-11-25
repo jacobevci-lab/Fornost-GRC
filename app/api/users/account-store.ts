@@ -1,3 +1,4 @@
+import {ensureAuthentication} from '../../authentication/schema';
 import {ensureEnterprise} from "../../enterprise/schema";
 import {entityAccess,entityFields,parseEntityAccess,grantGuard,grantSteps,type EntityAccess} from "./entity-access";
 import {FULL_ACCESS,parseModuleAccess,validateModuleAccess,type ModuleAccess} from "../../module-access";
@@ -30,6 +31,13 @@ function revision(state:State){return JSON.stringify([state.name,state.role,stat
 export function directoryEntry(row:Values&{failed_attempts?:number;locked_until?:string;created_at?:string}){
  const state=publicState(row);return {...state,failed_attempts:row.failed_attempts,locked_until:row.locked_until,created_at:row.created_at,revision:revision(state)};
 }
+// Evaluated in the same transaction as account changes, so concurrent edits cannot
+// remove the final authorized emergency administrator while required SSO is active.
+const emergencyAvailable=`NOT EXISTS(SELECT 1 FROM identity_login_config c
+ WHERE json_extract(c.config_json,'$.policy.requireSso')=1
+ AND NOT EXISTS(SELECT 1 FROM json_each(c.config_json,'$.policy.breakGlassUserIds') b
+ JOIN local_users emergency ON emergency.id=b.value
+ WHERE emergency.id!=u.id AND emergency.role='Admin' AND emergency.status='Active'))`;
 const eventExists="EXISTS(SELECT 1 FROM user_access_events WHERE id=?)";
 
 export async function createAccount(db:D1Database,actor:ActorKey,body:Record<string,unknown>,credentials:{hash:string;salt:string;iterations:number}){
@@ -54,6 +62,7 @@ export async function createAccount(db:D1Database,actor:ActorKey,body:Record<str
 }
 export async function changeAccount(db:D1Database,actor:ActorKey,body:Record<string,unknown>,remove:boolean){
  await ensureEnterprise(db);
+ await ensureAuthentication(db);
  const id=body.id;
  if(typeof id!=="string"||!id||id.length>100)throw invalid();
  const row=await db.prepare(`SELECT ${accountFields} ${directory} WHERE u.id=?`).bind(id).first<Values>();
@@ -80,7 +89,7 @@ export async function changeAccount(db:D1Database,actor:ActorKey,body:Record<str
  const needsOther=remove||role!=="Admin"||status!=="Active"||orgChanged&&org?.role!=="group-admin";
  // Claim the displayed state and recheck administrator authority and availability inside the transaction.
  const claim=db.prepare(`INSERT INTO user_access_events(id,user_id,actor,before_json,after_json,created_at)
-  SELECT ?,?,?,?,?,? ${directory} WHERE u.id=? AND u.name=? AND u.role=? AND u.status=? AND a.policy_json IS ? AND ${liveAdmin} AND ${needsOther?enoughAdmins:"1"} AND ${scopeGuard.sql}`)
+  SELECT ?,?,?,?,?,? ${directory} WHERE u.id=? AND u.name=? AND u.role=? AND u.status=? AND a.policy_json IS ? AND ${liveAdmin} AND ${needsOther?enoughAdmins:"1"} AND ${scopeGuard.sql} AND ${needsOther?emergencyAvailable:"1"}`)
   .bind(eventId,id,actor.email,JSON.stringify({...previous,orgScope:previousOrg}),JSON.stringify(after),now,id,row.name,row.role,row.status,row.policy_json,actor.id,actor.email,...scopeGuard.values);
  const steps=[claim];
  if(remove||changed)steps.push(db.prepare(`DELETE FROM local_sessions WHERE user_id=? AND ${eventExists}`).bind(id,eventId));
@@ -95,6 +104,7 @@ export async function changeAccount(db:D1Database,actor:ActorKey,body:Record<str
  if(orgChanged&&org)steps.push(...grantSteps(db,id,org,eventId));
  const result=await db.batch(steps);
  if(!result[0]?.meta?.changes){
+  if(needsOther&&!await db.prepare(`SELECT 1 FROM local_users u WHERE u.id=? AND ${emergencyAvailable}`).bind(id).first())throw new AccountError('last-emergency',409,'Son yetkili Break-Glass yöneticisi korunmalıdır. / Keep an authorized Break-Glass administrator.');
   if(needsOther&&row.role==="Admin"&&row.status==="Active"&&!await db.prepare("SELECT id FROM local_users WHERE id!=? AND role='Admin' AND status='Active' LIMIT 1").bind(id).first())throw lastAdmin();
   throw conflict();
  }

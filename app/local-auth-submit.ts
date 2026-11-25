@@ -1,6 +1,6 @@
 export type LocalAuthInput = {
-  action: 'login' | 'bootstrap' | 'demo_login';
-  name?: string; email?: string; password?: string;
+  action: 'login' | 'directory_login' | 'bootstrap' | 'demo_login';
+  name?: string; email?: string; username?:string; password?: string;
 };
 
 /** A write is sent exactly once: a lost response does not prove it was rejected. */
@@ -19,7 +19,7 @@ export async function submitLocalAuthentication(url: string, input: LocalAuthInp
     });
     const result = await response.json().catch(() => null);
     if (controller.signal.aborted) throw new Error('timeout');
-    if (!response.ok) throw new Error(typeof result?.error === 'string' ? result.error.slice(0, 300) : 'Giriş servisi yanıt veremedi. Oturum durumunu kontrol edin.');
+    if (!response.ok) throw Object.assign(new Error(typeof result?.error === 'string' ? result.error.slice(0, 300) : 'Giriş servisi yanıt veremedi. Oturum durumunu kontrol edin.'),{code:typeof result?.code==='string'?result.code:''});
     if (result?.ok !== true) throw new Error('İşlem sonucu doğrulanamadı. Oturum durumunu kontrol edin.');
   } catch (error) {
     if (controller.signal.aborted) throw new Error('İşlem zaman aşımına uğradı. Yeniden göndermeden önce oturum durumunu kontrol edin.');

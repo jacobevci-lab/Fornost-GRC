@@ -22,7 +22,7 @@ try {
    await route.fulfill({ status: 401, json: { error: 'QA rejected credentials' } }).catch(() => {});
   });
   await page.goto(base);
-  await expect(page.getByRole('heading', { name: 'Yerel Hesapla Giriş' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Kurumsal Çalışma Alanı Girişi' })).toBeVisible();
   await page.locator('input[name=email]').fill('qa-admin@fornost.test');
   await page.locator('input[name=password]').fill(qaPassword());
   await page.getByRole('button', { name: 'Giriş Yap', exact: true }).click();

@@ -1,12 +1,15 @@
+import {signInSession} from '../../authentication/runtime';
+import {passwordLogin} from "../../authentication/password-login";
+import {readLoginConfig,authEvent} from "../../authentication/store";
+import {publicLoginOptions} from "../../authentication/model";
 import { JsonBodyError, readBoundedJsonObject } from "../request-body";
 import { NextRequest, NextResponse } from "next/server";
-import { actor, constantTimeEqual, createSession, demoAccount, destroySession, ensureDemoUser, identityDb, passwordHash, passwordIterations, PBKDF2_ITERATIONS, PBKDF2_LEGACY_ITERATIONS, requestIsSecure, sameOrigin, validPassword } from "./security";
+import { actor, constantTimeEqual, demoAccount, destroySession, ensureDemoUser, identityDb, passwordHash, requestIsSecure, sameOrigin, validPassword } from "./security";
 
 const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim().replace(/\/+$/, "") || "";
 const bootstrapCookieName = "fornost_bootstrap_auth";
 const bootstrapContext = "fornost-bootstrap-v1";
 const cookie = (req: NextRequest) => ({ httpOnly: true, secure: requestIsSecure(req), sameSite: "strict" as const, path: configuredBasePath || "/" });
-const sessionCookie = (req: NextRequest, expires: Date) => ({ ...cookie(req), expires, maxAge: Math.max(0, Math.floor((expires.getTime() - Date.now()) / 1000)) });
 const bootstrapCookie = (req: NextRequest) => ({ ...cookie(req), maxAge: 15 * 60 });
 const normalize = (v: unknown) => String(v || "").trim();
 
@@ -61,6 +64,7 @@ export async function GET(req: NextRequest) {
     bootstrapRequired,
     bootstrapAuthorizationRequired: bootstrapRequired && !allowDemo && !authorized,
     bootstrapProtectionConfigured,
+    loginOptions: publicLoginOptions((await readLoginConfig(db, "")).config),
     demoAccount: allowDemo ? { email: demoAccount.email, role: demoAccount.role } : null,
   }, { headers: { "cache-control": "no-store" } });
 }
@@ -90,13 +94,14 @@ export async function POST(req: NextRequest) {
   }
   if (action === "demo_login") {
     if (!(await demoMode(req))) return NextResponse.json({ error: "Demo girişi bu kurulumda etkin değil." }, { status: 403 });
+    const config=await readLoginConfig(db, "");
+    if(config.config.policy.requireSso){await authEvent(db,"local","failure",demoAccount.email,"account_unavailable");return NextResponse.json({error:"Kurumsal giriş zorunlu.",code:"account_unavailable"},{status:403});}
     await ensureDemoUser(db);
     const demo = await db.prepare("SELECT id,status,role FROM local_users WHERE email=?").bind(demoAccount.email).first<{id:string;status:string;role:string}>();
     if (!demo || demo.id !== "demo-editor" || demo.status !== "Active" || demo.role !== demoAccount.role) return NextResponse.json({ error: "Demo hesabı kullanılamıyor." }, { status: 503 });
-    const session = await createSession(db, demo.id,demoAccount.role);
-    if(!session)return NextResponse.json({error:"Demo hesabı kullanılamıyor."},{status:403});
+    const {session,options}=await signInSession(req,db,demo.id,"local",demoAccount.email,config.revision);
     const res = NextResponse.json({ ok: true });
-    res.cookies.set("fornost_session", session.token, sessionCookie(req, session.expires));
+    res.cookies.set("fornost_session", session.token, options);
     return res;
   }
   const email = normalize(body.email).toLowerCase(), password = normalize(body.password);
@@ -111,28 +116,12 @@ export async function POST(req: NextRequest) {
     } catch {
       return NextResponse.json({ error: "İlk yönetici hesabı başka bir oturum tarafından oluşturuldu." }, { status: 409 });
     }
-    const session = await createSession(db, id);
-    if(!session)return NextResponse.json({error:"Hesap değişti. Tekrar giriş yapın."},{status:409});
+    const {session,options}=await signInSession(req,db,id,"local",email);
     const res = NextResponse.json({ ok: true });
-    res.cookies.set("fornost_session", session.token, sessionCookie(req, session.expires));
+    res.cookies.set("fornost_session", session.token, options);
     res.cookies.set(bootstrapCookieName, "", { ...bootstrapCookie(req), maxAge: 0 });
     return res;
   }
-  if (action !== "login") return NextResponse.json({ error: "Geçersiz işlem." }, { status: 400 });
-  const row = await db.prepare("SELECT * FROM local_users WHERE email=?").bind(email).first<{id:string;status:string;locked_until:string|null;password_salt:string;password_hash:string;password_iterations:number|null;failed_attempts:number}>();
-  const now = new Date(), generic = NextResponse.json({ error: "E-posta veya parola hatalı." }, { status: 401 });
-  if (!row || row.status !== "Active" || (row.locked_until && new Date(row.locked_until) > now)) return generic;
-  const storedIterations = passwordIterations(row.password_iterations ?? PBKDF2_LEGACY_ITERATIONS);
-  const candidate = await passwordHash(password, row.password_salt, storedIterations);
-  if (!constantTimeEqual(candidate.hash, row.password_hash)) {
-    const attempts = Number(row.failed_attempts || 0) + 1, locked = attempts >= 5 ? new Date(now.getTime() + 15 * 60_000).toISOString() : null;
-    await db.prepare("UPDATE local_users SET failed_attempts=?,locked_until=?,updated_at=? WHERE id=?").bind(locked ? 0 : attempts, locked, now.toISOString(), row.id).run(); return generic;
-  }
-  if (storedIterations < PBKDF2_ITERATIONS) {
-    const upgraded=await passwordHash(password);
-    await db.prepare("UPDATE local_users SET password_hash=?,password_salt=?,password_iterations=?,failed_attempts=0,locked_until=NULL,updated_at=? WHERE id=?").bind(upgraded.hash,upgraded.salt,upgraded.iterations,now.toISOString(),row.id).run();
-  } else {
-    await db.prepare("UPDATE local_users SET failed_attempts=0,locked_until=NULL,updated_at=? WHERE id=?").bind(now.toISOString(), row.id).run();
-  }
-  const session = await createSession(db, row.id); if(!session)return generic; const res = NextResponse.json({ ok: true }); res.cookies.set("fornost_session", session.token, sessionCookie(req, session.expires)); return res;
+  if (action === "login" || action === "directory_login") return passwordLogin(req, body, action === "directory_login");
+  return NextResponse.json({ error: "Geçersiz işlem." }, { status: 400 });
 }
