@@ -92,7 +92,7 @@ export function DecisionEditor({row,matrix,tr,write,createControl,onControlCreat
           {write&&<button type="button" onClick={()=>setLinks(links.filter(l=>l.id!==c.id))}>{tr?'Bağı kaldır':'Unlink'}</button>}
           {!!matrix.pins[c.id]?.length&&<ul>{matrix.pins[c.id].map(p=><li key={p.id}>{p.code} · {p.title} · v{p.version} · {p.period}{p.verified?<small> · {tr?'Etkin / Doğrulandı':'Effective / Verified'} · {p.verifiedBy}</small>:write&&<ControlVerification tr={tr} name={matrix.name} controlId={c.id} evidenceVersion={p.id} onSaved={onSave}/>}</li>)}</ul>}</div>;
       })}
-      <div className="posture-editor-actions">{write&&createControl&&<CreateControl tr={tr} initialTitle={row.title} onCreated={c=>{
+      <div className="posture-editor-actions">{write&&createControl&&<CreateControl tr={tr} initialTitle={row.title} initialRef={row.ref} onCreated={c=>{
         onControlCreated();setCreated(previous=>[...previous,c]);setChoice('');
         setLinks(previous=>[...previous,{id:c.id,coverage:'supports'}]);
       }}/>}

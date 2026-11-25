@@ -26,7 +26,7 @@ async function linkDocument(p,kind,code){
 try{
  assert.equal((await api('/api/auth')).bootstrapRequired,true,'Requires a fresh isolated QA database');
  await api('/api/auth',{action:'bootstrap',name:'Direct QA Admin',email:owner,password:qaPassword()});
- await api('/api/users',{name:'Direct reviewer',email:reviewEmail,password:qaPassword(),role:'Editor'},201);
+ await api('/api/users',{name:'Direct reviewer',email:reviewEmail,password:qaPassword(),role:'Admin'},201);
  await api('/api/auth',{action:'login',email:reviewEmail,password:qaPassword()},200,reviewer);
  await api(endpoint,{action:'enroll',name:iso});
  const upload=await context.request.post(base+'/api/evidence',{headers:{origin:base},multipart:{evidenceTitle:'QA organizational context evidence',owner,period:'2026',controlRef:'4.1',reviewer:reviewEmail,file:{name:'context.txt',mimeType:'text/plain',buffer:Buffer.from('Context of the organization: external and internal issues, scope and accountable owners have been reviewed and documented.')}}});

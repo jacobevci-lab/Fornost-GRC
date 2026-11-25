@@ -223,3 +223,18 @@
 .posture-home .capa-reference-field [role=option] span,.posture-home .capa-reference-field [role=status] {font-size:10.5px;color:var(--ws-muted)}
 @container(min-width:581px){.posture-ledger:has(.posture-implementation) tbody td:nth-child(2){width:25%}.posture-home .posture-reason{font-size:10.5px}}
 @container(max-width:580px){.posture-home .posture-implementation select{min-width:0;width:100%}.posture-implementation{width:100%}}
+/* Seven readable columns; scrolling is contained within the register, never the page. */
+@container(min-width:581px){
+ .posture-home table.posture-ledger:has(.posture-implementation){table-layout:fixed;min-width:870px}
+ .posture-ledger:has(.posture-implementation) :is(th,td){overflow-wrap:normal;word-break:normal}
+ .posture-ledger:has(.posture-implementation) thead th:nth-child(1){width:6%}
+ .posture-ledger:has(.posture-implementation) thead th:nth-child(2){width:20%}
+ .posture-ledger:has(.posture-implementation) thead th:nth-child(3){width:16%}
+ .posture-ledger:has(.posture-implementation) thead th:nth-child(4){width:18%}
+ .posture-ledger:has(.posture-implementation) thead th:nth-child(5){width:10%}
+ .posture-ledger:has(.posture-implementation) thead th:nth-child(6){width:16%}
+ .posture-ledger:has(.posture-implementation) thead th:nth-child(7){width:14%}
+ .posture-home .posture-implementation select,.posture-home .posture-scope-cell{min-width:0;max-width:100%}
+ .posture-home .posture-scope-cell select{width:100%}
+ .posture-ledger:has(.posture-implementation) .posture-detail-row>td{overflow-wrap:anywhere}
+}
