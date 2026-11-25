@@ -58,12 +58,18 @@ async function check(p,name,{screenshot=true}={}){
   for(const el of elements){
    const s=getComputedStyle(el),height=el.getBoundingClientRect().height/scale;
    if(el.matches('th,td')&&(Math.abs(parseFloat(s.paddingTop)/scale-6)>.1||Math.abs(parseFloat(s.paddingBottom)/scale-6)>.1||Math.abs(parseFloat(s.paddingLeft)/scale-10)>.1||Math.abs(parseFloat(s.paddingRight)/scale-10)>.1))density.push({element:describe(el),padding:[s.paddingTop,s.paddingRight,s.paddingBottom,s.paddingLeft]});
-   if(el.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=file]):not([type=color]),select:not([multiple]):not([size])')&&Math.abs(height-32)>.2)density.push({element:describe(el),height,expected:32});
+   if(el.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=file]):not([type=color]),select:not([multiple]):not([size])')&&(el.matches('.register-search input')?(height<28||height>32.2):Math.abs(height-32)>.2))density.push({element:describe(el),height,expected:el.matches('.register-search input')?'28–32 inside a 32px field':32});
    if(el.matches('.nav-group-items>button')&&!el.closest('.sidebar-compact,.sidebar-collapsed')&&(Math.abs(parseFloat(s.paddingTop)/scale-6)>.1||Math.abs(parseFloat(s.fontSize)/scale-12)>.1))density.push({element:describe(el),padding:s.paddingTop,font:s.fontSize});
   }
   for(const el of root.querySelectorAll('.risk-metrics>article,.executive-kpi,.ag-kpis>button,.policy-kpis>article,.audit-portfolio-kpis>section,.ic-kpis>div,.ec-kpis>button')){
    if(!visible(el))continue;const s=getComputedStyle(el);
    if([s.paddingTop,s.paddingRight,s.paddingBottom,s.paddingLeft].some(v=>Math.abs(parseFloat(v)/scale-12)>.1))density.push({element:describe(el),padding:[s.paddingTop,s.paddingRight,s.paddingBottom,s.paddingLeft]});
+  }
+  const toolbar=root.querySelector('.risk-register .register-toolbar');
+  if(toolbar&&visible(toolbar)&&toolbar.getBoundingClientRect().width>=1000){
+   const boxes=[...toolbar.querySelectorAll('.register-search,.register-sort-controls select,.register-view-actions>button,.column-picker-wrap>button')].filter(visible).map(el=>el.getBoundingClientRect());
+   const spread=Math.max(...boxes.map(r=>r.top))-Math.min(...boxes.map(r=>r.top));
+   if(spread>2||toolbar.getBoundingClientRect().height/scale>64)density.push({element:'register toolbar alignment',spread,height:toolbar.getBoundingClientRect().height});
   }
   const brand=root.querySelector('.brand small');
   if(brand&&visible(brand)){

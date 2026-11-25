@@ -53,10 +53,20 @@
 }
 :where(.register-search) {
   min-height: var(--grc-control-height) !important;
-  height: auto !important;
+  height: var(--grc-control-height) !important;
   padding: 0 .5rem !important;
 }
-:where(.register-search input) { padding-inline: 0 !important; }
+:where(.register-search input) {
+  min-height: 0 !important;
+  height: 100% !important;
+  padding-inline: 0 !important;
+}
+/* Search is a bordered composite field. Its inner input fills the content box;
+ * neighboring filters/actions share the OUTER 32px height, including borders. */
+:where(.register-toolbar .register-view-actions>button,
+  .register-toolbar .column-picker-wrap>button) {
+  min-height: var(--grc-control-height) !important;
+}
 :where(.form, .modal form.form) { padding: .875rem 1rem !important; gap: .625rem !important; }
 :where(.modal-head, .record-dialog .modal-head) { padding: .75rem 1rem !important; }
 :where(.form-actions, .modal-footer) { padding-block: .625rem !important; gap: .5rem !important; }
