@@ -32,7 +32,7 @@ try{
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),`page overflow ${lang}/${theme}/${width}`);
   assert.ok(await detail.locator('.iad-permissions dt').first().evaluate(el=>parseFloat(getComputedStyle(el).fontSize)>=12),'permission text readability');
   assert.ok(await desk.locator('caption').evaluate(el=>el.getBoundingClientRect().height<=1),'screen-reader caption must be visually hidden');
-  const tabs=await desk.locator('.iad-tabs button').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().top));assert.ok(Math.max(...tabs)-Math.min(...tabs)<3,'local tabs must stay horizontal');
+  const tabs=await desk.locator('.iad-tabs button:visible').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().top));assert.ok(Math.max(...tabs)-Math.min(...tabs)<3,'local tabs must stay horizontal');
   await capture(`desk-${lang}-${theme}-${width}`);
  }
  await page.setViewportSize({width:1536,height:1024});await switchQaLocale(page,'en');

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { emptyLoginConfig } from "../app/authentication/model";
-import { oidcStart, oidcCallback } from "../app/authentication/providers";
+import { oidcStart, oidcCallback, providerFetch } from "../app/authentication/providers";
 const { privateKey, publicKey } = generateKeyPairSync("rsa", {
   modulusLength: 2048,
 });
@@ -156,4 +156,12 @@ test("OIDC state or provider-denied callback never exchanges a code", async () =
     );
     assert.equal(f.tokenCalls(), 0);
   }
+});
+
+
+test("provider transport uses Workers-compatible manual redirects and rejects redirect responses", async () => {
+ const runtime = {development:false,allowPrivate:false,bridgeToken:"",fetcher:async(_input: RequestInfo | URL, init?: RequestInit)=>{
+  assert.equal(init?.redirect,"manual"); return new Response(null,{status:302,headers:{location:"https://untrusted.example.com"}});
+ }};
+ await assert.rejects(providerFetch(runtime)("https://idp.example.com"),/provider_unavailable/);
 });

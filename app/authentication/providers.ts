@@ -25,9 +25,13 @@ export function providerFetch(runtime: ProviderRuntime): typeof fetch {
     );
     const response = await (runtime.fetcher || fetch)(url, {
       ...init,
-      redirect: "error",
+      redirect: "manual",
       signal: AbortSignal.timeout(10_000),
     });
+    if (response.status >= 300 && response.status < 400) {
+      await response.body?.cancel();
+      throw new AuthenticationError("provider_unavailable", 503);
+    }
     const bytes = await readBoundedBody(response, 512_000);
     return new Response(bytes, {
       status: response.status,
