@@ -1,0 +1,93 @@
+{
+  "name": "fornost-grc-platform",
+  "version": "0.1.0",
+  "private": true,
+  "displayName": "Fornost GRC",
+  "description": "Enterprise GRC and governed AI assurance platform for risk, compliance, evidence, resilience and model lifecycle management.",
+  "keywords": [
+    "grc",
+    "ai-governance",
+    "risk-management",
+    "compliance",
+    "iso-27001",
+    "iso-42001",
+    "on-premises"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "install:ci": "bash scripts/install-ci.sh",
+    "dev": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vite",
+    "build": "bash scripts/build-verified.sh",
+    "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
+    "setup:linux": "bash scripts/linux/install.sh",
+    "setup:onprem": "bash scripts/linux/install.sh",
+    "serve:linux": "bash scripts/linux/serve.sh",
+    "onprem:status": "bash scripts/linux/status.sh",
+    "onprem:logs": "bash scripts/linux/logs.sh",
+    "onprem:check": "bash scripts/linux/check.sh",
+    "test:onprem:container": "bash tests/onprem-container-integration.sh",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run typecheck && npm run build && node --import tsx --test tests/*.test.* && bash tests/onprem-install-smoke.sh",
+    "test:unit": "node --import tsx --test tests/security-validation.test.ts",
+    "validate:artifact": "bash scripts/validate-artifact.sh",
+    "db:validate": "node scripts/validate-d1-migrations.mjs",
+    "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
+    "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate",
+    "prebuild": "node scripts/prepare-ocr-assets.mjs",
+    "predev": "node scripts/prepare-ocr-assets.mjs"
+  },
+  "dependencies": {
+    "@noble/hashes": "1.8.0",
+    "@pdf-lib/fontkit": "1.1.1",
+    "@tesseract.js-data/eng": "1.0.0",
+    "@tesseract.js-data/tur": "1.0.0",
+    "@xmldom/xmldom": "0.8.15",
+    "drizzle-orm": "0.45.2",
+    "image-size": "2.0.3",
+    "mammoth": "1.12.3",
+    "next": "^16.4.2",
+    "pdf-lib": "1.17.1",
+    "pdfjs-dist": "5.4.624",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "read-excel-file": "^9.3.10",
+    "tesseract.js": "7.0.0",
+    "unpdf": "2.2.2",
+    "wrangler": "4.144.0",
+    "write-excel-file": "^4.1.1"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.55.0",
+    "@types/node": "22.19.19",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.2",
+    "@vitejs/plugin-rsc": "0.5.26",
+    "drizzle-kit": "0.31.10",
+    "eslint": "9.39.4",
+    "eslint-config-next": "^16.2.11",
+    "react-server-dom-webpack": "^19.2.8",
+    "typescript": "5.9.3",
+    "vinext": "0.0.50",
+    "vite": "^8.3.0"
+  },
+  "overrides": {
+    "postcss": "8.5.26",
+    "nanoid": "3.3.18",
+    "sharp": "0.35.5",
+    "baseline-browser-mapping": "2.11.0",
+    "@esbuild-kit/core-utils": {
+      "esbuild": "0.25.12"
+    },
+    "vinext": {
+      "image-size": "2.0.3"
+    },
+    "mammoth": {
+      "argparse": "2.0.1"
+    },
+    "undici": "7.30.1"
+  },
+  "type": "module"
+}

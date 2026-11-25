@@ -1,0 +1,9 @@
+# Trustworthy assurance queue SLA metrics
+
+Missing or invalid creation timestamps previously fell back to the last update or an age of zero, classifying unassessable active work as within SLA. Empty queues showed 100% and an absent review history showed a zero-hour average. The displayed metrics also stopped aging until another interaction changed the queue.
+
+Active items now require a valid ISO timestamp with an explicit timezone, a real calendar date and a creation time no later than the assessment. Updated timestamps cannot substitute for creation. Missing, malformed and future values produce an unknown SLA state, a neutral marker and an actionable notice; the Attention filter includes these items. An incomplete active dataset does not receive an overall SLA percentage. Pending age is withheld if a pending creation time is unknown. Empty populations and absent valid review observations display a dash, and future or reversed review intervals are excluded. The SLA deadline itself counts as breached.
+
+The mounted queue reassesses every 30 seconds and when the page becomes visible. Labels, filtering and metrics use the same assessment instant. Timers/listeners are cleaned up on unmount, with no periodic network request or workflow mutation. These remain operational metrics for the loaded queue, not organization-wide assurance or a change to server-enforced workflow permissions.
+
+Validation covers missing/invalid/future/calendar/timezone inputs, exact deadline boundaries, unknown denominators, empty queues and review intervals. The queue browser recovery test additionally checks three unknown active records, the Attention filter, repaired timestamps, and a clock-driven transition across the SLA deadline without a refresh or write. Existing independent approval and write recovery scenarios remain in the same runner.

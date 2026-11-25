@@ -1,0 +1,8 @@
+ALTER TABLE evidence_automation_rules ADD COLUMN assessment_revision INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE evidence_automation_runs ADD COLUMN assessment_fingerprint TEXT;
+CREATE TRIGGER IF NOT EXISTS evidence_rule_assessment_revision AFTER UPDATE OF source_id,control_refs,json_path,operator,expected,schedule,enabled,template_id,template_version,freshness_hours,failure_threshold,auto_finding,remediation_owner,remediation_due_days ON evidence_automation_rules
+    WHEN NEW.source_id IS NOT OLD.source_id OR NEW.control_refs IS NOT OLD.control_refs OR NEW.json_path IS NOT OLD.json_path OR NEW.operator IS NOT OLD.operator OR NEW.expected IS NOT OLD.expected OR NEW.schedule IS NOT OLD.schedule OR NEW.enabled IS NOT OLD.enabled OR NEW.template_id IS NOT OLD.template_id OR NEW.template_version IS NOT OLD.template_version OR NEW.freshness_hours IS NOT OLD.freshness_hours OR NEW.failure_threshold IS NOT OLD.failure_threshold OR NEW.auto_finding IS NOT OLD.auto_finding OR NEW.remediation_owner IS NOT OLD.remediation_owner OR NEW.remediation_due_days IS NOT OLD.remediation_due_days
+    BEGIN UPDATE evidence_automation_rules SET assessment_revision=assessment_revision+1 WHERE id=NEW.id; END;
+CREATE TRIGGER IF NOT EXISTS evidence_source_assessment_revision AFTER UPDATE OF driver,enabled,config_json,secret_ciphertext ON evidence_automation_sources
+    WHEN NEW.driver IS NOT OLD.driver OR NEW.enabled IS NOT OLD.enabled OR NEW.config_json IS NOT OLD.config_json OR NEW.secret_ciphertext IS NOT OLD.secret_ciphertext
+    BEGIN UPDATE evidence_automation_rules SET assessment_revision=assessment_revision+1 WHERE source_id=NEW.id; END;

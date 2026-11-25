@@ -1,0 +1,5794 @@
+"use client";
+import {QuestionnaireCopilot} from "./ai/grc/questionnaire-ui";
+import {EvidenceAiReview} from "./ai/grc/evidence-ui";
+
+import TrustAdmin from "./exchange/trust-admin";
+import {BoardWizard} from "./exchange/board-ui";
+import { CopyRecordLink, RecordLinkEntry } from './record-link-controls';
+import {EvidenceLibraryFields,EvidenceControlsContext,EvidenceControlsCell} from "./evidence-library-fields";
+import {EvidenceReviewAction} from "./evidence-review-action";
+import {localDay,pendingEvidence,evidenceState,evidenceDatesInvalid} from "./evidence/intake";
+import { auditRequirementPage } from "./audit-requirement-page";
+import "./audit-requirement-page.css";
+import { submitLocalAuthentication, type LocalAuthInput } from "./local-auth-submit";
+import { CAPA_REPORT_MODULE, loadCapaReport, capaReportFailure, capaReportFailureMessage, type CapaReportFailure } from "./findings/reporting";
+import { pageSessionKey, restorePage, rememberPage } from "./page-session";
+import {ScopedWorkspace,ScopeSelect} from './enterprise/workspace';
+import './enterprise/enterprise.css';
+import { readSessionSnapshot, preserveUnchangedSessionUser, type SessionSnapshot } from "./session-snapshot";
+import { getCatalogStatus } from "./framework-catalog-status";
+import { FrameworkCatalogNotice } from "./framework-catalog-notice";
+import { AuditCatalogUpload } from "./audit-catalog-upload";
+import type { AuditCatalogImport } from "./audit-catalog-import";
+import { readAllGrcPages } from "./grc-pagination";
+import { AuditPlanPanel } from "./audit-plan-panel";
+import { AuditTeamFields } from "./audit-team-fields";
+import { auditTypes } from "./audit-engagement";
+import type { AuditItemCoverage } from "./audit-evidence-assurance";
+import { AuditPortfolioMetrics } from "./audit-portfolio-metrics";
+import { AuditActions } from "./audit-actions";
+import { AuditFindingsPanel } from "./audit-findings-panel";
+import { AuditRequirementDesk, AuditRequirementBoard } from "./audit-requirement-desk";
+import { auditRequirementMatches, type AuditQueue } from "./audit-workspace-state";
+import { FrameworkWorkspace } from "./framework-posture/workspace";
+import { AuditPostureChoice, AuditBaseline, type AuditChoice } from "./framework-posture/audit";
+import { AuditResearchWorkspace } from "./audit-research-workspace";
+import { EvidenceUsagePanel } from "./evidence-usage-panel";
+import { EvidenceDocumentPreview } from "./evidence-document-preview";
+import { AuditWorkpaperPanel } from './audit-workpaper-panel';
+import { AuditRequestPanel } from "./audit-request-panel";
+import { AuditClosurePanel } from "./audit-closure-panel";
+import { auditClosureLabels } from "./audit-closure";
+import { AuditStatusReportPanel } from "./audit-status-report-panel";
+import { canOpenModule, canReadPosture, canReadModule, canWriteModule, isScoped, readableModules } from "./module-access";
+import "./module-access.css";
+import { linkedRecordOptions } from "./linked-record-options";
+import { dueTimestamp } from "./due-date";
+import { hasRecoveryTarget } from "./bia-recovery";
+import { auditRequirementDeadline, isClosedAuditRequirement, isOverdueAuditRequirement } from "./audit-overdue-requirements";
+import { isCoreRecordRequest, resolveCoreRecord, coreRecordReference } from "./core-record-focus";
+import { readCoreRecordSession, writeCoreRecordSession } from "./core-record-session";
+import { FORNOST_BEFORE_FOCUS_EVENT, FORNOST_FOCUS_EVENT, peekPendingFornostFocus, consumePendingFornostFocus, type FornostNavigationRequest } from "./navigation-focus";
+import { sameDomainModule } from "./domain-identity";
+import { unassignedAuditRequirements } from "./audit-unassigned-requirements";
+import { auditNameKey } from "./audit-readiness-portfolio";
+import AuditUnassignedRequirements from "./audit-unassigned-requirements-panel";
+import "./core-record-focus.css";
+
+import NavIcon from "./nav-icon";
+import { RecordSearch } from "./record-search";
+import { useRegisterView } from "./use-register-view";
+import { sortRegisterRows, viewSortOptions, type ViewSort } from './register-sort';
+import { RegisterSortControls } from './register-sort-controls';
+import RegisterEmptyState from "./register-empty-state";
+import { registerExperience } from "./register-experience";
+import { fields, registerColumns, registerFilterKeys } from "./register-view-schema";
+import { SavedRegisterViewsPanel } from "./saved-register-views-panel";
+import { isAuditTaskKind, navigateToFornost } from "./navigation-focus";
+import {
+  CSSProperties,
+  FormEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  useCallback,
+  useId,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
+import { RegisterImportModal } from "./register-import-modal";
+import writeXlsxFile from "write-excel-file/browser";
+import "./matrix-overrides.css";
+import "./i18n.css";
+import "./settings.css";
+import "./fornost-refresh.css";
+import "./soc2-audit.css";
+import "./product-polish.css";
+import "./fornost-premium.css";
+import "./command-center.css";
+import "./cockpit.css";
+import "./ui-accessibility.css";
+import "./module-registers.css";
+import "./layout-guardrails.css";
+import Settings from "./settings";
+import PersonalAppearance from "./personal-appearance";
+import EvidenceAutomation from "./evidence-automation";
+import RegulatoryIntelligence from "./regulatory-intelligence";
+import ThirdPartyRisk from "./third-party-risk";
+import PolicyLifecycle from "./policy-lifecycle";
+import RiskAppetite from "./risk-appetite";
+import FindingsCenter from "./findings-center";
+import IncidentCenter from "./incident-center";
+import ContinuityCenter from "./continuity-center";
+import ConnectedGrc from "./connected-grc";
+import "./connected-grc.css";
+import ControlAssuranceWorkspace from "./control-assurance-workspace";
+import { validMatrixCoordinates } from "./executive-report-data";
+import { evaluateEvidenceEligibility } from "./evidence/eligibility";
+import MyWorkV2 from "./my-work-v2";
+import ExecutiveAssurancePanel, { type DashboardRoutes } from "./executive-assurance-panel";
+import { useExecutiveAssurance } from './use-executive-assurance';
+import AuditReadinessPortfolioPanel from './audit-readiness-portfolio-panel';
+import EvidenceQualityLens from "./evidence-quality-lens";
+import { useEvidenceAssurance, EvidenceAssessmentContext, useEvidenceFreshness, type EvidenceRegisterAssessment } from "./use-evidence-assurance";
+import EvidenceAssuranceStatus from './evidence-assurance-status';
+import { buildAssuranceReportHtml, buildExecutiveAssurance } from "./executive-assurance";
+import AuditReadinessGate from "./audit-readiness-gate";
+import AuditPortfolioWorkspace, { type AuditPortfolioItem } from "./audit-portfolio-workspace";
+import { requestJsonWithDeadline } from "./bounded-json-request";
+import { withBasePath } from "./base-path";
+import { useContext } from "react";
+import { BiaFields } from "./bia-editor-fields";
+import { BiaScope, BiaRegisterContext, BiaPlanCell } from "./bia-register-context";
+import { biaImpact,biaDate,exceedsMtpd } from "./bia-assessment";
+import type {ConnectedGrcRow} from "./connected-grc-model";
+import { AssetInventoryFields } from "./asset-inventory-fields";
+import { assetLinkedRecords, assetCoverage, assetStatuses, type AssetTarget, type AssetLinks } from "./asset-inventory-model";
+import { ControlLibraryEditor } from "./control-library-editor";
+import { ControlLinksCell, ControlRegisterContext } from "./control-library-register";
+import { controlConnections, controlTypes, controlTypeKey, sameControlTester } from "./control-library-model";
+import { usePosture } from "./framework-posture/client";
+import type { Baseline, ControlMappingChange } from "./framework-posture/types";
+import "./control-library.css";
+import { RiskAssets, RiskControls, RiskPerson } from "./risk-editor-fields";
+import { riskRecordOptions, riskAssetCaption, riskTitle, type RiskRecordOptions } from "./risk-record-options";
+import { isResidualRiskGoverned } from "./risk-governance-write";
+import { assuranceRiskLevel } from "./assurance-governance";
+import { assessedResidualRiskScore, effectiveImpactSources, assessedRiskScore, calculatedRiskScore, effectiveImpact } from "./risk-methodology";
+import { defaultCatalogs, type CatalogMap } from "./catalogs";
+import { safeSpreadsheetCell } from "./export-security";
+import { automaticAuditTemplates } from "./framework-templates";
+import { displayRecordCode, isLegacyTechnicalRecordId } from "./record-codes";
+import "./workspace-system.css";
+import "./enterprise-surface-contract.css";
+import "./product-experience.css";
+import "./theme-integrity.css";
+import "./workspace-simplicity.css";
+import {EntityLabel} from './enterprise/entity-label';
+import {FinancialSummary} from './enterprise/financial-summary';
+import {FairFields, FairCell} from './enterprise/fair-panel';
+import RecordWorkspace from "./record-workspace";
+import { ModuleTrailPanel, ModuleTrailContext } from "./module-record-trail-view";
+import { moduleTrailSources } from "./module-record-trail";
+import "./record-workspace.css";
+import "./record-dialog.css";
+import {useRecordDialog} from "./use-record-dialog";
+import AiWorkspaceHost from "./ai-workspace-host";
+import { AccountViewsPanel } from './account-views-panel';
+import { DEFAULT_REPORT_SECTIONS, REPORT_SECTIONS, reportSectionLabels, reportViewSchema, validateReportDefinition, type ReportSection } from './report-composer-model';
+import './report-composer.css';
+import { buildReportHtml, buildReportPdf, buildReportCsv, reportTitleOf, downloadBlob, reportMetrics, hasReportValue, type ReportOptions } from "./report-export";
+
+type Lang = "tr" | "en";
+type Row = {
+  collector_signals?:string;
+  id: string;
+  code?: string;
+  module: string;
+  data: Record<string, any>;
+  createdAt?: string;
+  updatedAt?: string;
+};
+const modules = [
+  "Ana Sayfa",
+  "Benim İşlerim",
+  "Risk Assessment",
+  "Risk İştahı ve KRI",
+  "BIA",
+  "İş Sürekliliği",
+  "Varlık Envanteri",
+  "Uyum",
+  "Politika Merkezi",
+  "Tedarikçiler",
+  "Kontroller",
+  "Kanıtlar",
+  "Kanıt Otomasyonu",
+  "Regülasyon Merkezi",
+  "Güvenlik Olayları",
+  "Bulgular ve CAPA",
+  "Denetim Yönetimi",
+  "Bağlantılı GRC",
+  "Raporlar",
+  "Güvenlik Anketi Copilot",
+  "AI Yönetişimi",
+  "Ask Fornost",
+  "Sistem Ayarları",
+  "AI Ayarları",
+  "Denetim İzi",
+  "Ana Veri Yönetimi",
+  "İş Akışı Entegrasyonları",
+  "Trust Center Yönetimi",
+  "E-posta ve Bildirimler",
+  "Kimlik ve Erişim",
+];
+const adminModules = new Set([
+  "Sistem Ayarları",
+  "AI Ayarları",
+  "Denetim İzi",
+  "Ana Veri Yönetimi",
+  "İş Akışı Entegrasyonları",
+  "Trust Center Yönetimi",
+  "E-posta ve Bildirimler",
+  "Kimlik ve Erişim",
+]);
+const names: Record<Lang, Record<string, string>> = {
+  tr: {
+    "Ana Sayfa": "Gösterge Paneli",
+    "Benim İşlerim": "Benim İşlerim",
+    "Risk Assessment": "Risk Değerlendirmesi",
+    "Risk İştahı ve KRI": "Risk İştahı ve KRI",
+    BIA: "İş Etki Analizi (BIA)",
+    "İş Sürekliliği": "İş Sürekliliği ve Dayanıklılık",
+    "Varlık Envanteri": "Varlık Envanteri",
+    Uyum: "Uyum Yönetimi",
+    "Politika Merkezi": "Politika Merkezi",
+    Tedarikçiler: "Tedarikçi Yönetimi",
+    Kontroller: "Kontrol Kütüphanesi",
+    Kanıtlar: "Kanıt Kütüphanesi",
+    "Kanıt Otomasyonu": "Kanıt Otomasyonu",
+    "Regülasyon Merkezi": "Regülasyon Merkezi",
+    "Güvenlik Olayları": "Güvenlik Olayları ve Kriz",
+    "Bulgular ve CAPA": "Bulgular ve CAPA",
+    "Denetim Yönetimi": "Denetim Yönetimi",
+    "Bağlantılı GRC": "Bağlantılı GRC Haritası",
+    Raporlar: "Raporlama",
+    "Güvenlik Anketi Copilot":"Güvenlik Anketi Copilot",
+    "AI Yönetişimi": "AI Yönetişimi",
+    "Ask Fornost": "Ask Fornost",
+    "Sistem Ayarları": "Sistem Ayarları",
+    "AI Ayarları": "AI Yapılandırması",
+    "Denetim İzi": "Denetim İzi",
+    "Ana Veri Yönetimi": "Ana Veri Yönetimi",
+    "İş Akışı Entegrasyonları": "Entegrasyonlar",
+    "Trust Center Yönetimi": "Trust Center Yönetimi",
+    "E-posta ve Bildirimler": "E-posta ve Bildirimler",
+    "Kimlik ve Erişim": "Kimlik ve Erişim",
+  },
+  en: {
+    "Ana Sayfa": "Dashboard",
+    "Benim İşlerim": "My Work",
+    "Risk Assessment": "Risk Assessment",
+    "Risk İştahı ve KRI": "Risk Appetite & KRI",
+    BIA: "Business Impact Analysis (BIA)",
+    "İş Sürekliliği": "Business Continuity & Resilience",
+    "Varlık Envanteri": "Asset Inventory",
+    Uyum: "Compliance Management",
+    "Politika Merkezi": "Policy Center",
+    Tedarikçiler: "Vendor Management",
+    Kontroller: "Control Library",
+    Kanıtlar: "Evidence Library",
+    "Kanıt Otomasyonu": "Evidence Automation",
+    "Regülasyon Merkezi": "Regulatory Change Center",
+    "Güvenlik Olayları": "Security Incidents & Crisis",
+    "Bulgular ve CAPA": "Findings & CAPA",
+    "Denetim Yönetimi": "Audit Management",
+    "Bağlantılı GRC": "Connected GRC Map",
+    Raporlar: "Reporting",
+    "Güvenlik Anketi Copilot":"Security Questionnaire Copilot",
+    "AI Yönetişimi": "AI Governance",
+    "Ask Fornost": "Ask Fornost",
+    "Sistem Ayarları": "System Settings",
+    "AI Ayarları": "AI Configuration",
+    "Denetim İzi": "Audit Trail",
+    "Ana Veri Yönetimi": "Master Data",
+    "İş Akışı Entegrasyonları": "Integrations",
+    "Trust Center Yönetimi": "Trust Center Management",
+    "E-posta ve Bildirimler": "Email & Notifications",
+    "Kimlik ve Erişim": "Identity & Access",
+  },
+};
+const moduleEyebrows: Record<Lang, Record<string, string>> = {
+  tr: {
+    "Risk Assessment": "KURUMSAL RİSK",
+    BIA: "İŞ DAYANIKLILIĞI",
+    "Varlık Envanteri": "TEKNOLOJİ MARUZİYETİ",
+    Uyum: "KONTROL GÜVENCESİ",
+    Kontroller: "ORTAK KONTROL KÜTÜPHANESİ",
+    Kanıtlar: "KANIT GÜVENCE ZİNCİRİ",
+  },
+  en: {
+    "Risk Assessment": "ENTERPRISE RISK",
+    BIA: "BUSINESS RESILIENCE",
+    "Varlık Envanteri": "TECHNOLOGY EXPOSURE",
+    Uyum: "CONTROL ASSURANCE",
+    Kontroller: "COMMON CONTROL LIBRARY",
+    Kanıtlar: "EVIDENCE ASSURANCE CHAIN",
+  },
+};
+
+const labelMap: Record<Lang, Record<string, string>> = {
+  tr: {
+    title: "Başlık / Ad",
+    owner: "Sahibi",
+    businessUnit: "İş Birimi",
+    status: "Durum",
+    description: "Açıklama",
+    asset: "İlgili Varlık",
+    likelihood: "Olasılık (1-5)",
+    impact: "Etki (1-5)",
+    treatment: "Risk işleme yöntemi",
+    process: "Süreç / Hizmet",
+    processCategory: "BIA Süreç Kategorisi",
+    rto: "RTO (saat)",
+    rpo: "RPO (saat)",
+    financial: "Finansal Etki (1-5)",
+    operational: "Operasyonel Etki (1-5)",
+    legal: "Yasal Etki (1-5)",
+    reputation: "İtibar Etkisi (1-5)",
+    assetType: "Varlık Türü",
+    criticality: "Kritiklik",
+    environment: "Ortam",
+    location: "Lokasyon",
+    ip: "IP / FQDN",
+    framework: "Standart / Regülasyon",
+    controlRef: "Madde No",
+    controlTitle: "Kontrol Maddesi",
+    implementation: "Uygulama Durumu",
+    vendorType: "Hizmet Türü",
+    service: "Alınan Hizmet",
+    contractEnd: "Sözleşme Bitişi",
+    riskLevel: "Risk Seviyesi",
+    contact: "İrtibat",
+    frequency: "Kontrol Sıklığı",
+    evidenceTitle: "Kanıt Başlığı",
+    period: "Dönem",
+    frameworks: "Kullanıldığı Standartlar",
+    notes: "Notlar",
+  },
+  en: {
+    title: "Title / Name",
+    owner: "Owner",
+    businessUnit: "Business Unit",
+    status: "Status",
+    description: "Description",
+    asset: "Related Asset",
+    likelihood: "Likelihood (1-5)",
+    impact: "Impact (1-5)",
+    treatment: "Risk Treatment",
+    process: "Process / Service",
+    processCategory: "BIA Process Category",
+    rto: "RTO (hours)",
+    rpo: "RPO (hours)",
+    financial: "Financial Impact (1-5)",
+    operational: "Operational Impact (1-5)",
+    legal: "Legal Impact (1-5)",
+    reputation: "Reputational Impact (1-5)",
+    assetType: "Asset Type",
+    criticality: "Criticality",
+    environment: "Environment",
+    location: "Location",
+    ip: "IP / FQDN",
+    framework: "Standard / Regulation",
+    controlRef: "Control Ref.",
+    controlTitle: "Control Title",
+    implementation: "Implementation Status",
+    vendorType: "Service Type",
+    service: "Service Provided",
+    contractEnd: "Contract End Date",
+    riskLevel: "Risk Level",
+    contact: "Contact",
+    frequency: "Control Frequency",
+    evidenceTitle: "Evidence Title",
+    period: "Period",
+    frameworks: "Applicable Standards",
+    notes: "Notes",
+  },
+};
+Object.assign(labelMap.tr, {
+  riskScope: "Risk kapsamı",
+  processLink: "İlgili Süreç / BIA",
+  category: "Risk Kategorisi",
+  threat: "Tehdit / Neden",
+  event: "Risk Olayı",
+  consequence: "Muhtemel Sonuç",
+  inherentLikelihood: "Doğal Risk Olasılığı (1-5)",
+  inherentImpact: "Doğal Risk Etkisi (1-5)",
+  confidentialityImpact: "Gizlilik Etkisi (1-5)",
+  integrityImpact: "Bütünlük Etkisi (1-5)",
+  availabilityImpact: "Erişilebilirlik Etkisi (1-5)",
+  calculatedImpact: "Hesaplanan Etki",
+  existingControls: "Mevcut Kontroller",
+  residualLikelihood: "Artık Olasılık (1-5)", residualImpact: "Artık Etki (1-5)",
+  controlImplementationNote: "Kontrol Uygulama Notu",
+  plannedAction: "Planlanan Aksiyon",
+  actionOwner: "Aksiyon Sahibi",
+  targetDate: "Hedef Tarih",
+  lastReview: "Son Değerlendirme",
+  nextReview: "Sonraki Değerlendirme",
+  mtpd: "MTPD / MAO (saat)",
+  minimumService: "Minimum Hizmet Seviyesi",
+  customer: "Müşteri Etkisi (1-5)",
+  dataImpact: "Bilgi / Veri Etkisi (1-5)",
+  dependencies: "Kritik Bağımlılıklar",
+  manualWorkaround: "Manuel Çalışma Alternatifi",
+  drStatus: "DR / Failover Durumu",
+  lastTestDate: "Son Kurtarma Testi",
+  testResult: "Test Sonucu",
+  nextTestDate: "Sonraki Test",
+  technicalOwner: "Teknik Sorumlu",
+  dataClassification: "Veri Sınıflandırması",
+  internetFacing: "İnternete Açık",
+  personalData: "Kişisel Veri İçeriyor",
+  criticalService: "Kritik Hizmeti Destekliyor",
+  eolDate: "Destek / EOL Tarihi",
+  backupStatus: "Yedekleme",
+  edrStatus: "EDR Kapsamı",
+  siemStatus: "SIEM / Log Kapsamı",
+  vulnScan: "Zafiyet Taraması Kapsamı",
+  peakPeriod: "Kritik / Yoğun Dönem",
+  peopleDependency: "Kritik Personel / Rol Bağımlılığı",
+  technologyDependency: "Teknoloji / Sistem Bağımlılığı",
+  facilityDependency: "Lokasyon / Tesis Bağımlılığı",
+  supplierDependency: "Tedarikçi Bağımlılığı",
+  regulatoryDeadline: "Yasal / Düzenleyici Zaman Sınırı",
+  recoveryStrategy: "Kurtarma Stratejisi",
+  singlePointOfFailure: "Tek Hata Noktası Var",
+  approver: "BIA Onaylayan",
+  approvalDate: "BIA Onay Tarihi",
+  assetId: "Varlık Envanter Kodu",
+  custodian: "Varlık Sorumlusu / Custodian",
+  vendor: "Üretici / Tedarikçi",
+  confidentialityRating: "Gizlilik Değeri (1-5)",
+  integrityRating: "Bütünlük Değeri (1-5)",
+  availabilityRating: "Erişilebilirlik Değeri (1-5)",
+  regulatoryScope: "Yasal / Düzenleyici Kapsam",
+  retentionPeriod: "Saklama Süresi",
+  version: "Sürüm / Model",
+  lifecycleStage: "Yaşam Döngüsü Aşaması",
+  acquisitionDate: "Edinim / Devreye Alma Tarihi",
+  encryptionStatus: "Şifreleme Durumu",
+  accessReviewStatus: "Erişim Gözden Geçirme",
+  patchStatus: "Yama Güncelliği",
+});
+Object.assign(labelMap.en, {
+  riskScope: "Risk scope",
+  processLink: "Related Process / BIA",
+  category: "Risk Category",
+  threat: "Threat / Cause",
+  event: "Risk Event",
+  consequence: "Potential Consequence",
+  inherentLikelihood: "Inherent Likelihood (1-5)",
+  inherentImpact: "Inherent Impact (1-5)",
+  confidentialityImpact: "Confidentiality Impact (1-5)",
+  integrityImpact: "Integrity Impact (1-5)",
+  availabilityImpact: "Availability Impact (1-5)",
+  calculatedImpact: "Calculated Impact",
+  existingControls: "Existing Controls",
+  residualLikelihood: "Residual likelihood (1-5)", residualImpact: "Residual impact (1-5)",
+  controlImplementationNote: "Control implementation note",
+  plannedAction: "Planned Action",
+  actionOwner: "Action Owner",
+  targetDate: "Target Date",
+  lastReview: "Last Review",
+  nextReview: "Next Review",
+  mtpd: "MTPD / MAO (hours)",
+  minimumService: "Minimum Service Level",
+  customer: "Customer Impact (1-5)",
+  dataImpact: "Information / Data Impact (1-5)",
+  dependencies: "Critical Dependencies",
+  manualWorkaround: "Manual Workaround",
+  drStatus: "DR / Failover Status",
+  lastTestDate: "Last Recovery Test",
+  testResult: "Test Result",
+  nextTestDate: "Next Test",
+  technicalOwner: "Technical Owner",
+  dataClassification: "Data Classification",
+  internetFacing: "Internet-facing",
+  personalData: "Contains Personal Data",
+  criticalService: "Supports Critical Service",
+  eolDate: "Support / EOL Date",
+  backupStatus: "Backup",
+  edrStatus: "EDR Coverage",
+  siemStatus: "SIEM / Log Coverage",
+  vulnScan: "Vulnerability Scan Scope",
+  peakPeriod: "Peak / Critical Period",
+  peopleDependency: "Critical People / Role Dependency",
+  technologyDependency: "Technology / System Dependency",
+  facilityDependency: "Facility / Location Dependency",
+  supplierDependency: "Supplier Dependency",
+  regulatoryDeadline: "Regulatory Deadline",
+  recoveryStrategy: "Recovery Strategy",
+  singlePointOfFailure: "Single Point of Failure",
+  approver: "BIA Approver",
+  approvalDate: "BIA Approval Date",
+  assetId: "Asset Inventory ID",
+  custodian: "Asset Custodian",
+  vendor: "Manufacturer / Vendor",
+  confidentialityRating: "Confidentiality Value (1-5)",
+  integrityRating: "Integrity Value (1-5)",
+  availabilityRating: "Availability Value (1-5)",
+  regulatoryScope: "Legal / Regulatory Scope",
+  retentionPeriod: "Retention Period",
+  version: "Version / Model",
+  lifecycleStage: "Lifecycle Stage",
+  acquisitionDate: "Acquisition / Go-live Date",
+  encryptionStatus: "Encryption Status",
+  accessReviewStatus: "Access Review",
+  patchStatus: "Patch Status",
+});
+Object.assign(labelMap.tr, { ownerEmail: "Risk Sahibi E-posta Adresi" });
+Object.assign(labelMap.en, { ownerEmail: "Risk Owner Email Address" });
+Object.assign(labelMap.tr, {
+  auditName: "Denetim Adı",
+  auditType: "Denetim Türü",
+  auditor: "Denetçi Kurum / Kişi",
+  auditOwner: "Denetim Sorumlusu",
+  startDate: "Başlangıç Tarihi",
+  endDate: "Hedef Bitiş Tarihi",
+  requirementRef: "Madde / Kontrol No",
+  requirementTitle: "Madde Açıklaması",
+  dueDate: "Madde Son Teslim Tarihi",
+  progress: "İlerleme (%)",
+  evidenceStatus: "Kanıt Durumu",
+  auditorFeedback: "Denetçi Geri Bildirimi",
+  responsibleNote: "Sorumlu Notu",
+  finding: "Bulgu / Aksiyon",
+  delayReason: "Gecikme Nedeni",
+  riskRef: "Bağlı Risk",
+  evidenceRef: "Bağlı Kanıt",
+  frameworkTemplate: "Framework Şablonu",
+  scopeCategory: "SOC 2 Kapsam Kategorisi",
+  designEffectiveness: "Tasarım Etkinliği",
+  operatingEffectiveness: "Operasyonel Etkinlik",
+  expectedEvidence: "Beklenen Kanıt / Doküman",
+  typeIITestApproach: "Type II Test Yaklaşımı",
+  testOwner: "Kontrol Test Sorumlusu",
+  testDate: "Kontrol Test Tarihi",
+  populationSize: "Popülasyon Büyüklüğü",
+  sampleSize: "Örneklem Sayısı",
+  exceptions: "İstisna Sayısı",
+  auditorResult: "Denetçi Sonucu",
+  followUpOwner: "Takip Eden / Koordinatör",
+  lastAssessment: "Son Değerlendirme",
+  nextAssessment: "Sonraki Değerlendirme",
+  evidenceOwner: "Kanıt Sorumlusu",
+  reviewStatus: "İnceleme Durumu",
+  reviewer: "İnceleyen",
+  collectedAt: "Toplanma Tarihi",
+  expiresAt: "Geçerlilik Bitişi",
+  sourceSystem: "Kaynak Sistem",
+  dataAccess: "Veri Erişim Seviyesi",
+  hostingLocation: "Barındırma Lokasyonu",
+  incidentSla: "Olay Bildirim SLA",
+  exitPlan: "Çıkış / Geçiş Planı",
+  riskTreatment: "Tedarikçi Risk Aksiyonu",
+  controlType: "Kontrol Türü",
+  controlObjective: "Kontrol Hedefi",
+});
+Object.assign(labelMap.en, {
+  auditName: "Audit Name",
+  auditType: "Audit Type",
+  auditor: "Auditor / Organization",
+  auditOwner: "Audit Owner",
+  startDate: "Start Date",
+  endDate: "Target End Date",
+  requirementRef: "Requirement / Control Ref.",
+  requirementTitle: "Requirement Description",
+  dueDate: "Requirement Due Date",
+  progress: "Progress (%)",
+  evidenceStatus: "Evidence Status",
+  auditorFeedback: "Auditor Feedback",
+  responsibleNote: "Owner Note",
+  finding: "Finding / Action",
+  delayReason: "Delay Reason",
+  riskRef: "Linked Risk",
+  evidenceRef: "Linked Evidence",
+  frameworkTemplate: "Framework Template",
+  scopeCategory: "SOC 2 Scope Category",
+  designEffectiveness: "Design Effectiveness",
+  operatingEffectiveness: "Operating Effectiveness",
+  expectedEvidence: "Expected Evidence / Document",
+  typeIITestApproach: "Type II Test Approach",
+  testOwner: "Control Test Owner",
+  testDate: "Control Test Date",
+  populationSize: "Population Size",
+  sampleSize: "Sample Size",
+  exceptions: "Exception Count",
+  auditorResult: "Auditor Result",
+  followUpOwner: "Follower / Coordinator",
+  lastAssessment: "Last Assessment",
+  nextAssessment: "Next Assessment",
+  evidenceOwner: "Evidence Owner",
+  reviewStatus: "Review Status",
+  reviewer: "Reviewer",
+  collectedAt: "Collected At",
+  expiresAt: "Expiry Date",
+  sourceSystem: "Source System",
+  dataAccess: "Data Access Level",
+  hostingLocation: "Hosting Location",
+  incidentSla: "Incident Notification SLA",
+  exitPlan: "Exit / Transition Plan",
+  riskTreatment: "Vendor Risk Treatment",
+  controlType: "Control Type",
+  controlObjective: "Control Objective",
+});
+const ui: Record<Lang, Record<string, string>> = {
+  tr: {
+    workspace: "ÇALIŞMA ALANI",
+    tagline: "Tek doğruluk kaynağın",
+    aside:
+      "Excel dosyalarını içe aktar; risk, BIA, varlık, uyum, tedarikçi ve kanıtlarını tek yerde yönet.",
+    import: "Excel İçe Aktar",
+    csv: "CSV İndir",
+    new: "+ Yeni Kayıt",
+    search: "Kayıtlarda ara...",
+    record: "kayıt",
+    edit: "Düzenle",
+    delete: "Sil",
+    empty: "Bu görünümde kayıt yok. Arama ve filtreleri kontrol edin.",
+    cancel: "Vazgeç",
+    save: "Kaydet",
+    upload: "Kanıtı Yükle",
+    file: "Ekran Görüntüsü / Dosya",
+    editRecord: "KAYDI DÜZENLE",
+    newRecord: "YENİ KAYIT",
+    select: "Seçiniz",
+    selectFramework: "Standart veya regülasyon seçiniz",
+    role: "Bilgi Güvenliği",
+  },
+  en: {
+    workspace: "WORKSPACE",
+    tagline: "Your single source of truth",
+    aside:
+      "Import Excel files and manage risks, BIA, assets, compliance, vendors and evidence in one place.",
+    import: "Import Excel",
+    csv: "Download CSV",
+    new: "+ New Record",
+    search: "Search records...",
+    record: "records",
+    edit: "Edit",
+    delete: "Delete",
+    empty: "No records in this view. Check your search and filters.",
+    cancel: "Cancel",
+    save: "Save",
+    upload: "Upload Evidence",
+    file: "Screenshot / File",
+    editRecord: "EDIT RECORD",
+    newRecord: "NEW RECORD",
+    select: "Select",
+    selectFramework: "Select a standard or regulation",
+    role: "Information Security",
+  },
+};
+const frameworkGroups = [
+  {
+    tr: "ISO Standartları",
+    en: "ISO Standards",
+    items: [
+      "ISO/IEC 27001:2022",
+      "ISO/IEC 27002:2022",
+      "ISO/IEC 27017:2026",
+      "ISO/IEC 27018:2025",
+      "ISO/IEC 27701:2025",
+      "ISO 22301",
+      "ISO/IEC 20000-1",
+      "ISO 31000",
+      "ISO/IEC 42001",
+      "ISO 9001",
+      "ISO 14001",
+      "ISO 45001",
+    ],
+  },
+  {
+    tr: "SOC Raporları",
+    en: "SOC Reports",
+    items: [
+      "SOC 1 Type I",
+      "SOC 1 Type II",
+      "SOC 2 Type I",
+      "SOC 2 Type II",
+      "SOC 3",
+    ],
+  },
+  {
+    tr: "Güvenlik ve Kontrol Çerçeveleri",
+    en: "Security and Control Frameworks",
+    items: [
+      "PCI DSS 4.0.1",
+      "NIST Cybersecurity Framework (CSF) 2.0",
+      "NIST SP 800-53 Rev. 5 (5.2.0)",
+      "NIST SP 800-171 Rev. 3",
+      "NIST SP 800-172 Rev. 3",
+      "NIST SSDF 1.1 (SP 800-218)",
+      "CIS Controls v8.1",
+      "COBIT 2019",
+      "CSA Cloud Controls Matrix (CCM)",
+      "OWASP ASVS 5.0.0",
+    ],
+  },
+  {
+    tr: "Regülasyonlar",
+    en: "Regulations",
+    items: [
+      "KVKK",
+      "GDPR",
+      "DORA",
+      "NIS2 Directive",
+      "SOX",
+      "HIPAA",
+      "BDDK Bilgi Sistemleri ve Elektronik Bankacılık Hizmetleri Yönetmeliği",
+      "TCMB Bilgi Sistemleri Tebliği",
+    ],
+  },
+];
+const dataModules = modules.filter(
+  (x) => !["Ana Sayfa", "Raporlar", "Kanıtlar"].includes(x),
+);
+const reportModules = [
+  "Risk Assessment",
+  "BIA",
+  "Varlık Envanteri",
+  "Uyum",
+  "Tedarikçiler",
+  "Kontroller",
+  "Kanıtlar",
+  "Denetim Yönetimi",
+] as const;
+
+const examples: Row[] = [
+  {
+    id: "RSK-001",
+    module: "Risk Assessment",
+    data: {
+      title: "Ayrıcalıklı hesapların kötüye kullanılması",
+      businessUnit: "Bilgi Teknolojileri",
+      owner: "Bilgi Güvenliği",
+      asset: "Microsoft Entra ID",
+      likelihood: 4,
+      impact: 5,
+      treatment: "Azalt",
+      status: "Açık",
+    },
+  },
+  {
+    id: "BIA-001",
+    module: "BIA",
+    data: {
+      process: "E-Ticaret Sipariş Yönetimi",
+      businessUnit: "Dijital Kanallar",
+      owner: "E-Ticaret",
+      criticality: "Kritik",
+      rto: 2,
+      rpo: 1,
+      financial: 5,
+      operational: 5,
+      legal: 3,
+      reputation: 4,
+      asset: "E-Ticaret Platformu",
+    },
+  },
+  {
+    id: "AST-001",
+    module: "Varlık Envanteri",
+    data: {
+      title: "Microsoft Entra ID",
+      assetType: "Bulut Servisi",
+      businessUnit: "Bilgi Teknolojileri",
+      owner: "IT Altyapı",
+      criticality: "Kritik",
+      environment: "Üretim",
+      location: "Azure",
+      ip: "entra.microsoft.com",
+      status: "Aktif",
+    },
+  },
+  {
+    id: "CMP-001",
+    module: "Uyum",
+    data: {
+      framework: "ISO/IEC 27001:2022",
+      controlRef: "A.5.15",
+      controlTitle: "Erişim kontrolü",
+      owner: "Bilgi Güvenliği",
+      implementation: "Uygulanıyor",
+      status: "Uyumlu",
+    },
+  },
+  {
+    id: "VEN-001",
+    module: "Tedarikçiler",
+    data: {
+      title: "Bordro SaaS",
+      vendorType: "SaaS",
+      service: "Bordro yönetimi",
+      businessUnit: "İnsan Kaynakları",
+      owner: "İK",
+      criticality: "Yüksek",
+      contractEnd: "2027-03-31",
+      riskLevel: "Orta",
+      status: "Aktif",
+    },
+  },
+  {
+    id: "CTL-001",
+    module: "Kontroller",
+    data: {
+      controlRef: "CTL-001",
+      controlTitle: "Ayrıcalıklı hesaplarda güçlü MFA",
+      owner: "IAM Ekibi",
+      frequency: "Sürekli",
+      implementation: "Uygulanıyor",
+      status: "Aktif",
+      frameworks: "ISO 27001 A.5.15, NIST CSF PR.AA-03",
+    },
+  },
+];
+let linkedRows: Row[] = examples;
+let catalogOptions: CatalogMap = Object.fromEntries(
+  Object.entries(defaultCatalogs).map(([key, values]) => [key, [...values]]),
+) as CatalogMap;
+const aliases: Record<string, string> = {
+  "risk adı": "title",
+  "risk name": "title",
+  "risk tanımı": "description",
+  "risk description": "description",
+  "risk sahibi": "owner",
+  owner: "owner",
+  sahibi: "owner",
+  "iş birimi": "businessUnit",
+  "business unit": "businessUnit",
+  departman: "businessUnit",
+  asset: "asset",
+  varlık: "asset",
+  likelihood: "likelihood",
+  olasılık: "likelihood",
+  impact: "impact",
+  etki: "impact",
+  treatment: "treatment",
+  aksiyon: "treatment",
+  status: "status",
+  durum: "status",
+  process: "process",
+  süreç: "process",
+  service: "service",
+  hizmet: "service",
+  criticality: "criticality",
+  kritiklik: "criticality",
+  "varlık adı": "title",
+  "asset name": "title",
+  "varlık türü": "assetType",
+  "asset type": "assetType",
+  "ip/fqdn": "ip",
+  standard: "framework",
+  standart: "framework",
+  regulation: "framework",
+  regülasyon: "framework",
+  "control ref": "controlRef",
+  "madde no": "controlRef",
+  "control title": "controlTitle",
+  "kontrol başlığı": "controlTitle",
+  "uygulama durumu": "implementation",
+  vendor: "title",
+  tedarikçi: "title",
+  "risk level": "riskLevel",
+  "risk seviyesi": "riskLevel",
+  "contract end": "contractEnd",
+  "sözleşme bitişi": "contractEnd",
+};
+const valueEN: Record<string, string> = {
+  Düşük: "Low",
+  Orta: "Medium",
+  Yüksek: "High",
+  Kritik: "Critical",
+  Azalt: "Mitigate",
+  "Kabul Et": "Accept",
+  "Transfer Et": "Transfer",
+  Kaçın: "Avoid",
+  Aktif: "Active",
+  "Başarılı":"Successful","Kısmen Başarılı":"Partially successful","Başarısız":"Failed",
+  "Mevcut":"Available","Mevcut Değil":"Unavailable","Kritik İş Hizmeti":"Critical business service","Operasyonel Süreç":"Operational process",
+  "Destek Süreci":"Support process","Finansal Süreç":"Financial process","Yasal / Düzenleyici Süreç":"Legal / regulatory process",
+  "Müşteri Süreci":"Customer process","Teknoloji Hizmeti":"Technology service","İnsan Kaynakları Süreci":"Human resources process","Tedarikçi Bağımlı Süreç":"Supplier-dependent process",
+  Planlanan: "Planned", "Emekli / EOL": "Retired / EOL",
+  Açık: "Open",
+  "Uygulama Hazırlığında": "Implementation Preparation",
+  "İnceleme Takviminde": "Review Scheduled",
+  "Test Edilmedi": "Not Tested",
+  Değerlendirilmedi: "Not Assessed",
+  Değerlendiriliyor: "Under Assessment",
+  "Aksiyon Devam Ediyor": "Treatment in Progress",
+  "Kabul Edildi": "Accepted",
+  Taslak: "Draft",
+  İncelemede: "Under Review",
+  Onaylandı: "Approved",
+  Arşivlendi: "Archived",
+  Bakımda: "In Maintenance",
+  "Devre Dışı": "Retired",
+  "Kısmi Uyumlu": "Partially Compliant",
+  "Uyumlu Değil": "Non-compliant",
+  Uygulanamaz: "Not Applicable",
+  Askıda: "Suspended",
+  Sonlandırıldı: "Terminated",
+  Uygulanmıyor: "Not Implemented",
+  Reddedildi: "Rejected",
+  "Süresi Doldu": "Expired",
+  Başlanmadı: "Not Started",
+  "Devam Ediyor": "In Progress",
+  Kapatıldı: "Closed",
+  Uygulanıyor: "Implemented",
+  Uyumlu: "Compliant",
+  Kısmi: "Partial",
+  Kapalı: "Closed",
+  Üretim: "Production", Geliştirme: "Development", "Felaket Kurtarma": "Disaster Recovery",
+  Sunucu: "Server", Uygulama: "Application", Veritabanı: "Database", "Ağ Cihazı": "Network Device",
+  "Uç Nokta": "Endpoint", "Bulut Servisi": "Cloud Service", "Bilgi Varlığı": "Information Asset",
+  "Tedarikçi Hizmeti": "Vendor Service", "İş Süreci": "Business Process", "Doküman / Kayıt": "Document / Record",
+  "Fiziksel Lokasyon": "Physical Location", "Kritik Rol / Personel": "Critical Role / Personnel", "Güvenlik Ürünü": "Security Product",
+  "Herkese Açık": "Public", "Şirket İçi": "Internal", Gizli: "Confidential", "Çok Gizli": "Highly Confidential",
+  Evet: "Yes", Hayır: "No", Kapsamda: "Covered", "Kapsam Dışı": "Out of Scope", Bilinmiyor: "Unknown",
+  Güncel: "Current", Gecikmiş: "Overdue", Muaf: "Exempt",
+  Sürekli: "Continuous",
+  Stratejik: "Strategic",
+  "Kurumsal Yönetim": "Corporate Governance",
+  "Sermaye Piyasaları ve KAP": "Capital Markets and Public Disclosure",
+  "Hukuk ve Regülasyon": "Legal and Regulatory",
+  "Finansal Raporlama ve İç Kontrol":
+    "Financial Reporting and Internal Control",
+  Finansal: "Financial",
+  "Hazine ve Likidite": "Treasury and Liquidity",
+  Vergi: "Tax",
+  "İnsan Kaynakları": "Human Resources",
+  Operasyonel: "Operational",
+  "Bilgi Teknolojileri": "Information Technology",
+  "Siber Güvenlik": "Cybersecurity",
+  "Bilgi Güvenliği": "Information Security",
+  "Veri Yönetimi ve Yapay Zekâ": "Data Management and AI",
+  "Kişisel Verilerin Korunması": "Privacy and Personal Data Protection",
+  "Üçüncü Taraf ve Tedarik Zinciri": "Third Party and Supply Chain",
+  "İş Sürekliliği ve Kriz Yönetimi":
+    "Business Continuity and Crisis Management",
+  "Suistimal, Etik ve Yolsuzluk": "Fraud, Ethics and Anti-Corruption",
+  İtibar: "Reputation",
+  "Proje ve Değişiklik Yönetimi": "Project and Change Management",
+  "Fiziksel Güvenlik": "Physical Security",
+  "İş Sağlığı ve Güvenliği": "Occupational Health and Safety",
+  "ESG, Sürdürülebilirlik ve İklim": "ESG, Sustainability and Climate",
+  "Müşteri ve Ürün": "Customer and Product",
+  "Pazar ve Rekabet": "Market and Competition",
+};
+const display = (v: any, lang: Lang) =>
+  lang === "en" ? valueEN[String(v)] || v : v;
+function score(r: Row) {
+  return calculatedRiskScore(r.data);
+}
+function inherentScore(r: Row) {
+  return calculatedRiskScore(r.data);
+}
+function band(n: number) {
+  return n >= 17 ? "Kritik" : n >= 10 ? "Yüksek" : n >= 5 ? "Orta" : "Düşük";
+}
+function empty(m: string) {
+  return Object.fromEntries((fields[m] || []).map((k) => [k, ""]));
+}
+const riskRatingKeys = ["confidentialityImpact", "integrityImpact", "availabilityImpact", "inherentLikelihood", "inherentImpact"] as const;
+const quickRiskLayout = ["title", "owner", "calculatedImpact", "asset"];
+const quickRiskKeys = new Set([...quickRiskLayout, ...riskRatingKeys, "ownerEmail", "controlImplementationNote", "residualImpact"]);
+const riskFormFields = [...quickRiskLayout, ...fields["Risk Assessment"].filter(key => !quickRiskKeys.has(key))];
+const requiredFieldsByModule: Record<string, string[]> = {
+  "Risk Assessment": ["title", "category", "businessUnit", "owner", "asset", "inherentLikelihood", "inherentImpact", "treatment", "status", "nextReview"],
+  BIA: ["process", "processCategory", "businessUnit", "owner", "criticality", "asset", "rto", "rpo", "status"],
+  "Varlık Envanteri": ["title", "assetType", "businessUnit", "owner", "criticality", "status"],
+  Uyum: ["framework", "controlRef", "controlTitle", "owner", "status"],
+  Tedarikçiler: ["title", "service", "owner", "criticality", "riskLevel", "status"],
+  Kontroller: ["controlTitle", "owner", "frequency", "implementation", "status"],
+  Kanıtlar: ["evidenceTitle", "controlRef", "owner", "period", "status"],
+  "Denetim Yönetimi": ["auditName", "auditType", "auditOwner", "startDate", "endDate", "requirementRef", "requirementTitle", "owner", "businessUnit", "dueDate", "status", "progress"],
+};
+const statusOptionsByModule: Record<string, string[]> = {
+  "Risk Assessment": ["Açık", "Değerlendiriliyor", "Aksiyon Devam Ediyor", "Kabul Edildi", "Kapalı"],
+  BIA: ["Taslak", "İncelemede", "Onaylandı", "Aktif", "Arşivlendi"],
+  "Varlık Envanteri": assetStatuses,
+  Uyum: ["Uyumlu", "Kısmi Uyumlu", "Uyumlu Değil", "Uygulanamaz"],
+  Tedarikçiler: ["Aktif", "İncelemede", "Askıda", "Sonlandırıldı"],
+  Kontroller: ["Taslak", "Aktif", "İyileştirme Gerekli", "Devre Dışı"],
+  Kanıtlar: ["Taslak", "İncelemede", "Onaylandı", "Reddedildi", "Süresi Doldu"],
+  "Denetim Yönetimi": ["Başlanmadı", "Devam Ediyor", "İncelemede", "Kapatıldı"],
+};
+function csvDownload(name: string, rows: Row[], lang: Lang) {
+  const labels = labelMap[lang],
+    all = [...new Set(rows.flatMap((r) => fields[r.module] || []))],
+    head = [
+      lang === "tr" ? "Kod" : "Code",
+      lang === "tr" ? "Modül" : "Module",
+      ...all.map((k) => labels[k] || k),
+    ],
+    body = rows.map((r) => [
+      displayRecordCode(r),
+      names[lang][r.module] || r.module,
+      ...all.map((k) => r.data[k] ?? ""),
+    ]);
+  const csv = [head, ...body]
+    .map((x) =>
+      x
+        .map((v) => `"${safeSpreadsheetCell(v).replaceAll('"', '""')}"`)
+        .join(";"),
+    )
+    .join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(
+    new Blob(["\ufeff" + csv], { type: "text/csv" }),
+  );
+  a.download = name;
+  a.click();
+}
+
+export default function Home() {
+  return <AuthGate />;
+}
+
+function AuthGate() {
+  const [state, setState] = useState<any>(null),
+    [error, setError] = useState(""),
+    [showLogin, setShowLogin] = useState(false);
+  const identityRequest = useRef<{ id: number; controller?: AbortController }>({ id: 0 });
+  const submission = useRef<AbortController | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  async function check(force = false) {
+    if (submission.current && !force) return;
+    identityRequest.current.controller?.abort();
+    const controller = new AbortController(), id = identityRequest.current.id + 1;
+    identityRequest.current = { id, controller };
+    try {
+      const j = await readSessionSnapshot(withBasePath("/api/auth"), { signal: controller.signal });
+      if (id !== identityRequest.current.id) return;
+      setState((previous: Partial<SessionSnapshot> | null) => preserveUnchangedSessionUser(previous, j));
+      setError("");
+    } catch (e) {
+      if (id !== identityRequest.current.id) return;
+      setState({ loadFailed: true });
+      setError(e instanceof Error ? e.message : "Kimlik servisine ulaşılamadı.");
+    }
+  }
+  useEffect(() => {
+    void check();
+    const refresh = () => { void check(); };
+    const timer = window.setInterval(refresh,60000);
+    window.addEventListener("focus",refresh);
+    return () => {window.clearInterval(timer);window.removeEventListener("focus",refresh);identityRequest.current.id++;identityRequest.current.controller?.abort();submission.current?.abort();};
+  }, []);
+  async function authenticate(input: LocalAuthInput) {
+    if (submission.current) return;
+    const controller = new AbortController();
+    submission.current = controller;
+    identityRequest.current.id++;
+    identityRequest.current.controller?.abort();
+    setSubmitting(true); setError("");
+    try {
+      await submitLocalAuthentication(withBasePath("/api/auth"), input, { signal: controller.signal });
+      if (!controller.signal.aborted) await check(true);
+    } catch (e) {
+      if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Giriş başarısız. Oturum durumunu kontrol edin.");
+    } finally {
+      if (submission.current === controller) submission.current = null;
+      if (!controller.signal.aborted) setSubmitting(false);
+    }
+  }
+  async function submit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    await authenticate({
+      action: state.bootstrapRequired && !showLogin ? "bootstrap" : "login",
+      name: String(fd.get("name") || ""), email: String(fd.get("email") || ""), password: String(fd.get("password") || ""),
+    });
+  }
+  async function demoLogin() { await authenticate({ action: "demo_login" }); }
+  if (!state)
+    return (
+      <div className="auth-screen">
+        <div className="auth-card">
+          <b>Fornost GRC</b>
+          <p>Güvenli oturum hazırlanıyor…</p>
+        </div>
+      </div>
+    );
+  if (state.loadFailed)
+    return (
+      <div className="auth-screen">
+        <div className="auth-card">
+          <div className="auth-mark">F</div>
+          <small>FORNOST GRC</small>
+          <h1>Oturum hazırlanamadı</h1>
+          <p>
+            Kimlik servisi geçici olarak yanıt veremedi. Birkaç saniye sonra
+            tekrar deneyin.
+          </p>
+          {error && <div className="auth-error">{error}</div>}
+          <button
+            className="primary"
+            onClick={() => {
+              setState(null);
+              check();
+            }}
+          >
+            Tekrar Dene
+          </button>
+        </div>
+      </div>
+    );
+  if (state.authenticated && state.user?.orgScope?.restricted) return <ScopedWorkspace user={state.user} key={JSON.stringify([state.user.id,state.user.orgScope])}/>;
+  if (state.authenticated) return <FornostApp key={JSON.stringify([state.user.id,state.user.role,state.user.moduleAccess])} currentUser={state.user} />;
+  return (
+    <div className="auth-screen">
+      <form className="auth-card" onSubmit={submit} aria-busy={submitting}>
+        <div className="auth-mark">F</div>
+        <small>FORNOST GRC</small>
+        <h1>
+          {state.bootstrapRequired && !showLogin
+            ? "Fornost GRC İlk Kurulum"
+            : "Yerel Hesapla Giriş"}
+        </h1>
+        <p>
+          {state.bootstrapRequired && !showLogin
+            ? "Kurulumu tamamlamak için ilk yerel yönetici hesabını oluşturun. Bu hesap sistem yöneticisi yetkisine sahip olacaktır."
+            : "Fornost hesabınızın e-posta adresi ve parolasıyla giriş yapın."}
+        </p>
+        {state.bootstrapRequired && !showLogin && (
+          <div className="setup-progress" aria-label="İlk kurulum adımları">
+            <span className="active">
+              <b>1</b> Yönetici
+            </span>
+            <span>
+              <b>2</b> Giriş
+            </span>
+            <span>
+              <b>3</b> Ayarlar
+            </span>
+          </div>
+        )}
+        {state.bootstrapRequired && !showLogin && (
+          <label>
+            Ad Soyad
+            <input name="name" required autoComplete="name" />
+          </label>
+        )}
+        <label>
+          E-posta
+          <input name="email" type="email" required autoComplete="username" />
+        </label>
+        <label>
+          Parola
+          <input
+            name="password"
+            type="password"
+            required
+            minLength={12}
+            autoComplete={
+              state.bootstrapRequired && !showLogin
+                ? "new-password"
+                : "off"
+            }
+          />
+        </label>
+        {state.bootstrapRequired && !showLogin && (
+          <em>En az 12 karakter; büyük/küçük harf, sayı ve özel karakter.</em>
+        )}
+        {error && <div className="auth-error" role="alert">{error}<button type="button" className="ghost" disabled={submitting} onClick={() => void check()}>Oturum Durumunu Kontrol Et</button></div>}
+        <button className="primary" disabled={submitting}>
+          {submitting ? "İşlem sürüyor…" : state.bootstrapRequired && !showLogin
+            ? "Yönetici Hesabını Oluştur"
+            : "Giriş Yap"}
+        </button>
+        {state.demoAccount && (
+          <div className="demo-login-box">
+            <b>Demo Editor Hesabı</b>
+            <span>{state.demoAccount.email}</span>
+            <button type="button" className="ghost" disabled={submitting} onClick={demoLogin}>
+              Demo Hesapla Giriş Yap
+            </button>
+          </div>
+        )}
+        {state.bootstrapRequired && (
+          <button
+            type="button"
+            className="auth-switch"
+            disabled={submitting}
+            onClick={() => setShowLogin((x) => !x)}
+          >
+            {showLogin
+              ? "İlk yönetici oluşturma ekranına dön"
+              : "Mevcut yerel hesapla giriş yap"}
+          </button>
+        )}
+      </form>
+    </div>
+  );
+}
+
+function returnsToDecisionQueue(request?: FornostNavigationRequest | null) {
+  return request?.returnTo?.module === "Ana Sayfa" && request.returnTo.kind === "executive-decisions";
+}
+
+const registerCreateLabels: Record<string, [string,string]> = {
+  "Risk Assessment": ["Risk oluştur", "Create risk"], "BIA": ["İş etki analizi oluştur", "Create impact analysis"],
+  "Varlık Envanteri": ["Varlık ekle", "Add asset"], "Uyum": ["Gereksinim oluştur", "Create requirement"],
+  "Kontroller": ["Kontrol oluştur", "Create control"], "Kanıtlar": ["Kanıt yükle", "Upload evidence"]
+};
+
+function FornostApp({ currentUser }: { currentUser: any }) {
+  const scoped = isScoped(currentUser);
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
+  const [legacyCompliance,setLegacyCompliance]=useState(false);
+  const complianceViewKey = pageSessionKey(String(currentUser.id)) + "-compliance-view";
+  function changeComplianceView(register:boolean) {
+    setLegacyCompliance(register);
+    try { window.sessionStorage.setItem(complianceViewKey, register ? "register" : "frameworks"); } catch { /* Session storage is optional. */ }
+  }
+  const [lang, setLang] = useState<Lang>("tr"),
+    [active, setActive] = useState("Ana Sayfa"),
+    [rows, setRows] = useState<Row[]>([]),
+    [registerLoadState, setRegisterLoadState] = useState<"loading" | "error" | "ready">("loading"),
+    [modal, setModal] = useState(false),
+    [editing, setEditing] = useState<Row | null>(null),
+    [form, setForm] = useState<Record<string, any>>({}),
+    [notice, setNoticeText] = useState(""),
+    [noticeTone,setNoticeTone] = useState<"info"|"success"|"error">("info"),
+    [saving, setSaving] = useState(false),
+    [controlMappings,setControlMappings]=useState<ControlMappingChange[]>([]),
+    [controlEvidenceFirst,setControlEvidenceFirst]=useState(false),
+    [importOpen, setImportOpen] = useState(false),
+    [registerImportRevision, setRegisterImportRevision] = useState(0),
+    [evidenceFile,setEvidenceFile]=useState<File|null>(null),
+    [previewEvidence, setPreviewEvidence] = useState<Row | null>(null),
+    [browsedAudit, setSelectedAudit] = useState(""),
+    [auditPortfolio, setAuditPortfolio] = useState<AuditPortfolioItem[]>([]),
+    [columnPickerOpen, setColumnPickerOpen] = useState(false),
+    [filterPanelOpen, setFilterPanelOpen] = useState(false),
+    [columnPreferences, setColumnPreferences] = useState<
+      Record<string, string[]>
+    >({}),
+    [catalogs, setCatalogs] = useState<CatalogMap>(catalogOptions),
+    [theme, setTheme] = useState<"light" | "dark">("light"),
+    [sidebarMode, setSidebarMode] = useState<"expanded" | "compact" | "hidden">("expanded"),
+    [openNavGroup, setOpenNavGroup] = useState("overview"),
+    [mobileNavOpen, setMobileNavOpen] = useState(false),
+    [commandOpen, setCommandOpen] = useState(false),
+    [commandQuery, setCommandQuery] = useState(""),
+    [commandIndex, setCommandIndex] = useState(0),
+    [recentModules, setRecentModules] = useState<string[]>([]);
+  const [dashboardLens, setDashboardLens] = useState<{module:string; framework?:string; assetId?:string} | null>(null);
+  const [biaPlanSeed,setBiaPlanSeed]=useState<ConnectedGrcRow|null>(null);
+  const lens = dashboardLens?.module === active ? dashboardLens : null;
+  const { query, setQuery, filters: registerFilters, setFilters: setRegisterFilters, sort: registerSort, setSort: setRegisterSort } = useRegisterView(String(currentUser.id), active, Boolean(lens));
+  const [commandMode, setCommandMode] = useState<"modules" | "records">("modules");
+  const closeCommand = useCallback(() => { setCommandOpen(false); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".command-trigger")?.focus()); }, []);
+  const commandDialogRef = useRecordDialog(commandOpen, closeCommand);
+  const [recordRequest, setRecordRequest] = useState<FornostNavigationRequest | null>(null);
+  const [focusedRecord, setFocusedRecord] = useState<{ id: string; ref: string; auditName?: string; openDetail?:boolean; state?: "loading" | "error"; request?: FornostNavigationRequest } | null>(null);
+  const readableRows = useMemo(() => rows.filter(row => canReadModule(currentUser, row.module)), [rows, currentUser]);
+  const controlLinks = useMemo(()=>controlConnections(active==="Kontroller" ? readableRows : []),[active,readableRows]);
+  const riskAssets = useMemo(() => riskRecordOptions(readableRows,"Varlık Envanteri"), [readableRows]);
+  const riskControls = useMemo(() => riskRecordOptions(readableRows,"Kontroller"), [readableRows]);
+  const assetLinks = useMemo(() => active==="Varlık Envanteri" || lens?.assetId ? assetLinkedRecords(readableRows) : new Map<string, AssetLinks>(), [readableRows,active,lens?.assetId]);
+  const selectedAudit = focusedRecord?.auditName ?? browsedAudit;
+  const recordContext = useRef<FornostNavigationRequest | null>(null);
+  const navigationOrigin = useRef<FornostNavigationRequest["returnTo"]>(undefined);
+  const activeModule = useRef(active);
+  useEffect(() => { activeModule.current = active; }, [active]);
+  const [pageRestored, setPageRestored] = useState(false);
+  const pageKey = pageSessionKey(String(currentUser.id));
+  useEffect(() => {
+    const restored = restorePage(() => window.sessionStorage, pageKey, module =>
+      modules.includes(module) && module !== "Ask Fornost" &&
+      (currentUser.role === "Admin" || !adminModules.has(module)) &&
+      canOpenModule(currentUser, module));
+    setActive(restored);
+    try { setLegacyCompliance(window.sessionStorage.getItem(complianceViewKey) === "register"); } catch { /* Default to the framework view. */ }
+    const savedFocus = readCoreRecordSession(() => window.sessionStorage, String(currentUser.id), module => modules.includes(module) && canOpenModule(currentUser, module) && (currentUser.role === "Admin" || !adminModules.has(module)));
+    if (savedFocus && sameDomainModule(savedFocus.module, restored) && !peekPendingFornostFocus()) {
+      recordContext.current = savedFocus;
+      setRecordRequest(savedFocus);
+    }
+    setPageRestored(true);
+  }, [pageKey, currentUser, complianceViewKey]);
+  useEffect(() => {
+    // Wait for restoration so the initial Home render cannot overwrite it.
+    if (pageRestored) rememberPage(() => window.sessionStorage, pageKey, active);
+  }, [active, pageKey, pageRestored]);
+  const setNotice=useCallback((message:string,tone:"info"|"success"|"error"="info")=>{setNoticeText(message);setNoticeTone(tone)},[]);
+  const recordWritePending=useRef(false);
+  const deletePending=useRef(false);
+  const closeRecordDialog=useCallback(()=>{if(!recordWritePending.current)setModal(false)},[]);
+  const recordDialogRef=useRecordDialog(modal,closeRecordDialog);
+  const labels = labelMap[lang],
+    u = ui[lang];
+  const clearRecordFocus = () => {
+    consumePendingFornostFocus(active); recordContext.current = null;
+    writeCoreRecordSession(() => window.sessionStorage, String(currentUser.id), null);
+    setRecordRequest(null); setFocusedRecord(null);
+  };
+  const showRegisterWithoutFocus = () => {
+    if (focusedRecord?.auditName !== undefined) setSelectedAudit(focusedRecord.auditName);
+    clearRecordFocus();
+  };
+  const returnFromRecord = () => {
+    const origin = recordContext.current?.returnTo;
+    clearRecordFocus();
+    if (origin && canOpenModule(currentUser, origin.module)) navigateToFornost({ ...origin, source: "record-return" });
+  };
+  useEffect(() => {
+    const before = (event: Event) => {
+      const request = (event as CustomEvent<FornostNavigationRequest>).detail;
+      navigationOrigin.current = request.returnTo || { module: activeModule.current };
+    };
+    const accept = (request: FornostNavigationRequest | null) => {
+      if (request && isCoreRecordRequest(request) && canOpenModule(currentUser, request.module)) {
+        const next = { ...request, returnTo: request.returnTo || navigationOrigin.current };
+        recordContext.current = next;
+        writeCoreRecordSession(() => window.sessionStorage, String(currentUser.id), next);
+        setRecordRequest(next);
+      }
+    };
+    const listener = (event: Event) => accept((event as CustomEvent<FornostNavigationRequest>).detail);
+    window.addEventListener(FORNOST_BEFORE_FOCUS_EVENT, before);
+    window.addEventListener(FORNOST_FOCUS_EVENT, listener);
+    accept(peekPendingFornostFocus());
+    return () => { window.removeEventListener(FORNOST_BEFORE_FOCUS_EVENT, before); window.removeEventListener(FORNOST_FOCUS_EVENT, listener); };
+  }, [currentUser]);
+  const evidenceRegisterState = useEvidenceAssurance(rows, active === "Kanıtlar" && !scoped);
+  linkedRows = rows;
+  catalogOptions = catalogs;
+  useEffect(() => {
+    const saved = localStorage.getItem("fornost-grc-language");
+    if (saved === "tr" || saved === "en") setLang(saved);
+    const savedSidebarMode = localStorage.getItem("fornost-grc-sidebar-mode");
+    if (["expanded", "compact", "hidden"].includes(savedSidebarMode || ""))
+      setSidebarMode(savedSidebarMode as "expanded" | "compact" | "hidden");
+    else if (localStorage.getItem("fornost-grc-sidebar-collapsed") === "true")
+      setSidebarMode("compact");
+    const savedNavGroup = localStorage.getItem("fornost-grc-open-nav-group");
+    if (savedNavGroup) setOpenNavGroup(savedNavGroup);
+    try {
+      const recent = JSON.parse(
+        localStorage.getItem("fornost-grc-recent-modules") || "[]",
+      );
+      if (Array.isArray(recent))
+        setRecentModules(
+          recent.filter((item) => typeof item === "string").slice(0, 5),
+        );
+    } catch {}
+    try {
+      let columns = JSON.parse(
+        localStorage.getItem("fornost-grc-columns") || "{}",
+      );
+      if (localStorage.getItem("fornost-grc-column-layout") !== "v2") {
+        columns = {
+          ...columns,
+          BIA: defaultRegisterColumnKeys("BIA"),
+          "Varlık Envanteri": defaultRegisterColumnKeys("Varlık Envanteri"),
+          Kontroller: defaultRegisterColumnKeys("Kontroller"),
+        };
+        localStorage.setItem("fornost-grc-columns", JSON.stringify(columns));
+        localStorage.setItem("fornost-grc-column-layout", "v2");
+      }
+      if (columns && typeof columns === "object") {
+        if(localStorage.getItem("fornost-control-risk-column")!=="1"){
+          const previous=columns.Kontroller;
+          if(Array.isArray(previous)&&!previous.includes("linkedRisks")){
+            const next=previous.slice(),pos=next.indexOf("evidence");
+            next.splice(pos<0?next.length:pos,0,"linkedRisks");
+            columns={...columns,Kontroller:next};
+            localStorage.setItem("fornost-grc-columns",JSON.stringify(columns));
+          }
+          localStorage.setItem("fornost-control-risk-column","1");
+        }
+        if (localStorage.getItem("fornost-bia-plan-column") !== "1") {
+          const previous=columns.BIA;
+          if(Array.isArray(previous) && !previous.includes("continuityPlan")){
+            columns={...columns,BIA:[...previous,"continuityPlan"]};
+            localStorage.setItem("fornost-grc-columns",JSON.stringify(columns));
+          }
+          localStorage.setItem("fornost-bia-plan-column","1");
+        }
+        if (localStorage.getItem("fornost-asset-links-column") !== "1") {
+          const previous = columns["Varlık Envanteri"];
+          if (Array.isArray(previous) && !previous.includes("assetLinks")) {
+            const next = previous.slice();
+            const coverageIndex = next.indexOf("coverage");
+            next.splice(coverageIndex < 0 ? next.length : coverageIndex, 0, "assetLinks");
+            columns = {...columns, "Varlık Envanteri": next};
+            localStorage.setItem("fornost-grc-columns", JSON.stringify(columns));
+          }
+          localStorage.setItem("fornost-asset-links-column", "1");
+        }
+        setColumnPreferences(columns);
+      }
+    } catch {}
+  }, []);
+  const languageRef = useRef(lang);
+  useEffect(() => {
+    languageRef.current = lang;
+    localStorage.setItem("fornost-grc-language", lang);
+    document.documentElement.lang = lang;
+    window.dispatchEvent(new CustomEvent("fornost:ai-workspace-locale", { detail: lang }));
+  }, [lang]);
+  useEffect(() => {
+    const saved = localStorage.getItem("fornost-grc-theme-v5");
+    setTheme(saved === "dark" || saved === "light" ? saved : "light");
+  }, []);
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    localStorage.setItem("fornost-grc-theme-v5", theme);
+    return () => {
+      delete document.documentElement.dataset.theme;
+      document.documentElement.style.colorScheme = "";
+    };
+  }, [theme]);
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileNavOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    document.body.classList.add("mobile-nav-locked");
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.body.classList.remove("mobile-nav-locked");
+    };
+  }, [mobileNavOpen]);
+  useEffect(() => {
+    document.title = "Fornost GRC";
+    const overview = document.querySelector(".welcome small");
+    if (overview)
+      overview.textContent =
+        lang === "tr" ? "FORNOST GRC GENEL DURUM" : "FORNOST GRC OVERVIEW";
+  }, [lang, active]);
+  const registerRequest = useRef(0);
+  const load = useCallback(async () => {
+    const request = ++registerRequest.current;
+    setRegisterLoadState("loading");
+    try {
+      const rawRows = await readAllGrcPages<any>(async cursor => {
+        const response = await fetch(withBasePath(`/api/grc${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`),{cache:"no-store",signal:AbortSignal.timeout(15000)});
+        const page = await response.json().catch(()=>({}));
+        if(!response.ok)throw new Error(String(page.error || "GRC kayıtları yüklenemedi."));
+        return page;
+      });
+      const nextRows:Row[]=rawRows.map(x=>({...x,data:JSON.parse(x.data_json),code:x.recordCode||x.record_code,createdAt: x.createdAt || x.created_at,updatedAt: x.updatedAt || x.updated_at})).sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));
+      if (request !== registerRequest.current) return null;
+      setRows(nextRows);
+      setRegisterLoadState("ready");
+      return nextRows;
+    } catch (error) {
+      if (request !== registerRequest.current) return null;
+      setRows([]);
+      setRegisterLoadState("error");
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : languageRef.current === "tr"
+            ? "GRC kayıtları yüklenemedi."
+            : "GRC records could not be loaded.",
+      );
+      return null;
+    }
+  }, [setNotice]);
+  const loadCatalogs = useCallback(async () => {
+    try {
+      const response = await fetch(withBasePath("/api/catalogs"), {
+        cache: "no-store",
+      });
+      if (response.ok) setCatalogs((await response.json()).catalogs);
+    } catch {}
+  }, []);
+  const [auditDirectoryState,setAuditDirectoryState]=useState<"loading"|"ready"|"error">("loading");
+  const auditDirectoryRequest=useRef(0);
+  const loadAudits = useCallback(async () => {
+    const request=++auditDirectoryRequest.current;
+    if(!canReadModule(currentUser,"Denetim Yönetimi")) {setAuditPortfolio([]);setAuditDirectoryState("ready");return;}
+    try {
+      const {response,body}=await requestJsonWithDeadline(withBasePath("/api/audits"),{cache:"no-store"},fetch,10000);
+      if(!response.ok||!Array.isArray(body.audits)||!body.audits.every((a:AuditPortfolioItem)=>a&&typeof a.name==="string"&&typeof a.id==="string"))throw new Error("Invalid audit directory");
+      if(request===auditDirectoryRequest.current){setAuditPortfolio(body.audits);setAuditDirectoryState("ready");}
+    } catch {if(request===auditDirectoryRequest.current)setAuditDirectoryState("error");}
+  }, [currentUser]);
+  useEffect(() => {
+    void loadAudits();
+    void load();
+    void loadCatalogs();
+  }, [load, loadAudits, loadCatalogs]);
+  useEffect(() => {
+    setColumnPickerOpen(false);
+    setFilterPanelOpen(false);
+    setFocusedRecord(null);
+    if (pageRestored && recordContext.current && !sameDomainModule(recordContext.current.module, active)) {
+      recordContext.current = null;
+      writeCoreRecordSession(() => window.sessionStorage, String(currentUser.id), null);
+    }
+  }, [active, pageRestored, currentUser.id]);
+  useEffect(() => {
+    if (!recordRequest || !sameDomainModule(recordRequest.module, active)) return;
+    let cancelled = false;
+    setFocusedRecord({ id: "", ref: coreRecordReference(recordRequest), state: "loading", request: recordRequest });
+    void load().then(freshRows => {
+      if (cancelled) return;
+      if (freshRows) {
+        setNotice("");
+        const target = resolveCoreRecord(freshRows, recordRequest);
+        const auditName = target?.module === "Denetim Yönetimi" ? String(target.data.auditName || "") : undefined;
+        const fromDecisionQueue = returnsToDecisionQueue(recordRequest) || ["dashboard-action","my-work","my-work-assurance"].includes(recordRequest.source || "");
+        setFocusedRecord({ id: target?.id || "", ref: target?.code || coreRecordReference(recordRequest), auditName: fromDecisionQueue ? auditName : undefined, openDetail: ["dashboard-action","my-work","my-work-assurance"].includes(recordRequest.source || ""), request: target ? undefined : recordRequest });
+        if (auditName !== undefined && !fromDecisionQueue) setSelectedAudit(auditName);
+      } else {
+        setFocusedRecord({ id: "", ref: coreRecordReference(recordRequest), state: "error", request: recordRequest });
+      }
+      consumePendingFornostFocus(recordRequest.module);
+      setRecordRequest(null);
+    });
+    return () => { cancelled = true; };
+  }, [recordRequest, active, load, setNotice]);
+  const staleEvidence = useMemo(() => {
+    if (lens?.module !== "Kanıtlar" || !evidenceRegisterState.ready || !evidenceRegisterState.generatedAt) return null;
+    const now = new Date(evidenceRegisterState.generatedAt);
+    return new Set(evidenceRegisterState.rows.filter(row => row.module === "Kanıtlar" && !evaluateEvidenceEligibility(row.data, now).current).map(row => row.id));
+  }, [lens, evidenceRegisterState.ready, evidenceRegisterState.generatedAt, evidenceRegisterState.rows]);
+  const selectedColumnKeys =
+    columnPreferences[active] || defaultRegisterColumnKeys(active);
+  const visible = useMemo(
+    () =>
+      sortRegisterRows(rows.filter(
+        (r) =>
+          r.module === active &&
+          (!focusedRecord || r.id === focusedRecord.id) &&
+          (!lens || focusedRecord || (lens.assetId ? assetLinks.get(lens.assetId)?.[active as AssetTarget]?.has(r.id) : (active !== "Risk Assessment" || (validMatrixCoordinates(r.data) && (assessedRiskScore(r.data) ?? -1) >= 10))
+            && (active !== "Kanıtlar" || staleEvidence?.has(r.id)))) &&
+          (!selectedAudit ||
+            active !== "Denetim Yönetimi" ||
+            auditNameKey(r.data.auditName) === auditNameKey(selectedAudit)) &&
+          (focusedRecord || (`${r.id} ${displayRecordCode(r)} ${JSON.stringify(r.data)}`
+            .toLocaleLowerCase(lang === "tr" ? "tr-TR" : "en-US")
+            .includes(
+              query.toLocaleLowerCase(lang === "tr" ? "tr-TR" : "en-US"),
+            ) &&
+          Object.entries(registerFilters).every(
+            ([key, value]) => !value || String(r.data[key] ?? "") === value,
+          ))),
+      ), active, registerSort, lang),
+    [rows, active, query, lang, selectedAudit, registerFilters, focusedRecord, registerSort, lens, staleEvidence,assetLinks],
+  );
+  function setModuleColumns(keys: string[]) {
+    if (!keys.length) return;
+    const next = { ...columnPreferences, [active]: keys };
+    setColumnPreferences(next);
+    try { localStorage.setItem("fornost-grc-columns", JSON.stringify(next)); } catch { /* The current view remains usable when storage is blocked. */ }
+  }
+  function changeLang(next: Lang) {
+    setLang(next);
+  }
+  function openNew(seed: Record<string, any> = {}, module = active) {
+    if(recordWritePending.current)return;
+    setNotice("");
+    setEditing(null);
+    setControlMappings([]);
+    setControlEvidenceFirst(false);
+    const next = empty(module);
+    if(module==="Kanıtlar"){setEvidenceFile(null);Object.assign(next,pendingEvidence,{collectedAt:localDay()})}
+    if (module === "BIA") next.status = "Taslak";
+    if (module === "Risk Assessment") next.status = "Değerlendiriliyor";
+    if (module === "Denetim Yönetimi" && selectedAudit) {
+      next.auditName = selectedAudit;
+      const audit = auditPortfolio.find((item) => item.name === selectedAudit);
+      next.auditType = audit?.audit_type || auditKind(selectedAudit);
+      next.auditOwner = audit?.audit_owner || "";
+      next.auditor = audit?.auditor || "";
+      next.frameworkTemplate = audit?.template || "";
+      next.progress = "0";
+      next.status = "Başlanmadı";
+      next.evidenceStatus = "Kanıt Bekleniyor";
+    }
+    Object.assign(next, seed);
+    setForm(next);
+    setModal(true);
+  }
+  function openEdit(r: Row, evidenceFirst=false) {
+    if(recordWritePending.current)return;
+    setNotice("");
+    setEditing(r);
+    setControlMappings([]);
+    setControlEvidenceFirst(evidenceFirst);
+    setForm({ ...r.data });
+    setModal(true);
+  }
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    if (recordWritePending.current) return;
+    recordWritePending.current=true;
+    setSaving(true);
+    setNotice("");
+    try {
+      const r = await fetch(withBasePath("/api/grc"), {
+        method: editing ? "PATCH" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: editing?.id, expectedUpdatedAt: editing ? editing.updatedAt || "" : undefined, module: active, data: form, ...(active==="Kontroller"&&controlMappings.length?{controlMappings}:{}) }),
+      });
+      const result = await r.json().catch(() => ({}));
+      if(String(result.code||"").startsWith("MAPPING_")){
+        setNotice(lang==="tr"?"Madde eşleştirmeleri kaydedilemedi. Kataloğu yenileyip seçimlerinizi kontrol edin.":"The requirement mappings could not be saved. Reload the catalog and review your selections.");return;
+      }
+      if(result.code==="REFERENCE_UNAVAILABLE"){
+        setNotice(active==="Risk Assessment" ? (lang==="tr"?"Seçilen kayıt veya kullanıcı değişti. Formunuz korundu. Bağlantıyı veya dizindeki kişiyi yeniden seçin.":"A selected record or directory contact changed. Your form is preserved. Select the current record or person again.") : lang==="tr"?"Yeni bağlantılardan biri artık kullanılamıyor veya yanlış modüle ait. Formunuz korundu; bağlı kayıt seçimini düzeltip tekrar kaydedin.":"A new linked record is unavailable or belongs to the wrong module. Your form is preserved; correct the linked record and save again.");
+        return;
+      }
+      if(r.status===409){
+      const refreshed=await load();setModal(false);setEditing(null);
+        if(!refreshed){setNotice(lang==="tr"?"Kayıt değişti ve güncel liste yüklenemedi. Yeniden denemeden önce sayfayı yenileyin.":"The record changed and the current list could not be loaded. Reload before retrying.");return;}
+        setNotice(lang==="tr"?"Kayıt başka bir işlemde değişti. Güncel kayıt yüklendi; yeniden açıp değişikliklerinizi kontrol edin.":"The record changed in another operation. Reopen the refreshed record and review your changes.");
+        return;
+      }
+      if (!r.ok)
+        throw new Error(
+          String(
+            result.error ||
+              (lang === "tr"
+                ? "Kayıt kaydedilemedi."
+                : "Record could not be saved."),
+          ),
+        );
+      const refreshed = await load();
+      setModal(false);
+      if (!refreshed) {
+        setNotice(lang === "tr" ? "Kayıt kaydedildi ancak liste yenilenemedi. Yeniden kayıt oluşturmadan önce sayfayı yenileyin." : "The record was saved, but the list could not be refreshed. Reload the page before creating another record.");
+        return;
+      }
+      setNotice(
+        lang === "tr"
+          ? editing
+            ? "Kayıt güncellendi."
+            : `Yeni kayıt eklendi${result.code ? `: ${result.code}` : "."}`
+          : editing
+            ? "Record updated."
+            : `New record added${result.code ? `: ${result.code}` : "."}`,
+      );
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : lang === "tr"
+            ? "Kayıt kaydedilemedi."
+            : "Record could not be saved.",
+      );
+    } finally {
+      recordWritePending.current=false;
+      setSaving(false);
+    }
+  }
+  async function remove(id: string) {
+    const snapshot = rows.find(row => row.id === id);
+    if (!snapshot || deletePending.current || recordWritePending.current) return;
+    const identity=displayRecordCode(snapshot);
+    const title=String(snapshot.data.title||snapshot.data.controlTitle||snapshot.data.evidenceTitle||snapshot.data.process||snapshot.data.vendorName||snapshot.data.requirementTitle||snapshot.data.auditName||"");
+    if (!confirm(lang === "tr" ? `“${identity}${title?` · ${title}`:""}” kaydı silinsin mi?` : `Delete “${identity}${title?` · ${title}`:""}”?`)) return;
+    deletePending.current=true;
+    try {
+      const query = new URLSearchParams({id, expectedUpdatedAt: snapshot.updatedAt || ""});
+      const r = await fetch(withBasePath(`/api/grc?${query}`), {method: "DELETE"});
+      const j = await r.json().catch(() => ({}));
+      if (r.ok) {
+        await load();
+        setNotice(lang === "tr" ? "Kayıt silindi." : "Record deleted.","success");
+        return;
+      }
+      if (r.status === 409 || r.status === 404) {
+        await load();
+        setNotice(j.code === "RECORD_LINKED"
+          ? lang === "tr" ? "Bu kayda ID veya kod ile bağlı kayıtlar var. Önce bağlantıları kaldırın veya yeniden atayın." : "Other records link to this record by ID or code. Remove or reassign those links before deleting it."
+          : lang === "tr" ? "Kayıt değişmiş veya kaldırılmış. Liste yenilendi; güncel kaydı inceleyip tekrar karar verin." : "The record changed or was removed. The list has been refreshed; review it before deciding again.","error");
+        return;
+      }
+      throw new Error(j.error || (lang === "tr" ? "Kayıt silinemedi." : "Record could not be deleted."));
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : lang === "tr" ? "Kayıt silinemedi." : "Record could not be deleted.","error");
+    }finally{deletePending.current=false;}
+  }
+  async function createAudit(input: {
+    name: string;
+    template: string;
+    auditType: string;
+    auditor: string;
+    auditOwner: string;
+    catalogImport?: AuditCatalogImport;
+    posture?: {period:string;token:string};
+  }) {
+    const response = await fetch(withBasePath("/api/audits"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      if(result.error==="preview-changed") return "preview-changed" as const;
+      setNotice(
+        ({"audit-team":lang==="tr"?"Denetim sahibi ve denetçiler farklı olmalı. E-posta adreslerini kontrol edin.":"The owner and auditors must be different people. Check the email addresses.","audit-dates":lang==="tr"?"Gözlem döneminin başlangıç ve bitişini kontrol edin.":"Check the observation period dates.","audit-owner":lang==="tr"?"Etkin bir denetim sahibi seçin.":"Select an active audit owner."} as Record<string,string>)[result.error] || result.error ||
+          (lang === "tr"
+            ? "Denetim oluşturulamadı."
+            : "Audit could not be created."),
+      );
+      return false;
+    }
+    await Promise.all([load(), loadAudits()]);
+    setSelectedAudit(input.name);
+    setNotice(
+      lang === "tr"
+        ? "Denetim portföye eklendi."
+        : "Audit added to the portfolio.",
+    );
+    return true;
+  }
+  async function deleteAudit(audit: AuditPortfolioItem) {
+    if (deletePending.current) return;
+    if (
+      !confirm(
+        lang === "tr"
+          ? `“${audit.name}” denetimi ve içindeki tüm maddeler silinsin mi? Bu işlem yönetici arşivine kaydedilir.`
+          : `Delete “${audit.name}” and all of its requirements? This action is retained in the administrator archive.`,
+      )
+    )
+      return;
+    deletePending.current=true;
+    try {
+    const response = await fetch(
+      withBasePath(`/api/audits?id=${encodeURIComponent(audit.id)}`),
+      { method: "DELETE" },
+    );
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setNotice(
+        result.error ||
+          (lang === "tr"
+            ? "Denetim silinemedi."
+            : "Audit could not be deleted."),"error",
+      );
+      return;
+    }
+    setSelectedAudit("");
+    await Promise.all([load(), loadAudits()]);
+    setNotice(
+      lang === "tr"
+        ? `Denetim ve ${result.deletedRequirements || 0} maddesi silindi.`
+        : `Audit and ${result.deletedRequirements || 0} requirements deleted.`,
+    );
+    } catch {
+      setNotice(lang === "tr"
+        ? "Silme sonucu doğrulanamadı. Tekrar denemeden önce denetim listesini yenileyin."
+        : "The deletion result could not be confirmed. Refresh the audit list before trying again.","error");
+    } finally { deletePending.current=false; }
+  }
+  async function createTicket(row: Row) {
+    const response = await fetch(withBasePath("/api/integrations"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        kind: "ticketing",
+        action: "create-ticket",
+        sourceId: row.id,
+        title: `[Fornost GRC] ${row.data.requirementRef || displayRecordCode(row)} - ${row.data.requirementTitle || row.data.title || "GRC Aksiyonu"}`,
+        description: [row.data.finding, row.data.responsibleNote]
+          .filter(Boolean)
+          .join("\n\n"),
+      }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setNotice(
+        result.error ||
+          (lang === "tr"
+            ? "Ticket oluşturulamadı."
+            : "Ticket could not be created."),
+      );
+      return;
+    }
+    const ticketRef = String(result.id || "created"),
+      ticketUrl = String(result.url || "");
+    const update = await fetch(withBasePath("/api/grc"), {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        id: row.id,
+        expectedUpdatedAt: row.updatedAt || "",
+        module: row.module,
+        data: { ...row.data, ticketRef, ticketUrl, ticketStatus: "Open" },
+      }),
+    });
+    if(!update.ok){
+      await load();
+      setNotice(lang==="tr"?`Ticket oluşturuldu (${ticketRef}) fakat GRC kaydına bağlanamadı. Güncel kaydı kontrol edin; tekrar ticket oluşturmayın.`:`Ticket created (${ticketRef}), but it could not be linked to the GRC record. Review the refreshed record; do not create another ticket.`);
+      return;
+    }
+    await load();
+    setNotice(
+      lang === "tr"
+        ? `Ticket oluşturuldu: ${ticketRef}`
+        : `Ticket created: ${ticketRef}`,
+    );
+  }
+  async function uploadEvidence(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if(recordWritePending.current)return;
+    if(!evidenceFile)return;
+    const body=new FormData();
+    for(const [key,value] of Object.entries(form))if(typeof value==="string")body.set(key,value);
+    body.set("file",evidenceFile);body.set("lang",lang);
+    recordWritePending.current=true;setSaving(true);setNotice("");
+    try{
+      const r=await fetch(withBasePath("/api/evidence"),{method:"POST",body});
+      const result=await r.json().catch(()=>({}));
+      const errors:Record<string,[string,string]>={EVIDENCE_DATES:["Geçerlilik bitişini ve toplanma tarihini kontrol edin.","Check the collection and expiry dates."],INDEPENDENT_REVIEWER_REQUIRED:["Sahip ve yükleyiciden farklı bir inceleyen seçin.","Select a reviewer other than the owner or uploader."],SOURCE_UNAVAILABLE:["Seçilen bağlantı için erişim gerekiyor.","Access to the selected source is required."],REFERENCE_UNAVAILABLE:["Seçilen kayıt veya kullanıcı değişti. Seçimi güncelleyin.","A selected record or user changed. Update the selection."]};
+      if(!r.ok&&errors[result.code])throw new Error(errors[result.code][lang==="tr"?0:1]);
+      if(!r.ok)throw new Error(String(result.error||(lang==="tr"?"Kanıt yüklenemedi. Dosya türünü ve 10 MB sınırını kontrol edin.":"Evidence could not be uploaded. Check the file type and 10 MB limit.")));
+      if(evidenceFile.type.startsWith("image/")&&!scoped&&!currentUser.orgScope?.restricted)try{const {localOcr}=await import("./ai/grc/ocr");const {api}=await import("./ai/grc/ui-common");await api("",{action:"evidence",id:result.id,lang,transcript:{text:await localOcr(evidenceFile),hash:result.contentSha256}});}catch{/* Uploaded image remains available for manual preliminary review. */}
+      const refreshed=await load();setModal(false);
+      setNotice(refreshed?(lang==="tr"?"Kanıt kütüphanesine eklendi.":"Added to the evidence library."):(lang==="tr"?"Kanıt yüklendi ancak liste yenilenemedi. Tekrar göndermeden önce sayfayı yenileyin.":"Evidence was uploaded, but the list could not be refreshed. Reload before submitting again."));
+    }catch(error){
+      setNotice(error instanceof Error&&!(error instanceof TypeError)?error.message:(lang==="tr"?"Yükleme sonucu doğrulanamadı. Tekrar göndermeden önce kütüphaneyi kontrol edin.":"The upload result could not be confirmed. Check the library before submitting again."));
+    }finally{recordWritePending.current=false;setSaving(false);}
+  }
+  const evidenceReview=(row:ConnectedGrcRow)=><div key={row.id}>{!scoped&&!currentUser.orgScope?.restricted&&<EvidenceAiReview row={row} lang={lang} canWrite={canWriteModule(currentUser,"Kanıtlar")}/>}<EvidenceReviewAction row={row} actor={currentUser} canWrite={canWriteModule(currentUser,"Kanıtlar")} tr={lang==="tr"} refresh={async()=>Boolean(await load())}/></div>;
+  const by = (m: string) => rows.filter((r) => r.module === m),
+    desc = registerExperience(active, lang).description;
+  const navGroups = [
+    { id: "overview", label: lang === "tr" ? "GENEL BAKIŞ" : "OVERVIEW", items: ["Ana Sayfa","Benim İşlerim"] },
+    { id: "risk", label: lang === "tr" ? "RİSK" : "RISK", items: ["Risk Assessment","Varlık Envanteri","BIA","Tedarikçiler","Risk İştahı ve KRI","İş Sürekliliği"] },
+    { id: "compliance", label: lang === "tr" ? "UYUM" : "COMPLIANCE", items: ["Uyum","Kontroller","Kanıtlar","Kanıt Otomasyonu"] },
+    { id: "assurance", label: lang === "tr" ? "GÜVENCE" : "ASSURANCE", items: ["Denetim Yönetimi","Bulgular ve CAPA","Güvenlik Olayları"] },
+    { id: "governance", label: lang === "tr" ? "YÖNETİŞİM" : "GOVERNANCE", items: ["Politika Merkezi","Regülasyon Merkezi","AI Yönetişimi",...(currentUser.orgScope?.role==="group-admin"?["Trust Center Yönetimi"]:[])] },
+    { id: "intelligence", label: lang === "tr" ? "İÇGÖRÜ" : "INTELLIGENCE", items: ["Bağlantılı GRC","Raporlar","Güvenlik Anketi Copilot","Ask Fornost"] },
+    ...(currentUser.role === "Admin" ? [{ id: "administration", label: lang === "tr" ? "YÖNETİM" : "ADMINISTRATION", items: ["İş Akışı Entegrasyonları","Kimlik ve Erişim","Sistem Ayarları","AI Ayarları","Denetim İzi","Ana Veri Yönetimi","E-posta ve Bildirimler"] }] : []),
+  ].map(group=>({...group,items:group.items.filter(module=>canOpenModule(currentUser,module)&&(!scoped||module!=="Ask Fornost"))})).filter(group=>group.items.length);
+  const activeNavGroup = navGroups.find(group => group.items.includes(active))?.id;
+  useEffect(() => {
+    if (pageRestored && activeNavGroup) setOpenNavGroup(activeNavGroup);
+  }, [activeNavGroup, pageRestored]);
+  const commandModules = modules.filter(
+    (module) => (currentUser.role === "Admin" || !adminModules.has(module)) && canOpenModule(currentUser,module),
+  );
+  const normalizedCommandQuery = commandQuery.trim().toLocaleLowerCase(
+    lang === "tr" ? "tr-TR" : "en-US",
+  );
+  const commandResults = commandModules
+    .filter((module) =>
+      normalizedCommandQuery
+        ? `${names[lang][module]} ${module}`
+            .toLocaleLowerCase(lang === "tr" ? "tr-TR" : "en-US")
+            .includes(normalizedCommandQuery)
+        : true,
+    )
+    .sort((a, b) => {
+      if (normalizedCommandQuery)
+        return names[lang][a].localeCompare(names[lang][b]);
+      const aRecent = recentModules.indexOf(a);
+      const bRecent = recentModules.indexOf(b);
+      if (aRecent !== -1 || bRecent !== -1)
+        return (aRecent === -1 ? 99 : aRecent) -
+          (bRecent === -1 ? 99 : bRecent);
+      return modules.indexOf(a) - modules.indexOf(b);
+    });
+  function openDashboardLens(module:string, framework?:string) {
+    if (!canOpenModule(currentUser,module)) return;
+    if (module === "Bağlantılı GRC") {
+      navigateToFornost({module,kind:"connected-view",filter:{view:"gaps",gapType:"gap"}});
+      return;
+    }
+    navigateToModule(module);
+    if (module === "Uyum") changeComplianceView(false);
+    setDashboardLens({module,framework});
+  }
+  function navigateToModule(module: string) {
+    setBiaPlanSeed(null);
+    if (!canOpenModule(currentUser,module)) return;
+    const parentGroup = navGroups.find((group) => group.items.includes(module));
+    if (parentGroup) {
+      setOpenNavGroup(parentGroup.id);
+      localStorage.setItem("fornost-grc-open-nav-group", parentGroup.id);
+    }
+    if (module === "Ask Fornost") {
+      window.dispatchEvent(new CustomEvent("fornost:open-ai", { detail: module === "Ask Fornost" ? { mode: "chat" } : { view: "portfolio" } }));
+      setMobileNavOpen(false);
+      setCommandOpen(false);
+      setCommandQuery("");
+      return;
+    }
+    clearRecordFocus();
+    setDashboardLens(null);
+    setActive(module);
+    setNotice("");
+    setMobileNavOpen(false);
+    setCommandOpen(false);
+    setCommandQuery("");
+    const recent = [
+      module,
+      ...recentModules.filter((item) => item !== module),
+    ].slice(0, 5);
+    setRecentModules(recent);
+    localStorage.setItem("fornost-grc-recent-modules", JSON.stringify(recent));
+  }
+  useEffect(() => {
+    const onCommandKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        if (commandOpen) closeCommand(); else setCommandOpen(true);
+        setCommandQuery("");
+        setCommandIndex(0);
+        return;
+      }
+      if (!commandOpen) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setCommandOpen(false);
+      } else if (commandMode !== "modules" || event.target !== document.querySelector(".command-palette header input") || event.isComposing) {
+        return;
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setCommandIndex((index) =>
+          Math.min(index + 1, commandResults.length - 1),
+        );
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setCommandIndex((index) => Math.max(index - 1, 0));
+      } else if (event.key === "Enter" && commandResults[commandIndex]) {
+        event.preventDefault();
+        navigateToModule(commandResults[commandIndex]);
+      }
+    };
+    document.addEventListener("keydown", onCommandKey);
+    return () => document.removeEventListener("keydown", onCommandKey);
+  });
+  const sidebarToggleLabel = sidebarMode === "expanded"
+    ? lang === "tr" ? "Menüyü daralt" : "Compact navigation"
+    : sidebarMode === "compact"
+      ? lang === "tr" ? "Menüyü gizle" : "Hide navigation"
+      : lang === "tr" ? "Menüyü göster" : "Show navigation";
+  function setSidebarPreference(next: "expanded" | "compact" | "hidden") {
+    localStorage.setItem("fornost-grc-sidebar-mode", next);
+    setSidebarMode(next);
+  }
+  return (
+    <div
+      data-module-scope={scoped?"scoped":"full"}
+      className={`shell sidebar-${sidebarMode}${mobileNavOpen ? " mobile-nav-open" : ""}`}
+    >
+      <aside aria-label={lang === "tr" ? "Ana menü" : "Main navigation"}>
+        <div className="brand">
+          <span>F</span>
+          <div>
+            <b>Fornost GRC</b>
+            <small>Governance Intelligence</small>
+          </div>
+        </div>
+        <button
+          type="button"
+          className="sidebar-edge-toggle"
+          onClick={() =>
+            setSidebarPreference(
+              sidebarMode === "expanded"
+                ? "compact"
+                : sidebarMode === "compact"
+                  ? "hidden"
+                  : "expanded",
+            )
+          }
+          aria-label={sidebarToggleLabel}
+          aria-expanded={sidebarMode !== "hidden"}
+          aria-controls="fornost-navigation"
+          title={sidebarToggleLabel}
+        >
+          <svg aria-hidden="true" viewBox="0 0 20 20">
+            <path d={sidebarMode === "expanded" ? "m13 4-6 6 6 6" : "m7 4 6 6-6 6"} />
+          </svg>
+          <span>{sidebarToggleLabel}</span>
+        </button>
+        <nav id="fornost-navigation">
+          {navGroups.map((group) => (
+            <div className={`nav-group${openNavGroup === group.id ? " is-open" : ""}`} key={group.id}>
+              <button
+                type="button"
+                className="nav-group-trigger"
+                aria-expanded={sidebarMode !== "expanded" || openNavGroup === group.id}
+                aria-controls={`nav-group-${group.id}`}
+                onClick={() => {
+                  const next = openNavGroup === group.id ? "" : group.id;
+                  setOpenNavGroup(next);
+                  localStorage.setItem("fornost-grc-open-nav-group", next);
+                }}
+              >
+                <span>{group.label}</span>
+                <svg aria-hidden="true" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4" /></svg>
+              </button>
+              <div
+                className="nav-group-items"
+                id={`nav-group-${group.id}`}
+                hidden={sidebarMode === "expanded" && openNavGroup !== group.id}
+              >
+                {group.items.map((m) => {
+                  return (
+                    <button
+                      className={active === m ? "active" : ""}
+                      aria-current={active === m ? "page" : undefined}
+                      aria-label={names[lang][m]}
+                      title={names[lang][m]}
+                      onClick={() => navigateToModule(m)}
+                      key={m}
+                    >
+                      <i>
+                        <NavIcon module={m} />
+                      </i>
+                      <span>{names[lang][m]}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+        <button type="button" className="appearance-launcher" aria-haspopup="dialog" onClick={()=>setAppearanceOpen(true)}
+          aria-label={lang==="tr"?"Görünüm":"Appearance"} title={lang==="tr"?"Görünüm":"Appearance"}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="3"/><path d="M9 5v14m3-10h6m-6 4h4"/>
+          </svg><span>{lang==="tr"?"Görünüm":"Appearance"}</span>
+        </button>
+        <div className="sidebar-view-controls" role="group" aria-label={lang === "tr" ? "Menü görünümü" : "Navigation view"}>
+          <span>{lang === "tr" ? "MENÜ GÖRÜNÜMÜ" : "NAVIGATION VIEW"}</span>
+          <div>
+            <button
+              type="button"
+              className={sidebarMode === "expanded" ? "active" : ""}
+              onClick={() => setSidebarPreference("expanded")}
+              aria-label={lang === "tr" ? "Geniş menü" : "Expanded navigation"}
+              title={lang === "tr" ? "Geniş" : "Expanded"}
+            >
+              <svg aria-hidden="true" viewBox="0 0 20 20"><path d="M3 3h14v14H3zM8 3v14M5 6h1M5 10h1M5 14h1" /></svg>
+              <em>{lang === "tr" ? "Geniş" : "Full"}</em>
+            </button>
+            <button
+              type="button"
+              className={sidebarMode === "compact" ? "active" : ""}
+              onClick={() => setSidebarPreference("compact")}
+              aria-label={lang === "tr" ? "İkon menüsü" : "Icon navigation"}
+              title={lang === "tr" ? "İkon" : "Icons"}
+            >
+              <svg aria-hidden="true" viewBox="0 0 20 20"><path d="M5 3h10v14H5zM8 6h4M8 10h4M8 14h4" /></svg>
+              <em>{lang === "tr" ? "İkon" : "Icons"}</em>
+            </button>
+            <button
+              type="button"
+              className={sidebarMode === "hidden" ? "active" : ""}
+              onClick={() => setSidebarPreference("hidden")}
+              aria-label={lang === "tr" ? "Menüyü gizle" : "Hide navigation"}
+              title={lang === "tr" ? "Gizle" : "Hide"}
+            >
+              <svg aria-hidden="true" viewBox="0 0 20 20"><path d="M4 4l12 12M16 4 4 16" /></svg>
+              <em>{lang === "tr" ? "Gizle" : "Hide"}</em>
+            </button>
+          </div>
+        </div>
+        <div className="aside-note">
+          <div className="platform-state">
+            <i />
+            Fornost GRC
+          </div>
+          <b>
+            {lang === "tr" ? "Kurumsal çalışma alanı" : "Enterprise workspace"}
+          </b>
+          <p>
+            {lang === "tr"
+              ? "Risk, uyum ve kanıt yönetimi."
+              : "Risk, compliance and evidence management."}
+          </p>
+        </div>
+      </aside>
+      <PersonalAppearance tr={lang==="tr"} open={appearanceOpen} onClose={()=>setAppearanceOpen(false)} />
+      <button
+        type="button"
+        className="mobile-nav-backdrop"
+        data-escape-layer={mobileNavOpen ? "" : undefined}
+        data-escape-close
+        aria-label={lang === "tr" ? "Menüyü kapat" : "Close navigation"}
+        tabIndex={mobileNavOpen ? 0 : -1}
+        onClick={() => setMobileNavOpen(false)}
+      />
+      {commandOpen && (
+        <div
+          className="command-overlay"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeCommand();
+          }}
+        >
+          <div ref={commandDialogRef}
+            data-escape-layer className="command-palette"
+            role="dialog"
+            aria-modal="true"
+            aria-label={lang === "tr" ? "Hızlı navigasyon" : "Quick navigation"}
+          >
+            <div className="record-search-modes" role="group" aria-label={lang === "tr" ? "Arama türü" : "Search type"}>
+              <button type="button" aria-pressed={commandMode === "modules"} onClick={() => setCommandMode("modules")}>{lang === "tr" ? "Modüller" : "Modules"}</button>
+              <button type="button" aria-pressed={commandMode === "records"} onClick={() => setCommandMode("records")}>{lang === "tr" ? "Kayıtlar" : "Records"}</button>
+            </div>
+            {commandMode === "records" ? <RecordSearch key={JSON.stringify([currentUser.id, currentUser.role, currentUser.moduleAccess])} lang={lang} modules={[...readableModules(currentUser)]} names={names[lang]} close={closeCommand} open={result => {
+              navigateToFornost({ module: result.module, ref: result.id, kind: result.module === "Tedarikçiler" && !scoped ? "vendor-review" : "record", source: "global-search" });
+              closeCommand();
+            }} /> : <>
+            <header>
+              <svg aria-hidden="true" viewBox="0 0 20 20">
+                <circle cx="9" cy="9" r="5.5" />
+                <path d="m13 13 4 4" />
+              </svg>
+              <input
+                autoFocus
+                value={commandQuery}
+                onChange={(event) => {
+                  setCommandQuery(event.target.value);
+                  setCommandIndex(0);
+                }}
+                placeholder={
+                  lang === "tr"
+                    ? "Modül veya işlem ara…"
+                    : "Search modules or actions…"
+                }
+                aria-label={lang === "tr" ? "Modül ara" : "Search modules"}
+              />
+              <button type="button" data-escape-close onClick={()=>setCommandOpen(false)} aria-label={lang === "tr" ? "Kapat" : "Close"}><kbd>ESC</kbd></button>
+            </header>
+            <div className="command-results" role="listbox">
+              <small>
+                {normalizedCommandQuery
+                  ? lang === "tr"
+                    ? "SONUÇLAR"
+                    : "RESULTS"
+                  : lang === "tr"
+                    ? "HIZLI GEÇİŞ"
+                    : "QUICK ACCESS"}
+              </small>
+              {commandResults.length ? (
+                commandResults.map((module, index) => (
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={index === commandIndex}
+                    className={index === commandIndex ? "selected" : ""}
+                    onMouseEnter={() => setCommandIndex(index)}
+                    onClick={() => navigateToModule(module)}
+                    key={module}
+                  >
+                    <i>
+                      <NavIcon module={module} />
+                    </i>
+                    <span>
+                      <b>{names[lang][module]}</b>
+                      <small>{lang === "tr" ? "Çalışma alanını aç" : "Open workspace"}</small>
+                    </span>
+                    {recentModules.includes(module) && (
+                      <em>{lang === "tr" ? "Son" : "Recent"}</em>
+                    )}
+                  </button>
+                ))
+              ) : (
+                <p>
+                  {lang === "tr"
+                    ? "Eşleşen modül bulunamadı."
+                    : "No matching module found."}
+                </p>
+              )}
+            </div>
+            </>}
+            <footer>
+              <span>
+                <kbd>↑</kbd><kbd>↓</kbd> {lang === "tr" ? "Gezin" : "Navigate"}
+              </span>
+              <span><kbd>↵</kbd> {lang === "tr" ? "Aç" : "Open"}</span>
+            </footer>
+          </div>
+        </div>
+      )}
+      <ModuleTrailContext.Provider value={{rows:readableRows,lang,label:module => names[lang][module] || module,scoped,
+        includeAi:active==="AI Yönetişimi" && currentUser.role==="Admin",coreState:registerLoadState,retryCore:()=>void load()}}>
+      <main>
+        <RecordLinkEntry ready={pageRestored} lang={lang} scoped={scoped} />
+        <header>
+          <div className="header-leading">
+            {sidebarMode === "hidden" && (
+              <button
+                type="button"
+                className="sidebar-restore"
+                onClick={() => setSidebarPreference("expanded")}
+                aria-label={lang === "tr" ? "Ana menüyü aç" : "Open main navigation"}
+              >
+                <svg aria-hidden="true" viewBox="0 0 20 20"><path d="M4 3h12v14H4zM8 3v14M11 7l3 3-3 3" /></svg>
+                <span>{lang === "tr" ? "Menüyü aç" : "Open menu"}</span>
+              </button>
+            )}
+            <button
+              type="button"
+              className="mobile-nav-toggle"
+              aria-label={lang === "tr" ? "Ana menüyü aç" : "Open navigation"}
+              aria-expanded={mobileNavOpen}
+              aria-controls="fornost-navigation"
+              onClick={() => setMobileNavOpen(true)}
+            >
+              <svg aria-hidden="true" viewBox="0 0 20 20">
+                <path d="M3 5h14M3 10h14M3 15h14" />
+              </svg>
+            </button>
+            <div className="header-context">
+              <small>Fornost / {navGroups.find(group => group.id === activeNavGroup)?.label || u.workspace}</small>
+              <h1>{names[lang][active]}</h1>
+            </div>
+          </div>
+          <div className="header-actions">
+            <ScopeSelect tr={lang==="tr"}/>
+            <button
+              type="button"
+              className="context-ai-trigger"
+              onClick={() =>
+                window.dispatchEvent(
+                  new CustomEvent("fornost:open-ai", {
+                    detail: {
+                      module: names[lang][active],
+                      prompt:
+                        lang === "tr"
+                          ? `${names[lang][active]} modülündeki öncelikli riskleri, gecikmeleri ve kanıt boşluklarını kaynak göstererek analiz et.`
+                          : `Analyze priority risks, overdue actions and evidence gaps in ${names[lang][active]} with source citations.`,
+                    },
+                  }),
+                )
+              }
+              aria-label={lang === "tr" ? "Bu sayfayı Ask Fornost ile analiz et" : "Analyze this page with Ask Fornost"}
+              title={lang === "tr" ? "Sayfayı AI ile analiz et" : "Analyze page with AI"}
+            >
+              <span aria-hidden="true">✦</span>
+              <b>Ask Fornost</b>
+            </button>
+            <button
+              type="button"
+              className="command-trigger"
+              onClick={() => {
+                setCommandOpen(true);
+                setCommandQuery("");
+                setCommandIndex(0);
+              }}
+              aria-label={
+                lang === "tr"
+                  ? "Hızlı navigasyonu aç"
+                  : "Open quick navigation"
+              }
+              title={lang === "tr" ? "Hızlı navigasyon" : "Quick navigation"}
+            >
+              <svg aria-hidden="true" viewBox="0 0 20 20">
+                <circle cx="8.5" cy="8.5" r="5" />
+                <path d="m12.5 12.5 4 4" />
+              </svg>
+              <span>{lang === "tr" ? "Ara" : "Search"}</span>
+              <kbd>Ctrl K</kbd>
+            </button>
+            <div className="header-live">
+              <i />
+              {lang === "tr" ? "Canlı veri" : "Live data"}
+            </div>
+            <button
+              className="theme-toggle"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              aria-label={
+                theme === "dark"
+                  ? lang === "tr"
+                    ? "Açık temaya geç"
+                    : "Switch to light theme"
+                  : lang === "tr"
+                    ? "Koyu temaya geç"
+                    : "Switch to dark theme"
+              }
+              title={theme === "dark" ? "Light mode" : "Dark mode"}
+            >
+              <span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span>
+            </button>
+            <div
+              className="language-switch"
+              role="group"
+              aria-label={lang === "tr" ? "Dil seçimi" : "Language selection"}
+            >
+              <button
+                className={lang === "tr" ? "active" : ""}
+                onClick={() => changeLang("tr")}
+              >
+                TR
+              </button>
+              <button
+                className={lang === "en" ? "active" : ""}
+                onClick={() => changeLang("en")}
+              >
+                EN
+              </button>
+            </div>
+            <div className="user">
+              <span>
+                {String(currentUser.name || currentUser.email)
+                  .slice(0, 2)
+                  .toUpperCase()}
+              </span>
+              <div>
+                <b>{currentUser.name || currentUser.email}</b>
+                <small>
+                  {currentUser.role} ·{" "}
+                  {currentUser.source === "local" ? (lang === "tr" ? "Yerel" : "Local") : "Entra SSO"}
+                </small>
+              </div>
+            </div>
+          </div>
+        </header>
+        {notice && (
+          <div className="notice" data-tone={noticeTone} role={noticeTone==="error"?"alert":"status"}>
+            {notice}
+            <button type="button" onClick={() => setNotice("")} aria-label={lang === "tr" ? "Bildirimi kapat" : "Dismiss notification"}>×</button>
+          </div>
+        )}
+        {lens && <div className="dashboard-lens"><span>{lens.assetId ? (lang==="tr"?"Bağlı varlık":"Linked asset")+" · "+(readableRows.find(r=>r.id===lens.assetId)?.data.title||"—") : ({
+          "Kontroller":["Aksiyon bekleyen kontroller","Controls needing attention"],
+          "Denetim Yönetimi":["Hazırlık açığı olan maddeler","Requirements with readiness gaps"],
+          "Kanıtlar":["Güncelliği doğrulanmayan kanıtlar","Evidence not confirmed current"],
+          "Risk Assessment":["Yüksek ve kritik riskler","High and critical risks"],
+          "Uyum":["Çerçevedeki açık maddeler","Open framework requirements"]
+        }[active] || [active,active])[lang==="tr"?0:1]}</span><button type="button" onClick={()=>navigateToModule(active)}>{lang==="tr"?"Tümünü göster":"Show all"}</button></div>}
+        {focusedRecord && <section className="core-record-focus" role="status" aria-live="polite">
+          <div><strong>{focusedRecord.state === "loading" ? (lang === "tr" ? "Kayıt yükleniyor…" : "Loading record…") : focusedRecord.state === "error" ? (lang === "tr" ? "Kayıt kaynağı doğrulanamadı" : "Record source could not be verified") : focusedRecord.id && rows.some(row => row.id === focusedRecord.id)
+            ? (lang === "tr" ? "Seçili kayıt" : "Selected record")
+            : (lang === "tr" ? "Kayıt bulunamadı veya artık erişilemiyor" : "Record not found or no longer available")}</strong><span>{focusedRecord.ref}</span></div>
+          {focusedRecord.id && !focusedRecord.state && <CopyRecordLink key={focusedRecord.id} lang={lang} target={{module:active,kind:"record",ref:focusedRecord.id}} />}
+          {focusedRecord.state === "error" && focusedRecord.request && <button type="button" onClick={() => setRecordRequest({ ...focusedRecord.request! })}>{lang === "tr" ? "Kaydı yeniden yükle" : "Reload record"}</button>}
+          <button type="button" onClick={returnFromRecord}>{lang === "tr" ? "Önceki görünüme dön" : "Return to previous view"}</button>
+          <button type="button" onClick={() => { showRegisterWithoutFocus(); setQuery(""); setRegisterFilters({}); }}>{lang === "tr" ? "Tüm kayıtları göster" : "Show all records"}</button>
+        </section>}
+        {pageRestored && Object.hasOwn(moduleTrailSources, active) && canOpenModule(currentUser,active) &&
+          (active !== "AI Yönetişimi" || currentUser.role === "Admin") &&
+          <ModuleTrailPanel key={JSON.stringify([active,currentUser.id,currentUser.role,currentUser.moduleAccess])}
+            module={active} rows={readableRows} lang={lang} label={module => names[lang][module] || module}
+            scoped={scoped} includeAi={active === "AI Yönetişimi" && currentUser.role === "Admin"} coreState={registerLoadState}
+            retryCore={() => void load()} focusedId={focusedRecord?.id}/>}
+        {pageRestored && canOpenModule(currentUser,"Benim İşlerim") && <MyWorkV2 key={currentUser.id} active={active==="Benim İşlerim"} lang={lang} actor={currentUser} />}
+        {!canOpenModule(currentUser,active) ? <section className="module-scope-home"><h2>{lang==="tr"?"Bu modüle erişiminiz yok":"Module access is unavailable"}</h2><button onClick={()=>navigateToModule("Ana Sayfa")}>{lang==="tr"?"Ana sayfa":"Home"}</button></section> : active === "Ana Sayfa" && (!pageRestored || registerLoadState !== "ready") ? (
+          <section className="module-scope-home" role="status" aria-busy={registerLoadState !== "error"}>
+            {registerLoadState === "error" ? <>
+              <h2>{lang === "tr" ? "GRC kayıtları yüklenemedi" : "GRC records could not be loaded"}</h2>
+              <p>{lang === "tr" ? "Göstergeleri hesaplamak için kayıtları yeniden yükleyin." : "Reload the records to calculate the dashboard indicators."}</p>
+              <button type="button" onClick={() => void load()}>{lang === "tr" ? "Yeniden dene" : "Retry"}</button>
+            </> : (lang === "tr" ? "Gösterge paneli yükleniyor…" : "Loading dashboard…")}
+          </section>
+        ) : active === "Ana Sayfa" && scoped ? (
+          <section className="module-scope-home"><h2>{lang==="tr"?"Çalışma alanım":"My workspace"}</h2><p>{lang==="tr"?"İzin verilen modüllerdeki kayıtları görüntüleyin ve yönetin. Ortak raporlar ve gelişmiş iş akışları için tam çalışma alanı erişimi gerekir.":"View and manage records in your permitted modules. Shared reports and advanced workflows require full workspace access."}</p><div className="module-scope-cards">{readableModules(currentUser).map(module=><button key={module} onClick={()=>navigateToModule(module)}><b>{names[lang][module]}</b><small>{by(module).length} {lang==="tr"?"kayıt":"records"} · {canWriteModule(currentUser,module)?(lang==="tr"?"Okuma ve düzenleme":"Read and edit"):(lang==="tr"?"Okuma":"Read")}</small></button>)}</div>{!readableModules(currentUser).length&&<p>{lang==="tr"?"Henüz modül erişimi atanmadı. Yöneticinizle iletişime geçin.":"No module access has been assigned. Contact your administrator."}</p>}</section>
+        ) : active === "Ana Sayfa" ? (
+          <Dashboard rows={rows} go={navigateToModule} lang={lang} drill={openDashboardLens}
+            upload={canWriteModule(currentUser,"Kanıtlar") ? ()=>{navigateToModule("Kanıtlar");openNew({},"Kanıtlar");} : undefined} />
+        ) : active === "AI Yönetişimi" ? (
+          <AiWorkspaceHost lang={lang} />
+        ) : active === "Benim İşlerim" ? (
+          null
+        ) : active === "Risk İştahı ve KRI" ? (
+          <RiskAppetite lang={lang} currentUser={currentUser} />
+        ) : active === "Bağlantılı GRC" ? (
+          <ConnectedGrc rows={rows} lang={lang} go={setActive} includeAi={currentUser.role === "Admin"} actor={currentUser} refreshRows={load} coreState={registerLoadState} />
+        ) : active === "Güvenlik Anketi Copilot" ? (
+          <QuestionnaireCopilot lang={lang} canWrite={currentUser.role!=="Viewer"}/>
+        ) : active === "Raporlar" ? (
+          <>{(currentUser.orgScope?.role==="group-admin"||currentUser.orgScope?.role==="group-ciso"&&!scoped)&&<BoardWizard lang={lang}/>}<Reports rows={rows} lang={lang} go={navigateToModule} preparedBy={currentUser.email} includeCapa={currentUser.role === "Admin"} coreState={registerLoadState} refreshRows={load} /></>
+        ) : active === "Kanıt Otomasyonu" ? (
+          <EvidenceAutomation lang={lang} currentUser={currentUser} />
+        ) : active === "Regülasyon Merkezi" ? (
+          <RegulatoryIntelligence lang={lang} currentUser={currentUser} />
+        ) : active === "Güvenlik Olayları" ? (
+          <IncidentCenter lang={lang} currentUser={currentUser} />
+        ) : active === "İş Sürekliliği" ? (
+          <ContinuityCenter lang={lang} currentUser={currentUser} initialBia={biaPlanSeed} />
+        ) : active === "Bulgular ve CAPA" ? (
+          <FindingsCenter lang={lang} currentUser={currentUser} rows={readableRows} coreState={registerLoadState} retryCore={()=>void load()} />
+        ) : active === "Politika Merkezi" ? (
+          <PolicyLifecycle lang={lang} currentUser={currentUser} />
+        ) : active === "Tedarikçiler" && !scoped && !recordRequest && !focusedRecord ? (
+          <ThirdPartyRisk lang={lang} currentUser={currentUser} refreshKey={registerImportRevision} onImport={canWriteModule(currentUser, active) && registerLoadState === "ready" ? () => setImportOpen(true) : undefined} />
+        ) : active === "Trust Center Yönetimi" ? (
+          <TrustAdmin lang={lang}/>
+        ) : adminModules.has(active) ? (
+          <div id="admin-workspace" className="admin-workspace">
+          <Settings
+            onAppearance={()=>setAppearanceOpen(true)}
+            lang={lang}
+            currentUser={currentUser}
+            catalogs={catalogs}
+            onCatalogChange={loadCatalogs}
+            onDataChange={async () => { await load(); }}
+            page={
+              active === "Ana Veri Yönetimi"
+                ? "catalogs"
+                : active === "AI Ayarları"
+                  ? "ai"
+                : active === "Denetim İzi" ? "audit"
+                : active === "İş Akışı Entegrasyonları"
+                  ? "workflow"
+                  : active === "E-posta ve Bildirimler"
+                    ? "email"
+                    : active === "Kimlik ve Erişim"
+                      ? "identity"
+                      : "system"
+            }
+          />
+          </div>
+        ) : lens && active === "Kontroller" ? (
+          <ControlAssuranceWorkspace rows={rows} lang={lang} go={navigateToModule} />
+        ) : lens && active === "Denetim Yönetimi" ? (
+          <AuditReadinessGate lang={lang} records={rows} initialGaps />
+        ) : active === "Denetim Yönetimi" && (
+          (recordRequest && sameDomainModule(recordRequest.module, active) && (returnsToDecisionQueue(recordRequest) || ["dashboard-action","my-work","my-work-assurance"].includes(recordRequest.source || ""))) ||
+          (focusedRecord && !focusedRecord.id && (returnsToDecisionQueue(focusedRecord.request) || ["dashboard-action","my-work","my-work-assurance"].includes(focusedRecord.request?.source || "")))
+        ) ? (
+          focusedRecord ? null : <p role="status">{lang === "tr" ? "Kayıt yükleniyor…" : "Loading record…"}</p>
+        ) : active === "Denetim Yönetimi" ? (
+          <AuditModule
+            sort={registerSort}
+            setSort={setRegisterSort}
+            userId={String(currentUser.id)}
+            rows={by("Denetim Yönetimi")}
+            evidenceRows={by("Kanıtlar")}
+            focusedRequirement={focusedRecord?.id || ""}
+            audits={auditPortfolio}
+            visible={visible}
+            selected={selectedAudit}
+            select={(x) => {
+              setSelectedAudit(x);
+              clearRecordFocus();
+              setQuery("");
+            }}
+            lang={lang}
+            query={focusedRecord ? "" : query}
+            setQuery={value => { showRegisterWithoutFocus(); setQuery(value); }}
+            openNew={openNew}
+            edit={openEdit}
+            remove={remove}
+            openImport={() => setImportOpen(true)}
+            canWrite={canWriteModule(currentUser,active)}
+            createAudit={createAudit}
+            deleteAudit={deleteAudit}
+            refreshAudits={async()=>{await Promise.all([loadAudits(),load()]);}}
+            portfolioState={auditDirectoryState==="error"||registerLoadState==="error"?"error":auditDirectoryState==="ready"&&registerLoadState==="ready"?"ready":"loading"}
+            retryPortfolio={()=>{void loadAudits();void load();}}
+            canDeleteAudit={currentUser.role === "Admin"}
+            allowPosture={canReadPosture(currentUser)}
+            showReadiness={!scoped}
+            go={navigateToModule}
+          />
+        ) : active==="Uyum" && canReadPosture(currentUser) && !legacyCompliance && !focusedRecord ? (
+          <><FrameworkWorkspace key={lens?.framework || "portfolio"} initialProgram={lens?.framework} onControlCreated={()=>{void load();}} createControl={canWriteModule(currentUser,"Kontroller")} tr={lang==="tr"} write={canWriteModule(currentUser,"Uyum")}/>
+          <button type="button" className="ghost" onClick={()=>changeComplianceView(true)}>{lang==="tr"?"Özel gereksinimler ve mevcut kayıtlar":"Custom requirements and existing records"}</button></>
+        ) : (
+          <>
+            {active==="Uyum" && canReadPosture(currentUser) && <button type="button" className="ghost" onClick={()=>{clearRecordFocus();changeComplianceView(false);}}>{lang==="tr"?"Çerçeve matrisine dön":"Back to framework matrix"}</button>}
+            <section className="module-head">
+              <div>
+                <small className="module-kicker">{moduleEyebrows[lang][active] || "FORNOST GRC"}</small>
+                <p>{desc}</p>
+              </div>
+              <div className="actions">
+                {dataModules.includes(active) &&
+                  canWriteModule(currentUser,active) && (
+                    <button
+                      className="ghost"
+                      disabled={registerLoadState !== "ready"}
+                      onClick={() => setImportOpen(true)}
+                    >
+                      {u.import}
+                    </button>
+                  )}
+                <button
+                  className="ghost"
+                  disabled={registerLoadState !== "ready"}
+                  onClick={() =>
+                    csvDownload(`${names[lang][active]}.csv`, visible, lang)
+                  }
+                >
+                  {u.csv}
+                </button>
+                {canWriteModule(currentUser,active) && (
+                  <button className="primary workspace-create" disabled={registerLoadState !== "ready"} onClick={() => openNew()}>
+                    {registerCreateLabels[active]?.[lang === "tr" ? 0 : 1] || u.new}
+                  </button>
+                )}
+              </div>
+            </section>
+            {registerLoadState === "ready" && active === "Risk Assessment" && (
+              <><RiskOverview rows={by("Risk Assessment")} lang={lang} /><FinancialSummary tr={lang==="tr"}/></>
+            )}
+            {registerLoadState === "ready" && !scoped && ["BIA","Varlık Envanteri","Uyum","Kontroller"].includes(active) && (
+              <CoreModuleOverview module={active} rows={by(active)} controlEvidenceCount={Array.from(controlLinks.values()).filter(item=>item.evidence.size>0).length} lang={lang}/>
+            )}
+            {!scoped && active === "Kanıtlar" && <EvidenceQualityLens state={evidenceRegisterState} lang={lang} />}
+            {registerLoadState === "ready" && active === "Kanıtlar" && <EvidenceUsagePanel lang={lang} records={by("Kanıtlar")} focusedId={focusedRecord?.id || ""} />}
+            {registerLoadState === "ready" && !scoped && active === "Kontroller" && (
+              <details className="module-analysis-disclosure" key="control-analysis">
+                <summary><span><b>{lang === "tr" ? "Kontrol güvencesi ve etki analizi" : "Control assurance & impact analysis"}</b><small>{lang === "tr" ? "Güvence skorları, kanıt zinciri ve öncelikli aksiyonlar" : "Assurance scores, evidence lineage and priority actions"}</small></span></summary>
+                <ControlAssuranceWorkspace rows={rows} lang={lang} go={navigateToModule} />
+              </details>
+            )}
+            <section
+              className={`table-card ${active === "Risk Assessment" ? "risk-register" : "smart-register"}`}
+            >
+              <RegisterToolbar
+                userId={String(currentUser.id)}
+                focused={!!focusedRecord}
+                module={active}
+                lang={lang}
+                rows={by(active)}
+                resultCount={visible.length}
+                sourceState={registerLoadState}
+                query={focusedRecord ? "" : query}
+                setQuery={value => { clearRecordFocus(); setQuery(value); }}
+                selectedColumnKeys={selectedColumnKeys}
+                setSelectedColumnKeys={setModuleColumns}
+                filters={focusedRecord ? {} : registerFilters}
+                setFilters={value => { clearRecordFocus(); setRegisterFilters(value); }}
+                sort={registerSort}
+                setSort={setRegisterSort}
+                columnPickerOpen={columnPickerOpen}
+                setColumnPickerOpen={setColumnPickerOpen}
+                filterPanelOpen={filterPanelOpen}
+                setFilterPanelOpen={setFilterPanelOpen}
+              />
+              <EvidenceControlsContext.Provider value={active==="Kanıtlar"?riskControls:null}>
+              <ControlRegisterContext.Provider value={active==="Kontroller"?{
+                links:controlLinks, risks:registerLoadState==="ready"&&canReadModule(currentUser,"Risk Assessment"), evidence:registerLoadState==="ready"&&canReadModule(currentUser,"Kanıtlar"),
+                attach:canWriteModule(currentUser,"Kontroller")&&canReadModule(currentUser,"Kanıtlar")?row=>{const source=readableRows.find(r=>r.id===row.id);if(source)openEdit(source,true)}:undefined
+              }:null}>
+              <BiaScope enabled={active==="BIA"} rows={readableRows} create={canWriteModule(currentUser,"İş Sürekliliği")?row=>{
+                navigateToModule("İş Sürekliliği");setBiaPlanSeed(row);
+              }:undefined}>
+              <RecordWorkspace evidenceReview={evidenceReview} initialRecordId={focusedRecord?.openDetail ? focusedRecord.id : undefined} allowPosture={canReadPosture(currentUser)} key={active + ":" + (focusedRecord?.id || "")} rows={readableRows} visible={visible} lang={lang} moduleNames={names[lang]} formatValue={display}
+                preview={id => { const row = readableRows.find(item => item.id === id && item.module === "Kanıtlar"); if (row) setPreviewEvidence(row); }}>
+                {(inspect, open) => (
+              <div className={active==="Varlık Envanteri"?"table-wrap asset-table-scroll":active==="BIA"?"table-wrap bia-table-scroll":"table-wrap"} hidden={open} tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
+                {lens?.module==="Kanıtlar" && !staleEvidence ? <p role="status">{evidenceRegisterState.loading ? (lang==="tr"?"Kanıt değerlendirmesi yükleniyor…":"Loading evidence assessment…") : (lang==="tr"?"Kanıt değerlendirmesi doğrulanamadı.":"Evidence assessment unavailable.")} {!evidenceRegisterState.loading && <button onClick={evidenceRegisterState.refresh}>{lang==="tr"?"Yeniden dene":"Retry"}</button>}</p> : !focusedRecord && (registerLoadState !== "ready" || !visible.length) ? <RegisterEmptyState
+                  module={active} lang={lang} state={registerLoadState}
+                  filtered={Boolean(lens || query || Object.values(registerFilters).some(Boolean))}
+                  onRetry={() => { setNotice(""); void load(); }}
+                  onClear={() => { if(lens) setDashboardLens(null); setQuery(""); setRegisterFilters({}); requestAnimationFrame(() => document.querySelector<HTMLInputElement>(".register-search input")?.focus()); }}
+                  onCreate={canWriteModule(currentUser,active) ? () => openNew() : undefined}
+                /> : active === "Risk Assessment" ? (
+                  <RiskRegister
+                    assets={riskAssets}
+                    rows={visible}
+                    lang={lang}
+                    inspect={inspect}
+                    edit={openEdit}
+                    remove={remove}
+                    columns={selectedColumnKeys}
+                    canWrite={canWriteModule(currentUser,active)}
+                    canDelete={currentUser.role === "Admin"}
+                  />
+                ) : (
+                  <SmartRegister
+                    module={active}
+                    rows={visible}
+                    lang={lang}
+                    inspect={inspect}
+                    edit={openEdit}
+                    remove={remove}
+                    assetLinks={assetLinks}
+                    openAssetLinks={(id,module)=>{navigateToModule(module);setDashboardLens({module,assetId:id});}}
+                    canReadAssetLinks={module=>canReadModule(currentUser,module)}
+                    evidenceAssessment={active === "Kanıtlar" && !scoped ? evidenceRegisterState : undefined}
+                    viewEvidence={setPreviewEvidence}
+                    columns={selectedColumnKeys}
+                    canWrite={canWriteModule(currentUser,active)}
+                    canDelete={currentUser.role === "Admin"}
+                  />
+                )}
+              </div>
+                )}
+              </RecordWorkspace>
+              </BiaScope>
+              </ControlRegisterContext.Provider>
+              </EvidenceControlsContext.Provider>
+            </section>
+          </>
+        )}
+      </main></ModuleTrailContext.Provider>
+      {modal && (
+        <div className="overlay" onMouseDown={closeRecordDialog}>
+          <div data-escape-layer
+            className="modal record-dialog"
+            ref={recordDialogRef}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-busy={saving}
+            aria-label={names[lang][active]}
+            aria-describedby="record-form-guide"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="modal-head">
+              <div>
+                <small>{editing ? u.editRecord : u.newRecord}</small>
+                <h2>{names[lang][active]}</h2>
+              </div>
+              <button data-escape-close
+                type="button"
+                aria-label={lang === "tr" ? "Pencereyi kapat" : "Close dialog"}
+                disabled={saving} onClick={closeRecordDialog}
+              >
+                ×
+              </button>
+            </div>
+            <p id="record-form-guide" className="record-form-guide">{registerExperience(active, lang).formHint}</p>
+            {editing && <CopyRecordLink key={editing.id} lang={lang} target={{module:active,kind:"record",ref:editing.id}} />}
+            {(
+              <form onSubmit={active==="Kanıtlar"&&!editing?uploadEvidence:save} className="form">
+                <div className="fornost-progressive-slot" />
+                {active==="Kanıtlar"?<EvidenceLibraryFields tr={lang==="tr"} form={form} rows={readableRows} actor={currentUser} editing={Boolean(editing)}
+                  allowPosture={canReadPosture(currentUser)} update={patch=>setForm(prev=>({...prev,...patch}))} onFile={setEvidenceFile}/>
+                 : active==="Kontroller"?<ControlLibraryEditor id={editing?.id} form={form} tr={lang==="tr"} rows={readableRows} incoming={editing?controlLinks.get(editing.id)?.incoming:undefined} evidenceFirst={controlEvidenceFirst}
+                  update={p=>setForm(prev=>({...prev,...p}))} changes={controlMappings} setChanges={setControlMappings}
+                  readPosture={canReadPosture(currentUser)} writePosture={canReadPosture(currentUser)&&canWriteModule(currentUser,"Uyum")}
+                  readRisks={canReadModule(currentUser,"Risk Assessment")} readEvidence={canReadModule(currentUser,"Kanıtlar")}
+                  field={key=><Field k={key} module={active} form={form} setForm={setForm} lang={lang} availableRows={readableRows}/>} />
+                 : active === "BIA" ? <BiaFields form={form} tr={lang==="tr"} rows={readableRows} update={patch=>setForm(prev=>({...prev,...patch}))}
+                  field={key=><Field k={key} module={active} form={form} setForm={setForm} lang={lang} availableRows={readableRows}/>} />
+                 : active === "Varlık Envanteri" ? <AssetInventoryFields form={form} id={editing?.id} tr={lang==="tr"} rows={readableRows}
+                  update={patch=>setForm(prev=>({...prev,...patch}))}
+                  field={key=><Field k={key} module={active} form={form} setForm={setForm} lang={lang} availableRows={readableRows}/>} />
+                 : (active === "Risk Assessment" ? riskFormFields : fields[active]).map((k) => (
+                  <Field
+                    key={k}
+                    k={k}
+                    module={active}
+                    form={form}
+                    setForm={setForm}
+                    lang={lang}
+                    riskAssets={riskAssets} riskControls={riskControls}
+                    auditNames={auditPortfolio.map(audit => audit.name)}
+                  />
+                ))}
+                {active==="Risk Assessment"&&<FairFields tr={lang==="tr"} value={form.fairLite} update={fairLite=>setForm(prev=>({...prev,fairLite}))}/>}
+                {notice&&<p className="record-form-notice wide" role="alert">{notice}</p>}
+                <div className="form-actions">
+                  <button type="button" disabled={saving} onClick={closeRecordDialog}>
+                    {u.cancel}
+                  </button>
+                  <button className="primary" disabled={saving || (active==="Kontroller"&&sameControlTester(form)) || (active==="Kanıtlar" && ((!editing&&!evidenceFile)||!form.controlRef||evidenceDatesInvalid(form)))} aria-busy={saving}>
+                    {saving
+                      ? lang === "tr"
+                        ? "Kaydediliyor…"
+                        : "Saving…"
+                      : active==="Kanıtlar"&&!editing?u.upload:u.save}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+      {previewEvidence && (
+        <EvidencePreview
+          row={readableRows.find(r=>r.id===previewEvidence.id)||previewEvidence}
+          review={evidenceReview}
+          lang={lang}
+          onClose={() => setPreviewEvidence(null)}
+        />
+      )}
+      {importOpen && (
+        <RegisterImportModal
+          module={active}
+          lang={lang}
+          title={names[lang][active]}
+          fields={active === "Risk Assessment" ? [...fields[active], "riskScope"] : active==="Varlık Envanteri" ? [...fields[active],"lifecycleStage","dependencyRefs","externalVendor"] : fields[active]}
+          labels={labelMap[lang]}
+          aliases={aliases}
+          onClose={() => setImportOpen(false)}
+          onDone={async (n, replayed) => {
+            setImportOpen(false);
+            setRegisterImportRevision(value => value + 1);
+            await load();
+            setNotice(
+              replayed ? (lang === "tr" ? `Önceki içe aktarmanın sonucu doğrulandı: ${n} kayıt. Aynı işlem tekrar uygulanmadı.` : `Previous import confirmed: ${n} ${n === 1 ? "record" : "records"}. The operation was not applied again.`) : lang === "tr"
+                ? `${n} kayıt Excel dosyasından içe aktarıldı.`
+                : `${n} ${n === 1 ? "record" : "records"} imported from the Excel file.`,
+            );
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function Field({
+  k,
+  module,
+  form,
+  setForm,
+  lang,
+  nameMode = false,
+  auditNames = [], riskAssets, riskControls, availableRows = linkedRows,
+}: {
+  k: string;
+  module: string;
+  form: any;
+  setForm: any;
+  lang: Lang;
+  nameMode?: boolean;
+  auditNames?: string[];
+  availableRows?: Row[]; riskAssets?: RiskRecordOptions; riskControls?: RiskRecordOptions;
+}) {
+  const scores = ["1", "2", "3", "4", "5"],
+    yesNo = ["Evet", "Hayır"],
+    coverage = ["Kapsamda", "Kısmi", "Kapsam Dışı", "Uygulanamaz", "Bilinmiyor"];
+  const select: Record<string, string[]> = {
+    likelihood: scores,
+    impact: scores,
+    inherentLikelihood: scores,
+    inherentImpact: scores,
+    confidentialityImpact: scores,
+    integrityImpact: scores,
+    availabilityImpact: scores,
+    confidentialityRating: scores,
+    integrityRating: scores,
+    availabilityRating: scores,
+    financial: scores,
+    operational: scores,
+    legal: scores,
+    reputation: scores,
+    customer: scores,
+    dataImpact: scores,
+    criticality: catalogOptions.criticalities,
+    riskLevel: ["Düşük", "Orta", "Yüksek", "Kritik"],
+    category: catalogOptions.riskCategories,
+    processCategory: catalogOptions.biaCategories,
+    assetType: catalogOptions.assetTypes,
+    businessUnit: catalogOptions.businessUnits,
+    environment: catalogOptions.environments,
+    dataClassification: catalogOptions.dataClassifications,
+    treatment: ["Azalt", "Kabul Et", "Transfer Et", "Kaçın"],
+    implementation: [
+      "Uygulanıyor",
+      "Kısmi",
+      "Uygulama Hazırlığında",
+      "Uygulanmıyor",
+      "Uygulanamaz",
+    ],
+    frequency: [
+      "Sürekli",
+      "Günlük",
+      "Haftalık",
+      "Aylık",
+      "Üç Aylık",
+      "Altı Aylık",
+      "Yıllık",
+    ],
+    vendorType: [
+      "SaaS",
+      "PaaS",
+      "IaaS",
+      "Yönetilen Hizmet",
+      "Danışmanlık",
+      "Telekom",
+      "Donanım/Bakım",
+      "Diğer",
+    ],
+    internetFacing: yesNo,
+    personalData: yesNo,
+    criticalService: yesNo,
+    manualWorkaround: yesNo,
+    singlePointOfFailure: yesNo,
+    backupStatus: coverage,
+    edrStatus: coverage,
+    siemStatus: coverage,
+    vulnScan: coverage,
+    encryptionStatus: ["Kapsamda", "Kısmi", "Kapsam Dışı", "Bilinmiyor"],
+    accessReviewStatus: [
+      "Güncel",
+      "Gecikmiş",
+      "İnceleme Takviminde",
+      "Bilinmiyor",
+    ],
+    patchStatus: ["Güncel", "Gecikmiş", "Muaf", "Bilinmiyor"],
+    lifecycleStage: [
+      "Planlama",
+      "Aktif",
+      "Bakım",
+      "Kullanımdan Kaldırma",
+      "Arşiv",
+    ],
+    drStatus: ["Mevcut", "Kısmi", "Mevcut Değil", "Bilinmiyor"],
+    testResult: ["Başarılı", "Kısmen Başarılı", "Başarısız", "Test Edilmedi"],
+    designEffectiveness: [
+      "Etkili",
+      "Kısmen Etkili",
+      "Etkisiz",
+      "Test Edilmedi",
+    ],
+    operatingEffectiveness: [
+      "Etkili",
+      "Kısmen Etkili",
+      "Etkisiz",
+      "Test Edilmedi",
+    ],
+    auditorResult: [
+      "Değerlendirilmedi",
+      "Uygun",
+      "İstisnalı",
+      "Uygun Değil",
+    ],
+    status: statusOptionsByModule[module] || [],
+  };
+  const value = form[k] ?? "",
+    change = (v: string) => setForm({ ...form, [k]: v }),
+    u = ui[lang],
+    requiredField = (requiredFieldsByModule[module] || []).includes(k);
+  if (k === "auditName" && module === "Denetim Yönetimi") {
+    const retained = String(value), missing = !!retained && !auditNames.some(name => auditNameKey(name) === auditNameKey(retained));
+    return <label data-form-core="true">{labelMap[lang][k]}
+      <select name={k} required value={retained} onChange={event => change(event.target.value)}>
+        <option value="">{lang === "tr" ? "Denetim seçin" : "Select an audit"}</option>
+        {retained && !auditNames.includes(retained) && <option value={retained}>{retained}{missing ? (lang === "tr" ? " · Portföyde bulunamadı" : " · Not in portfolio") : ""}</option>}
+        {auditNames.map(name => <option key={name} value={name}>{name}</option>)}
+      </select>
+      {missing && <small>{lang === "tr" ? "Mevcut bağlantı korunuyor. Düzeltmek için portföyden bir denetim seçin." : "The existing reference is preserved. Select a portfolio audit to correct it."}</small>}
+    </label>;
+  }
+  if (module === "Risk Assessment") {
+    const tr = lang === "tr", update = (patch: Record<string,string>) => setForm((prev: Record<string,unknown>) => ({...prev,...patch}));
+    if (k === "owner" || k === "actionOwner") return <RiskPerson field={k} tr={tr} form={form} update={update}/>;
+    if (k === "asset" && riskAssets) return <RiskAssets tr={tr} form={form} update={update} catalog={riskAssets}/>;
+    if (k === "existingControls" && riskControls) return <RiskControls tr={tr} form={form} update={update} catalog={riskControls}/>;
+    if (k === "residualLikelihood") {
+      const residual = assessedResidualRiskScore(form), governed = isResidualRiskGoverned(form);
+      return <fieldset className="wide risk-rating" data-form-group="advanced">
+        <legend>{tr ? "Artık Risk" : "Residual risk"}</legend>
+        <div className="risk-rating-fields">{["residualLikelihood","residualImpact"].map(key => <label key={key}>
+          {labelMap[lang][key]}<select name={key} disabled={governed} value={form[key] ?? ""} onChange={e=>update({[key]:e.target.value})}>
+            <option value="">{tr?"Seçin":"Select"}</option>{scores.map(n=><option key={n}>{n}</option>)}</select>
+        </label>)}</div>
+        <output className="risk-rating-result" aria-live="polite">{tr?"Artık Risk Skoru":"Residual risk score"} <b>{residual ?? "—"}</b>
+          {residual !== null && <strong>{display(assuranceRiskLevel(residual),lang)}</strong>}</output>
+        {governed && <small>{tr?"Bu puan Sürekli Güvence modülündeki bağımsız incelemeyle güncellenir.":"Update this rating through independent review in Continuous Assurance."}</small>}
+      </fieldset>;
+    }
+  }
+  if (k === "calculatedImpact") {
+    const tr = lang === "tr";
+    const impact = effectiveImpact(form);
+    const total = assessedRiskScore(form);
+    return (
+      <fieldset className="wide risk-rating" data-form-group="core">
+        <legend>{tr ? "Risk değerlendirmesi" : "Risk rating"}</legend>
+        <div className="risk-rating-fields">
+          {riskRatingKeys.map(key => (
+            <label key={key}>{labelMap[lang][key]}
+              <select name={key} value={form[key] ?? (key === "inherentLikelihood" ? form.likelihood : key === "inherentImpact" ? form.impact : "") ?? ""}
+                onChange={event => {
+                  const next = { ...form, [key]: event.target.value };
+                  if (key === "inherentLikelihood") delete next.likelihood;
+                  if (key === "inherentImpact") delete next.impact;
+                  setForm(next);
+                }}>
+                <option value="">{tr ? "Seçin" : "Select"}</option>
+                {scores.map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </label>
+          ))}
+        </div>
+        <output className="risk-rating-result" aria-live="polite">
+          <span>{tr ? "Etkin etki" : "Effective impact"} <b>{impact ? impact + " / 5" : "—"}</b></span>
+          {impact > 0 && <span>{tr ? "Etki kaynağı" : "Impact source"} · {effectiveImpactSources(form).map(key=>labelMap[lang][key].replace(/\s*\(1-5\)$/, "")).join(" / ")}</span>}
+          <span>{tr ? "Doğal Risk Skoru" : "Inherent risk score"} <b>{total === null ? "—" : total + " / 25"}</b>
+            {total !== null && <strong>{display(band(total), lang)}</strong>}
+          </span>
+        </output>
+      </fieldset>
+    );
+  }
+  if (k === "frameworks") {
+    const selected = String(value)
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean),
+      toggle = (x: string) =>
+        change(
+          selected.includes(x)
+            ? selected.filter((v) => v !== x).join(", ")
+            : [...selected, x].join(", "),
+        );
+    return (
+      <fieldset className="wide framework-picker">
+        <legend>{labelMap[lang][k]}</legend>
+        <p>
+          {lang === "tr"
+            ? "Bu kanıt veya kontrol için geçerli olan tüm standartları seçin."
+            : "Select every standard that applies to this evidence or control."}
+        </p>
+        {selected.map(framework => <FrameworkCatalogNotice key={framework} framework={framework} lang={lang} />)}
+        {nameMode && <input type="hidden" name={k} value={value} />}
+        <div>
+          {frameworkGroups.map((group) => (
+            <section key={group.en}>
+              <b>{group[lang]}</b>
+              {group.items.map((x) => (
+                <label key={x}>
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(x)}
+                    onChange={() => toggle(x)}
+                  />
+                  <span>{x}</span>
+                </label>
+              ))}
+            </section>
+          ))}
+        </div>
+      </fieldset>
+    );
+  }
+  const wide = [
+    "description",
+    "notes",
+    "implementation",
+    "threat",
+    "event",
+    "consequence",
+    "existingControls",
+    "plannedAction",
+    "dependencies",
+    "peopleDependency",
+    "technologyDependency",
+    "facilityDependency",
+    "supplierDependency",
+    "recoveryStrategy",
+    "regulatoryScope",
+    "minimumService",
+    "requirementTitle",
+    "responsibleNote",
+    "auditorFeedback",
+    "finding",
+    "delayReason",
+    "expectedEvidence",
+    "typeIITestApproach",
+  ].includes(k);
+  const dateFields = [
+    "contractEnd",
+    "targetDate",
+    "lastReview",
+    "nextReview",
+    "eolDate",
+    "lastTestDate",
+    "nextTestDate",
+    "startDate",
+    "endDate",
+    "dueDate",
+    "approvalDate",
+    "acquisitionDate",
+    "testDate",
+    "lastAssessment",
+    "nextAssessment",
+    "collectedAt",
+    "expiresAt",
+  ];
+  const numberFields = [
+    "rto",
+    "rpo",
+    "mtpd",
+    "progress",
+    "populationSize",
+    "sampleSize",
+    "exceptions",
+  ];
+  if (k === "progress") {
+    const numeric = Number(value);
+    const progress = Number.isFinite(numeric) ? Math.min(100, Math.max(0, numeric)) : 0;
+    return <label className="audit-progress-field" data-form-core="true">
+      <span className="audit-progress-heading"><span>{labelMap[lang][k]}</span><output>{formatPercent(progress, lang)}</output></span>
+      <input name={k} type="range" min={0} max={100} step={1} value={progress}
+        aria-label={labelMap[lang][k]} aria-valuetext={formatPercent(progress, lang)} aria-describedby="audit-progress-help"
+        onChange={e => change(e.target.value)} />
+      <span className="audit-progress-scale" aria-hidden="true"><span>0%</span><span>100%</span></span>
+      <small id="audit-progress-help">{lang === "tr" ? "İşin tamamlanma oranı. Durum ve kapanış ayrı yönetilir." : "Work completed. Status and closure are managed separately."}</small>
+    </label>;
+  }
+  if (k === "asset" || k === "processLink") {
+    const retainedValues = [String(value)].filter(Boolean);
+    const choices = linkedRecordOptions(
+      availableRows.filter(r => r.module === (k === "asset" ? "Varlık Envanteri" : "BIA")),
+      k === "asset" ? "title" : "process", retainedValues, lang === "tr",
+    );
+    const options = choices.map(choice => choice.value);
+    const optionLabel = (option: string) => choices.find(choice => choice.value === option)?.label || option;
+    return (
+      <label>
+        {labelMap[lang][k]}
+        <select
+          name={k}
+          required={requiredField}
+          value={value}
+          onChange={(e) => change(e.target.value)}
+        >
+          <option value="">{u.select}</option>
+          {options.map((x) => (
+            <option key={x} value={x}>
+              {optionLabel(x)}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+  if (k === "controlRef") {
+    const options = [
+      ...new Set(
+        linkedRows
+          .filter((r) => r.module === "Kontroller")
+          .map((r) => r.data.controlRef)
+          .filter(Boolean),
+      ),
+    ];
+    return (
+      <label>
+        {labelMap[lang][k]}
+        <input
+          name={k}
+          list="fornost-control-refs"
+          value={value}
+          onChange={(e) => change(e.target.value)}
+        />
+        <datalist id="fornost-control-refs">
+          {options.map((x) => (
+            <option key={x} value={x} />
+          ))}
+        </datalist>
+      </label>
+    );
+  }
+  return (
+    <label className={wide ? "wide" : ""}>
+      {module==="Varlık Envanteri" && k==="status" ? (lang==="tr"?"Yaşam Döngüsü":"Lifecycle") : labelMap[lang][k]}
+      {k === "framework" && <span style={{display:"block",fontWeight:400}}>{getCatalogStatus(String(value))[lang]}</span>}
+      {k === "framework" ? (
+        <select
+          name={k}
+          value={value}
+          onChange={(e) => change(e.target.value)}
+          required
+        >
+          <option value="">{u.selectFramework}</option>
+          {value && !frameworkGroups.some(group => group.items.includes(String(value))) && <option value={String(value)}>{String(value)}</option>}
+          {frameworkGroups.map((group) => (
+            <optgroup key={group.en} label={group[lang]}>
+              {group.items.map((x) => (
+                <option key={x} value={x}>
+                  {x}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      ) : select[k] ? (
+        <select
+          name={k}
+          value={value}
+          required={requiredField}
+          onChange={(e) => change(e.target.value)}
+        >
+          <option value="">{u.select}</option>
+          {[
+            ...select[k],
+            ...(value && !select[k].includes(value) ? [value] : []),
+          ].map((x) => (
+            <option key={x} value={x}>
+              {display(x, lang)}
+            </option>
+          ))}
+        </select>
+      ) : wide ? (
+        <textarea
+          name={k}
+          rows={3}
+          maxLength={2000}
+          value={value}
+          onChange={(e) => change(e.target.value)}
+        />
+      ) : (
+        <input
+          name={k}
+          type={
+            k === "ownerEmail"
+              ? "email"
+              : numberFields.includes(k)
+                ? "number"
+                : dateFields.includes(k)
+                  ? "date"
+                  : "text"
+          }
+          min={numberFields.includes(k) ? 0 : undefined}
+          max={k === "progress" ? 100 : undefined}
+          step={numberFields.includes(k) ? 1 : undefined}
+          required={requiredField}
+          maxLength={2000}
+          value={value}
+          onChange={(e) => change(e.target.value)}
+        />
+      )}
+    </label>
+  );
+}
+
+function CoreModuleOverview({module,rows,controlEvidenceCount,lang}:{module:string;rows:Row[];controlEvidenceCount:number;lang:Lang}){
+  const tr=lang==="tr",values=(key:string)=>rows.map(row=>String(row.data[key]||"")),count=(key:string,accepted:string[])=>values(key).filter(value=>accepted.includes(value)).length;
+  const configurations:Record<string,{eyebrow:string;title:string;detail:string;metrics:Array<[string|number,string,string,string]>}>={
+    BIA:{eyebrow:tr?"İŞ DAYANIKLILIĞI":"BUSINESS RESILIENCE",title:tr?"Kritik süreç hazırlığı":"Critical process readiness",detail:tr?"Etki, kurtarma hedefi ve test hazırlığını birlikte izleyin.":"Track impact, recovery objectives and test readiness together.",metrics:[[rows.length,tr?"Toplam süreç":"Total processes",tr?"Kapsamdaki iş süreçleri":"Business processes in scope","neutral"],[count("criticality",["Kritik","Critical"]),tr?"Kritik süreç":"Critical processes",tr?"Öncelikli kurtarma kapsamı":"Priority recovery scope","danger"],[rows.filter(row=>hasRecoveryTarget(row.data.rto)&&hasRecoveryTarget(row.data.rpo)).length,tr?"RTO/RPO tanımlı":"RTO/RPO defined",tr?"Kurtarma hedefi bulunan":"With recovery objectives","positive"],[count("status",["Taslak","İncelemede"]),tr?"Karar gereken":"Decision required",tr?"Taslak veya incelemede":"Draft or under review","warning"]]},
+    "Varlık Envanteri":{eyebrow:tr?"TEKNOLOJİ MARUZİYETİ":"TECHNOLOGY EXPOSURE",title:tr?"Varlık güvenlik görünümü":"Asset security posture",detail:tr?"Kritiklik, veri sınıfı, internet maruziyeti ve güvenlik kapsamasını tek bakışta değerlendirin.":"Evaluate criticality, data class, internet exposure and security coverage at a glance.",metrics:[[rows.length,tr?"Toplam varlık":"Total assets",tr?"Yönetilen envanter":"Managed inventory","neutral"],[count("criticality",["Kritik","Critical"]),tr?"Kritik varlık":"Critical assets",tr?"Yüksek iş etkisi":"High business impact","danger"],[rows.filter(row=>row.data.internetFacing===true||String(row.data.internetFacing).toLowerCase()==="evet").length,tr?"İnternete açık":"Internet-facing",tr?"Dış saldırı yüzeyi":"External attack surface","warning"],[rows.filter(row=>["Aktif","Active"].includes(String(row.data.status))).length,tr?"Aktif yaşam döngüsü":"Active lifecycle",tr?"Operasyonda olan":"Currently operational","positive"]]},
+    Uyum:{eyebrow:tr?"KONTROL GÜVENCESİ":"CONTROL ASSURANCE",title:tr?"Uyum uygulama görünümü":"Compliance implementation posture",detail:tr?"Framework maddelerini uygulama ve kanıt durumuyla birlikte yönetin.":"Govern framework requirements together with implementation and evidence state.",metrics:[[rows.length,tr?"Toplam madde":"Total requirements",tr?"Değerlendirilen kapsam":"Assessed scope","neutral"],[count("status",["Uyumlu","Compliant"]),tr?"Uyumlu":"Compliant",tr?"Kayıtta uyumlu olarak işaretli":"Marked compliant in the register","positive"],[count("status",["Kısmi Uyumlu","Partially Compliant"]),tr?"Kısmi uyum":"Partial",tr?"İyileştirme gereken":"Needs improvement","warning"],[count("status",["Uyumlu Değil","Noncompliant"]),tr?"Uyumlu değil":"Noncompliant",tr?"Öncelikli sapma":"Priority deviation","danger"]]},
+    Kontroller:{eyebrow:tr?"ORTAK KONTROL KÜTÜPHANESİ":"COMMON CONTROL LIBRARY",title:tr?"Kontrol etkinliği ve kanıt kapsaması":"Control effectiveness and evidence coverage",detail:tr?"Tek bir kontrolü framework, test sahibi ve kanıtlarla uçtan uca bağlayın.":"Connect each control end to end with frameworks, test ownership and evidence.",metrics:[[rows.length,tr?"Toplam kontrol":"Total controls",tr?"Ortak kontrol seti":"Common control set","neutral"],[count("status",["Aktif","Active"]),tr?"Aktif kontrol":"Active controls",tr?"Operasyonel kontroller":"Operational controls","positive"],[count("status",["İyileştirme Gerekli","Needs Improvement"]),tr?"İyileştirme":"Needs improvement",tr?"Etkinlik açığı bulunan":"Effectiveness gaps","warning"],[controlEvidenceCount,tr?"Kanıt bağlı":"Evidence linked",tr?"En az bir bağlı kanıt":"At least one evidence item","info"]]},
+    Kanıtlar:{eyebrow:tr?"KANIT GÜVENİ":"EVIDENCE TRUST",title:tr?"Kanıt güncelliği ve kontrol bağlantısı":"Evidence freshness and control linkage",detail:tr?"Kanıtların sahipliğini, geçerliliğini ve tekrar kullanımını izleyin.":"Track evidence ownership, validity and reusable control mappings.",metrics:[[rows.length,tr?"Toplam kanıt":"Total evidence",tr?"Kanıt kasasındaki kayıt":"Records in evidence vault","neutral"],[count("status",["Onaylandı","Approved"]),tr?"Onaylı":"Approved",tr?"İncelenmiş kanıt":"Reviewed evidence","positive"],[count("status",["İncelemede","In Review"]),tr?"İncelemede":"In review",tr?"Reviewer kararı gereken":"Reviewer decision required","warning"],[count("status",["Süresi Doldu","Expired"]),tr?"Süresi dolmuş":"Expired",tr?"Yenilenmesi gereken":"Renewal required","danger"]]},
+  };
+  const config=configurations[module];if(!config)return null;
+  return <section className="module-overview"><header><div><small>{config.eyebrow}</small><h3>{config.title}</h3><p>{config.detail}</p></div><span>{rows.length} {tr?"kayıt":"records"}</span></header><div>{config.metrics.map(([value,label,detail,tone])=><article className={tone} key={label}><div><small>{label}</small><i/></div><strong>{value}</strong><span>{detail}</span></article>)}</div></section>
+}
+
+function Dashboard({
+  rows,
+  go, drill, upload,
+  lang,
+}: DashboardRoutes & {
+  rows: Row[];
+  lang: Lang;
+}) {
+  return (
+    <div className="workspace-dashboard" data-dashboard="executive">
+      <ExecutiveAssurancePanel rows={rows} lang={lang} go={go} drill={drill} upload={upload} /><FinancialSummary tr={lang==="tr"}/>
+    </div>
+  );
+}
+
+function Kpi({ n, t, s }: { n: number | string; t: string; s: string }) {
+  return (
+    <div className="kpi">
+      <b>{n}</b>
+      <span>{t}</span>
+      <small>{s}</small>
+    </div>
+  );
+}
+function Bars({
+  items,
+}: {
+  items: { label: string; value: number; cls: string }[];
+}) {
+  const max = Math.max(1, ...items.map((x) => x.value));
+  return (
+    <div className="bars">
+      {items.map((x) => (
+        <div key={x.label}>
+          <span>{x.label}</span>
+          <i>
+            <em
+              className={x.cls}
+              style={{ width: `${(x.value / max) * 100}%` }}
+            />
+          </i>
+          <b>{x.value}</b>
+        </div>
+      ))}
+    </div>
+  );
+}
+function Reports({ rows: coreRows, lang, go, preparedBy, includeCapa, coreState, refreshRows }: { rows: Row[]; lang: Lang; go: (module: string) => void; preparedBy:string; includeCapa:boolean; coreState:"loading"|"error"|"ready";refreshRows:()=>Promise<unknown> }) {
+  const [capaRows, setCapaRows] = useState<Row[]>([]);
+  const [capaState, setCapaState] = useState<"loading"|"ready"|"failed">("loading");
+  const [capaFailure, setCapaFailure] = useState<CapaReportFailure>("unavailable");
+  const [refreshCapa, setRefreshCapa] = useState(0);
+  const [capaLoaded, setCapaLoaded] = useState(0);
+  useEffect(() => {
+    if (!includeCapa) return;
+    const controller = new AbortController();
+    setCapaState("loading"); setCapaRows([]); setCapaLoaded(0);
+    void loadCapaReport(withBasePath("/api/findings?format=report"), controller.signal, fetch, count => { if (!controller.signal.aborted) setCapaLoaded(count); })
+      .then(records => {
+        if (controller.signal.aborted) return;
+        setCapaRows(records); setCapaState("ready");
+      }).catch(error => { if (!controller.signal.aborted) { setCapaFailure(capaReportFailure(error)); setCapaState("failed"); } });
+    return () => controller.abort();
+  }, [includeCapa, refreshCapa]);
+  const rows = includeCapa ? [...coreRows, ...capaRows] : coreRows;
+  const availableReportModules = includeCapa ? [...reportModules, CAPA_REPORT_MODULE] : reportModules;
+  const [sections,setSections]=useState<ReportSection[]>(DEFAULT_REPORT_SECTIONS),[managementNote,setManagementNote]=useState(''),[previewTab,setPreviewTab]=useState<'document'|'records'>('document'),[definitions,setDefinitions]=useState(false);
+  const all = "__all__",
+    allLabel = lang === "tr" ? "Tüm Modüller" : "All Modules",
+    [module, setModule] = useState<string>(all),
+    [unit, setUnit] = useState(all),
+    [owner, setOwner] = useState(all),
+    [status, setStatus] = useState(all),
+    [template,setTemplate] = useState<"management"|"detailed">("management"),
+    [classification,setClassification] = useState("internal"),
+    [exporting,setExporting] = useState(false),
+    [exportError,setExportError] = useState(""),
+    [previewPage,setPreviewPage] = useState(1),
+    tr = lang === "tr",
+    widths = useColumnWidths("Raporlar");
+  const reportUnavailable = (module !== CAPA_REPORT_MODULE && coreState !== "ready") || (includeCapa && (module === all || module === CAPA_REPORT_MODULE) && capaState !== "ready");
+  const exportInFlight = useRef(false);
+  useEffect(() => { setPreviewPage(1); }, [unit, owner, status]);
+  const moduleRows = rows.filter((r) => module === all || r.module === module);
+  const values = (k: string) =>
+    [...new Set(moduleRows.map((r) => r.data[k]).filter(Boolean))].sort();
+  const filtered = moduleRows.filter(
+    (r) =>
+      (unit === all || r.data.businessUnit === unit) &&
+      (owner === all || r.data.owner === owner) &&
+      (status === all || r.data.status === status),
+  );
+  const selectedModuleLabel = module === all ? allLabel : names[lang][module] || module;
+  const exportSlug = module === all ? "all-modules" : module.toLocaleLowerCase("tr-TR").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
+  const metrics = reportMetrics(module, filtered, tr);
+  const evidenceState = useExecutiveAssurance(coreRows);
+  const assurance = buildExecutiveAssurance(evidenceState.rows, evidenceState.generatedAt, evidenceState.auditPortfolio);
+  const reportTitle = template==="detailed"?(tr?"Detaylı kayıt dökümü":"Detailed register"):(tr?"Yönetim özeti":"Management summary");
+  const lastUpdated = filtered
+    .map((r) => r.updatedAt || r.createdAt)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+  const resetFilters = () => {
+    setUnit(all);
+    setOwner(all);
+    setStatus(all);
+    setPreviewPage(1);
+  };
+  const options=():ReportOptions=>({template,preparedBy,composer:true,hideFieldKeys:true,sections,intro:sections.includes("note")&&managementNote.trim()?[{label:tr?"Yönetici notu":"Management note",value:managementNote.trim()}]:[],classification:classification==="confidential"?(tr?"Gizli":"Confidential"):(tr?"Kurum İçi":"Internal"),fieldLabels:labelMap[lang],moduleLabels:names[lang],scope:includeCapa && (module===all || module===CAPA_REPORT_MODULE)?(tr?"Yüklenmiş çekirdek GRC ve merkezi CAPA kayıtları. AI ve diğer ayrı iş akışı depoları dahil değildir.":"Loaded core GRC and canonical CAPA records. AI and other separate workflow stores are excluded."):(tr?"Yüklenmiş çekirdek GRC kayıtları. CAPA, AI ve ayrı iş akışı depoları dahil değildir.":"Loaded core GRC records. CAPA, AI and separate workflow stores are excluded."),filters:[{label:tr?"Modül":"Module",value:selectedModuleLabel},{label:tr?"İş birimi":"Business unit",value:unit===all?(tr?"Tümü":"All"):unit},{label:tr?"Sahip":"Owner",value:owner===all?(tr?"Tümü":"All"):owner},{label:tr?"Durum":"Status",value:status===all?(tr?"Tümü":"All"):display(status,lang)}]});
+  const configuration=JSON.stringify({module,unit,owner,status,template,classification,sections,managementNote,lang});
+  const dataVersion=JSON.stringify(filtered);
+  // Keep one report identity across preview and downloads until scope or source data changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stamp=useMemo(()=>({reportId:`FR-${crypto.randomUUID()}`,generatedAt:new Date().toISOString()}),[configuration,dataVersion]);
+  const snapshotOptions={...options(),...stamp};
+  const documentHtml=buildReportHtml(reportTitle,filtered,metrics,tr,snapshotOptions);
+  const definition={query:'',filters:{module,unit,owner,status,template,classification},columns:sections};
+  const sectionLabels=Object.fromEntries(REPORT_SECTIONS.map(key=>[key,reportSectionLabels[key][tr?0:1]]));
+  function applyDefinition(value:Parameters<typeof validateReportDefinition>[0]){const next=validateReportDefinition(value),f=next.filters;if(f.module===CAPA_REPORT_MODULE&&!includeCapa)throw new Error('schema');setModule(f.module);setUnit(f.unit);setOwner(f.owner);setStatus(f.status);setTemplate(f.template as 'management'|'detailed');setClassification(f.classification);setSections(next.columns as ReportSection[]);setManagementNote('');setPreviewPage(1);}
+  function changeModule(value:string){setModule(value);setUnit(all);setOwner(all);setStatus(all);setPreviewPage(1);}
+  function htmlReport() {
+    if (reportUnavailable) return;
+    downloadBlob(`Fornost-GRC-${exportSlug}.html`, new Blob([documentHtml], { type: "text/html;charset=utf-8" }));
+  }
+  async function pdfReport() {
+    if(reportUnavailable||exportInFlight.current)return;exportInFlight.current=true;setExporting(true);setExportError("");
+    try{downloadBlob(`Fornost-GRC-${exportSlug}.pdf`,await buildReportPdf(reportTitle,metrics,filtered,tr,snapshotOptions));}
+    catch{setExportError(tr?"PDF oluşturulamadı. Türkçe/Latin dışı desteklenmeyen karakter veya font yükleme sorunu olabilir. Veriyi korumak için HTML veya CSV kullanın.":"PDF could not be generated. Unsupported characters or a font loading failure may be involved. Use HTML or CSV to preserve the data.");}
+    finally{exportInFlight.current=false;setExporting(false);}
+  }
+  const pages=Math.max(1,Math.ceil(filtered.length/50)),currentPage=Math.min(previewPage,pages);
+  function assuranceReport() {
+    if (!evidenceState.ready) return;
+    downloadBlob(`Fornost-GRC-assurance-pack-${new Date().toISOString().slice(0,10)}.html`, new Blob([buildAssuranceReportHtml(evidenceState.rows, tr, evidenceState.generatedAt, evidenceState.auditPortfolio)], { type: "text/html;charset=utf-8" }));
+  }
+  async function excel() {
+    if (reportUnavailable||exportInFlight.current) return;
+    exportInFlight.current=true;setExporting(true);setExportError("");
+    try {
+    const labels = labelMap[lang];
+    const data:Record<string,unknown>[] = filtered.map((r) => ({
+      [tr ? "Modül" : "Module"]: names[lang][r.module] || r.module,
+      [tr ? "Kayıt kimliği" : "Record ID"]: r.id,
+      [tr ? "Kod" : "Code"]: r.code||r.data.code||r.id,
+      [tr ? "Son güncelleme" : "Updated at"]: r.updatedAt||r.createdAt||"",
+      ...Object.fromEntries(Object.entries(r.data).map(([k,v])=>[`${labels[k]||k} [${k}]`,v])),
+      'Report ID':stamp.reportId,'Generated UTC':stamp.generatedAt,'Classification':snapshotOptions.classification,'Scope':snapshotOptions.scope,'Filters':snapshotOptions.filters?.map(f=>`${f.label}: ${f.value}`).join(' | '),
+    }));
+    const keys = [...new Set(data.flatMap((row) => Object.keys(row)))];
+    await writeXlsxFile([
+      keys.map((key) => ({ value: key, fontWeight: "bold" as const })),
+      ...data.map((row) =>
+        keys.map((key) => ({ value: safeSpreadsheetCell(row[key]) })),
+      ),
+    ]).toFile(
+      `Fornost-GRC-${exportSlug}-${stamp.generatedAt.slice(0, 10)}.xlsx`,
+    );
+    }catch{setExportError(tr?"Excel oluşturulamadı. Yeniden deneyin veya CSV kullanın.":"Excel could not be generated. Retry or use CSV.");}
+    finally{exportInFlight.current=false;setExporting(false);}
+  }
+  return (
+    <div className="report-workspace" id="report-composer">
+      <section className="report-hero">
+        <div>
+          <small>{tr ? "RAPORLAMA" : "REPORTING"}</small>
+          <h2>{tr ? "Rapor Hazırlama Masası" : "Report Preparation Desk"}</h2>
+          <p>
+            {tr
+              ? "Kapsamı seçin, raporu inceleyin ve indirin."
+              : "Choose a scope, review your report and download it."}
+          </p>
+        </div>
+        <div className="report-hero-actions">
+          <button className="ghost" type="button" aria-expanded={definitions} onClick={()=>setDefinitions(value=>!value)}>{tr?'Tanımı kaydet / aç':'Save / open definition'}</button>
+          <button className="primary" onClick={()=>void pdfReport()} disabled={reportUnavailable||!filtered.length||exporting}>
+            {exporting?(tr?"Rapor hazırlanıyor…":"Preparing report…"):(tr ? "PDF Raporu" : "PDF Report")}
+          </button>
+          <details className="workspace-export"><summary>{tr ? "Dışa aktar" : "Export"}</summary><div>
+          <button className="ghost" onClick={htmlReport} disabled={reportUnavailable||!filtered.length}>
+            HTML
+          </button>
+          <button className="ghost" onClick={() => downloadBlob(`Fornost-GRC-${exportSlug}.csv`,new Blob([buildReportCsv(reportTitle,filtered,metrics,tr,snapshotOptions)],{type:"text/csv;charset=utf-8"}))} disabled={reportUnavailable||!filtered.length}>
+            CSV
+          </button>
+          <button className="ghost" onClick={excel} disabled={reportUnavailable||!filtered.length}>
+            {tr ? "Excel Raporu Al" : "Download Excel Report"}
+          </button>
+          </div></details>
+        </div>
+      </section>
+      {includeCapa && <div className="report-source-status" role={capaState === "failed" ? "alert" : "status"}>
+        <span>{capaState === "ready" ? (tr ? `CAPA kaynağı: ${capaRows.length} kayıt hazır` : `CAPA source: ${capaRows.length} records available`) : capaState === "loading" ? (tr ? `CAPA kayıtları yükleniyor… ${capaLoaded}` : `Loading CAPA records… ${capaLoaded}`) : capaReportFailureMessage(capaFailure, tr)}</span>
+        <button className="ghost" disabled={capaState === "loading"} onClick={() => setRefreshCapa(value => value + 1)}>{tr ? "Yenile" : "Refresh"}</button>
+      </div>}
+      {exportError&&<p className="report-export-error" role="alert">{exportError}</p>}
+      {definitions&&<div className="report-definitions"><AccountViewsPanel module="Raporlar" lang={lang} current={definition} schema={reportViewSchema} variant="report" labels={{...sectionLabels,module:tr?'Modül':'Module',unit:tr?'İş birimi':'Business unit',owner:tr?'Sahip':'Owner',status:tr?'Durum':'Status',template:tr?'Şablon':'Template',classification:tr?'Sınıflandırma':'Classification'}} apply={applyDefinition}/></div>}
+      {coreState!=="ready"&&<div role="alert" className="report-source-status"><span>{tr?'Çekirdek kayıtlar hazır değil. Rapor kapsamı doğrulanamıyor.':'Core records are not ready. The report scope cannot be confirmed.'}</span><button disabled={coreState==='loading'} onClick={()=>void refreshRows()}>{tr?'Kayıtları tekrar yükle':'Reload records'}</button></div>}
+      <div className="report-composer-grid">
+      <section className="report-filter-panel" aria-label={tr?'Rapor ayarları':'Report settings'}>
+        <label>{tr?'Şablon':'Template'}<select aria-label={tr?'Şablon':'Template'} value={template} onChange={e=>setTemplate(e.target.value as 'management'|'detailed')}><option value="management">{tr?'Yönetim özeti':'Management summary'}</option><option value="detailed">{tr?'Detaylı kayıt dökümü':'Detailed register'}</option></select></label>
+        <p className="report-snapshot-mode">{tr?'Anlık durum':'Point-in-time view'}<br/><time dateTime={stamp.generatedAt}>{new Date(stamp.generatedAt).toLocaleString(tr?'tr-TR':'en-GB')}</time></p>
+        <label>{tr?'Modül':'Module'}<select aria-label={tr?'Rapor modülü':'Report module'} value={module} onChange={e=>changeModule(e.target.value)}><option value={all}>{tr?'Desteklenen kaynaklar':'Supported sources'} ({rows.length})</option>{availableReportModules.map(item=><option key={item} value={item}>{names[lang][item]||item} ({rows.filter(row=>row.module===item).length})</option>)}</select></label>
+        <label>{tr?'Sınıflandırma':'Classification'}<select aria-label={tr?'Sınıflandırma':'Classification'} value={classification} onChange={e=>setClassification(e.target.value)}><option value="internal">{tr?'Kurum İçi':'Internal'}</option><option value="confidential">{tr?'Gizli':'Confidential'}</option></select></label>
+        <details className="report-advanced"><summary>{tr?'Gelişmiş filtreler':'Advanced filters'}{[unit,owner,status].filter(x=>x!==all).length?` (${[unit,owner,status].filter(x=>x!==all).length})`:''}</summary><div className="report-filters">
+         <Filter label={tr?'İş Birimi':'Business Unit'} value={unit} set={setUnit} opts={values('businessUnit')} all={all} allLabel={tr?'Tümü':'All'}/>
+         <Filter label={tr?'Sahip':'Owner'} value={owner} set={setOwner} opts={values('owner')} all={all} allLabel={tr?'Tümü':'All'}/>
+         <Filter label={tr?'Durum':'Status'} value={status} set={setStatus} opts={values('status')} all={all} allLabel={tr?'Tümü':'All'}/>
+        </div><button type="button" onClick={resetFilters} disabled={unit===all&&owner===all&&status===all}>{tr?'Filtreleri temizle':'Clear filters'}</button></details>
+        <fieldset className="report-sections"><legend>{tr?'Rapor bölümleri':'Report sections'}</legend>{REPORT_SECTIONS.map(key=><label key={key}><input type="checkbox" checked={sections.includes(key)} disabled={key==='metrics'} onChange={e=>setSections(current=>e.target.checked?REPORT_SECTIONS.filter(k=>k===key||current.includes(k)):[...current.filter(k=>k!==key)])}/>{sectionLabels[key]}</label>)}</fieldset>
+        {sections.includes('note')&&<label>{tr?'Yönetici notu':'Management note'}<textarea aria-label={tr?'Yönetici notu':'Management note'} maxLength={4000} value={managementNote} onChange={e=>setManagementNote(e.target.value)} placeholder={tr?'Kararlar ve açıklamalarınızı ekleyin…':'Add your decisions and commentary…'}/></label>}
+        <p className="report-limit-note">{snapshotOptions.scope}</p><p className="report-limit-note">{tr?'En yeni kayıt değişikliği':'Latest record change'}: {lastUpdated?new Date(lastUpdated).toLocaleDateString(tr?'tr-TR':'en-GB'):'—'}</p>
+      </section>
+      <section className="report-preview-area" aria-label={tr?'Rapor çalışma alanı':'Report workspace'}>
+        <div className="report-preview-tabs" role="group" aria-label={tr?'Rapor görünümü':'Report view'}><button aria-pressed={previewTab==='document'} onClick={()=>setPreviewTab('document')}>{tr?'Rapor önizlemesi':'Report preview'}</button><button aria-pressed={previewTab==='records'} onClick={()=>setPreviewTab('records')}>{tr?'Kaynak kayıtlar':'Source records'} ({reportUnavailable?'—':filtered.length})</button></div>
+        {reportUnavailable?<div className="report-preview-empty" role="status">{tr?'Seçili kaynaklar hazır olduğunda rapor gösterilecek.':'The report will appear when the selected sources are ready.'}</div>:previewTab==='document'?<>
+         <p className="report-preview-caption">{tr?'HTML belge önizlemesi · PDF sayfalaması farklı olabilir.':'HTML document preview · PDF pagination may differ.'}</p>
+         {!filtered.length?<div className="report-preview-empty">{tr?'Seçili kapsamda raporlanacak kayıt bulunamadı. Filtreleri değiştirin.':'No records match this scope. Adjust the filters.'}</div>:<iframe className="report-document" title={tr?'Rapor belge önizlemesi':'Report document preview'} sandbox="" srcDoc={documentHtml}/>}
+         <p className="report-preview-caption">{tr?'Bölüm seçimi PDF ve HTML için geçerlidir. CSV ve Excel seçili kapsamdaki tüm kayıtları içerir.':'Section selection applies to PDF and HTML. CSV and Excel contain every record in the selected scope.'}</p>
+        </>:<>
+      <section className="report-summary">
+        {(reportUnavailable ? metrics.map(metric => ({...metric, value:"—"})) : metrics).map((metric) => <Kpi key={metric.label} n={metric.value} t={metric.label} s={metric.note} />)}
+      </section>
+      <section className="table-card">
+        <div className="table-tools">
+          <b>
+            {filtered.length} {tr ? "kayıt rapora dahil" : "records included"}
+          </b>
+          <span>
+            {tr ? "Oluşturma" : "Created"}:{" "}
+            {new Date(stamp.generatedAt).toLocaleDateString(tr ? "tr-TR" : "en-GB")}
+          </span>
+        </div>
+        <div className="table-wrap" tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
+          <table aria-label={tr ? "Rapor kapsamındaki kayıtlar" : "Records included in the report"}>
+            <colgroup>
+              {[["code",80],["module",120],["title",260],["businessUnit",120],["owner",120],["status",140],["level",70]].map(([key,fallback],_,columns) => <col key={key} style={{ width: `${100*widths.width(String(key),Number(fallback))/columns.reduce((total,[k,v])=>total+widths.width(String(k),Number(v)),0)}%` }} />)}
+            </colgroup>
+            <thead>
+              <tr>
+                {[
+                  ["code", tr ? "Kod" : "Code"],
+                  ["module", tr ? "Modül" : "Module"],
+                  ["title", tr ? "Başlık" : "Title"],
+                  ["businessUnit", tr ? "İş Birimi" : "Business Unit"],
+                  ["owner", tr ? "Sahip" : "Owner"],
+                  ["status", tr ? "Durum" : "Status"],
+                  ["level", tr ? "Seviye" : "Level"],
+                ].map(([key, label]) => (
+                  <ResizableTh lang={lang} key={key} columnKey={key} widths={widths}>{label}</ResizableTh>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.slice((currentPage-1)*50,currentPage*50).map((r) => (
+                <tr key={r.id}>
+                  <td><b className="code" title={r.id}>{displayRecordCode(r)}</b></td>
+                  <td>{names[lang][r.module] || r.module}</td>
+                  <td>
+                    {reportTitleOf(r)}
+                  </td>
+                  <td>{r.data.businessUnit || "—"}</td>
+                  <td>{r.data.owner || "—"}</td>
+                  <td>{display(r.data.status, lang) || "—"}</td>
+                  <td>
+                    {display(
+                      r.module === "Risk Assessment"
+                        ? band(score(r))
+                        : r.data.severity || r.data.riskLevel || r.data.criticality || "—",
+                      lang,
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {!filtered.length && <tr><td className="report-table-empty" colSpan={7}>{tr ? "Seçili kapsamda raporlanacak kayıt bulunamadı." : "No reportable records match the selected scope."}</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        <div role="navigation" className="report-pagination" aria-label={tr?"Rapor önizleme sayfaları":"Report preview pages"}><span>{tr?"Sayfa":"Page"} {currentPage}/{pages} · {filtered.length} {tr?"kayıt; dışa aktarım tümünü içerir":"records; all are included in exports"}</span><button type="button" disabled={currentPage<=1} onClick={()=>setPreviewPage(currentPage-1)}>{tr?"Önceki":"Previous"}</button><button type="button" disabled={currentPage>=pages} onClick={()=>setPreviewPage(currentPage+1)}>{tr?"Sonraki":"Next"}</button></div>
+      </section>
+      </>}
+      </section></div>
+      <details className="report-secondary report-global-assurance"><summary>{tr?"Genel GRC güvencesi · ayrı kapsam":"Global GRC assurance · separate scope"}</summary><p className="report-limit-note">{tr?"Yüklenmiş çekirdek GRC kayıtlarını ve kayıtlı denetim portföyünü kapsar; CAPA ve yukarıdaki filtreler dahil değildir.":"Includes loaded core GRC records and the persisted audit portfolio; CAPA and the filters above are excluded."}</p>
+      <EvidenceAssuranceStatus state={evidenceState} lang={lang} />
+      <div className="report-assurance-export"><button type="button" className="ghost" onClick={assuranceReport} disabled={!evidenceState.ready}>
+        {tr ? "Genel Güvence Paketi (ayrı kapsam)" : "Global Assurance Pack (separate scope)"}
+      </button></div>
+      <AuditReadinessPortfolioPanel portfolio={evidenceState.auditPortfolio} lang={lang} />
+      <section className="report-assurance-strip" aria-label={tr ? "Bağlı GRC güvence özeti" : "Connected GRC assurance summary"}>
+        <div><small>{tr ? "Bütünleşik güvence" : "Composite assurance"}</small><b>{evidenceState.ready && assurance.score !== null ? `${assurance.score}/100` : "—"}</b><span>{!evidenceState.ready || assurance.score === null ? (tr ? "Değerlendirme bekleniyor" : "Awaiting evaluation") : assurance.state === "strong" ? (tr ? "Güçlü" : "Strong") : assurance.state === "developing" ? (tr ? "Gelişiyor" : "Developing") : (tr ? "Kritik" : "Critical")}</span></div>
+        <div><small>{tr ? "Zincir bütünlüğü" : "Chain integrity"}</small><b>{assurance.traceabilityScore}%</b><span>{assurance.completeChains}/{assurance.totalChains} {tr ? "tam" : "complete"}</span></div>
+        <div><small>{tr ? "Kontrol güvencesi" : "Control assurance"}</small><b>{evidenceState.evidenceReady ? `${assurance.controlScore}%` : "—"}</b><span>{tr ? "Test ve kanıt" : "Test and evidence"}</span></div>
+        <div><small>{tr ? "Kanıt güveni" : "Evidence confidence"}</small><b>{evidenceState.evidenceReady ? `${assurance.evidenceScore}%` : "—"}</b><span>{evidenceState.evidenceReady ? assurance.currentEvidence : "—"}/{assurance.totalEvidence} {tr ? "güncel" : "current"}</span></div>
+        <div role="button" tabIndex={0} onClick={() => go("Bağlantılı GRC")} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") go("Bağlantılı GRC"); }}><small>{tr ? "Denetim hazırlığı" : "Audit readiness"}</small><b>{evidenceState.auditReady && assurance.auditScore !== null ? `${assurance.auditScore}%` : "—"}</b><span>{tr ? "Açıkları incele →" : "Review gaps →"}</span></div>
+      </section>
+      </details>
+      <details className="report-secondary"><summary>{tr?'AI ile analiz':'Analyze with AI'}</summary><p>{tr?'İsteğe bağlı analiz ayrı kaynak kapsamı kullanabilir. Kaynakları inceleyin; sonuç rapora otomatik eklenmez.':'Optional analysis may use a separate source scope. Review its sources; it is not automatically added to the report.'}</p>          <button className="ghost" onClick={() => window.dispatchEvent(new CustomEvent("fornost:open-ai", { detail: { module: names[lang].Raporlar, mode: "agent", agentKind: "reporting", prompt: tr ? `${selectedModuleLabel} kapsamında önemli risk, uyum, denetim, kanıt ve tedarikçi eğilimlerini; karar boşluklarını ve öncelikli yönetim aksiyonlarını kaynaklarıyla analiz et.` : `Analyze material risk, compliance, audit, evidence and vendor trends, decision gaps and prioritized management actions for ${selectedModuleLabel} with sources.` } }))}>
+            {tr ? "AI Yönetim Analizi" : "AI Management Analysis"}
+          </button>
+</details>
+    </div>
+  );
+}
+
+function ModuleFilter({
+  value,
+  set,
+  lang,
+  all,
+}: {
+  value: string;
+  set: (x: string) => void;
+  lang: Lang;
+  all: string;
+}) {
+  return (
+    <label>
+      <span>{lang === "tr" ? "Modül" : "Module"}</span>
+      <select value={value} onChange={(e) => set(e.target.value)}>
+        <option value={all}>{lang === "tr" ? "Tümü" : "All"}</option>
+        {dataModules.map((x) => (
+          <option key={x} value={x}>
+            {names[lang][x]}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+function Filter({
+  label,
+  value,
+  set,
+  opts,
+  all,
+  allLabel,
+}: {
+  label: string;
+  value: string;
+  set: (x: string) => void;
+  opts: string[];
+  all: string;
+  allLabel: string;
+}) {
+  return (
+    <label>
+      <span>{label}</span>
+      <select value={value} onChange={(e) => set(e.target.value)}>
+        <option value={all}>{allLabel}</option>
+        {(value!==all&&!opts.includes(value)?[value,...opts]:opts).map((x) => (
+          <option key={x}>{x}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+function RiskMatrix({ rows, lang }: { rows: Row[]; lang: Lang }) {
+  const count = (l: number, i: number) =>
+      rows.filter(
+        (r) =>
+          Number(r.data.inherentLikelihood || r.data.likelihood) === l &&
+          effectiveImpact(r.data) === i,
+      ).length,
+    tr = lang === "tr";
+  return (
+    <section className="matrix-card">
+      <div>
+        <small>{tr ? "5 × 5 RİSK MATRİSİ" : "5 × 5 RISK MATRIX"}</small>
+        <h3>{tr ? "Olasılık × Etki" : "Likelihood × Impact"}</h3>
+        <p>
+          {tr
+            ? "Hücrelerdeki sayılar mevcut risk adetlerini gösterir."
+            : "Cell values show the number of current risks."}
+        </p>
+      </div>
+      <div className="matrix">
+        <b className="axis y">{tr ? "Olasılık" : "Likelihood"}</b>
+        {[5, 4, 3, 2, 1].map((l) => (
+          <div className="matrix-row" key={l}>
+            <em>{l}</em>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <span key={i} className={band(l * i).toLowerCase()}>
+                {count(l, i) || ""}
+              </span>
+            ))}
+          </div>
+        ))}
+        <div className="xlabels">
+          <i></i>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <em key={i}>{i}</em>
+          ))}
+        </div>
+        <b className="axis x">{tr ? "Hesaplanan Etki" : "Calculated Impact"}</b>
+      </div>
+    </section>
+  );
+}
+function RiskOverview({ rows, lang }: { rows: Row[]; lang: Lang }) {
+  const tr = lang === "tr",
+    high = rows.filter((r) => score(r) >= 10).length,
+    critical = rows.filter((r) => score(r) >= 17).length,
+    open = rows.filter(
+      (r) => !["Kapalı", "Closed"].includes(String(r.data.status)),
+    ).length,
+    now = Date.now(),
+    upcoming = rows.filter((r) => {
+      const d = new Date(r.data.nextReview).getTime();
+      return d >= now && d - now <= 15 * 86400000;
+    }).length;
+  return (
+    <section className="risk-overview">
+      <div className="risk-summary">
+        <div className="risk-summary-head">
+          <div>
+            <small>{tr ? "RİSK GÖRÜNÜMÜ" : "RISK OVERVIEW"}</small>
+            <h3>
+              {tr ? "Risk portföyünün güncel durumu" : "Current risk portfolio"}
+            </h3>
+          </div>
+          <span>{tr ? "Canlı görünüm" : "Live overview"}</span>
+        </div>
+        <div className="risk-metrics">
+          {[
+            [critical, tr ? "Kritik risk" : "Critical risks", "critical-dot"],
+            [high, tr ? "Yüksek + kritik" : "High + critical", "high-dot"],
+            [open, tr ? "Açık risk" : "Open risks", "open-dot"],
+            [
+              upcoming,
+              tr ? "15 gün içinde değerlendirme" : "Reviews within 15 days",
+              "review-dot",
+            ],
+          ].map(([n, t, c]) => (
+            <article key={String(t)}>
+              <i className={`metric-dot ${c}`} />
+              <div>
+                <b>{n}</b>
+                <span>{t}</span>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+      <details className="risk-analysis-disclosure"><summary>{tr ? "Risk matrisi ve dağılımı" : "Risk matrix and distribution"}</summary><RiskMatrix rows={rows} lang={lang} /></details>
+    </section>
+  );
+}
+function AuditOverview({ rows, lang }: { rows: Row[]; lang: Lang }) {
+  const tr = lang === "tr",
+    now = Date.now(),
+    overdue = rows.filter(row => isOverdueAuditRequirement(row.data, now)).length,
+    evidence = rows.filter(
+      (r) => r.data.evidenceStatus === "Kanıt Bekleniyor",
+    ).length,
+    done = rows.filter((r) => isClosedAuditRequirement(r.data.status)).length,
+    progress = rows.length
+      ? Math.round(
+          rows.reduce((n, r) => n + Number(r.data.progress || 0), 0) /
+            rows.length,
+        )
+      : 0,
+    audits = new Set(rows.map((r) => r.data.auditName).filter(Boolean)).size;
+  return (
+    <section className="audit-overview">
+      <div>
+        <small>{tr ? "DENETİM HAZIRLIK DURUMU" : "AUDIT READINESS"}</small>
+        <h3>
+          {tr
+            ? "Denetim portföyü ve madde ilerleyişi"
+            : "Audit portfolio and requirement progress"}
+        </h3>
+      </div>
+      <div className="audit-kpis">
+        <article>
+          <b>{audits}</b>
+          <span>{tr ? "Aktif denetim" : "Active audits"}</span>
+        </article>
+        <article>
+          <b>{formatPercent(progress, lang)}</b>
+          <span>{tr ? "Ortalama ilerleme" : "Average progress"}</span>
+        </article>
+        <article className={overdue ? "danger" : ""}>
+          <b>{overdue}</b>
+          <span>{tr ? "Portföye bağlı geciken maddeler" : "Overdue requirements in portfolio"}</span>
+        </article>
+        <article>
+          <b>{evidence}</b>
+          <span>{tr ? "Kanıt bekleyen" : "Awaiting evidence"}</span>
+        </article>
+        <article>
+          <b>
+            {done}/{rows.length}
+          </b>
+          <span>{tr ? "Kapatılan madde" : "Closed requirements"}</span>
+        </article>
+      </div>
+    </section>
+  );
+}
+function RecordCode({ row, inspect, lang }: { row: Row; inspect?: (row: Row, button: HTMLButtonElement) => void; lang: Lang }) {
+  const code = displayRecordCode(row);
+  const kind=({"Risk Assessment":"risk","Varlık Envanteri":"asset",BIA:"bia",Tedarikçiler:"vendor",Kontroller:"control",Kanıtlar:"evidence"} as const)[row.module as "Risk Assessment"];
+  return <>{inspect ? <button type="button" className="code record-open" data-record-id={row.id} title={lang === "tr" ? "Kayıt ayrıntılarını aç" : "Open record details"}
+    onClick={event => inspect(row, event.currentTarget)}>{code}</button> : <b className="code" title={row.id}>{code}</b>}{kind&&<EntityLabel kind={kind} id={row.id} tr={lang==="tr"}/>}</>;
+}
+
+function RiskRegister({
+  rows, assets,
+  lang,
+  inspect,
+  edit,
+  remove,
+  columns,
+  canWrite = true,
+  canDelete = false,
+}: {
+  rows: Row[]; assets: RiskRecordOptions;
+  lang: Lang;
+  inspect?: (r: Row, button: HTMLButtonElement) => void;
+  edit: (r: Row) => void;
+  remove: (id: string) => void;
+  columns: string[];
+  canWrite?: boolean;
+  canDelete?: boolean;
+}) {
+  const u = ui[lang],
+    cols = getAvailableRegisterColumns("Risk Assessment").filter((c) =>
+      columns.includes(c.key),
+    ), widths = useColumnWidths("Risk Assessment");
+  return (
+    <table className="risk-table">
+      <colgroup>
+        <col style={{ width: widths.width("recordCode", 96) }} />
+        {cols.map((c) => <col key={c.key} style={{ width: widths.width(c.key, ({ title: 235, inherentRisk: 112, residualRisk: 112, status: 150, owner: 155, treatment: 130 } as Record<string, number>)[c.key] || 160) }} />)}
+        {canWrite && <col className="row-actions-column" style={{ width: 180 }} />}
+      </colgroup>
+      <thead>
+        <tr>
+          <ResizableTh lang={lang} columnKey="recordCode" widths={widths}>{lang === "tr" ? "Kod" : "Code"}</ResizableTh>
+          {cols.map((c) => (
+            <ResizableTh lang={lang} key={c.key} columnKey={c.key} widths={widths}>{c[lang]}</ResizableTh>
+          ))}
+          {canWrite && <th className="row-actions-heading">{lang === "tr" ? "İşlemler" : "Actions"}</th>}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.id} onDoubleClick={() => canWrite && edit(r)}>
+            <td>
+              <RecordCode row={r} inspect={inspect} lang={lang} />
+            </td>
+            {cols.map((c) => (
+              <td key={c.key}>
+                <RiskRegisterCell assets={assets} row={r} column={c.key} lang={lang} />
+              </td>
+            ))}
+            {canWrite && (
+              <td className="row-actions-cell">
+                <div className="row-actions">
+                  <button onClick={() => edit(r)}>{u.edit}</button>
+                  {canDelete && <button onClick={() => remove(r.id)}>{u.delete}</button>}
+                </div>
+              </td>
+            )}
+          </tr>
+        ))}
+        {!rows.length && (
+          <tr>
+            <td colSpan={cols.length + (canWrite ? 2 : 1)} className="empty">
+              {u.empty}
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  );
+}
+
+type ColumnWidthController = {
+  width: (key: string, fallback?: number) => number;
+  begin: (key: string, event: ReactPointerEvent<HTMLSpanElement>) => void;
+  nudge: (key: string, delta: number) => void;
+};
+function useColumnWidths(scope: string): ColumnWidthController {
+  const storageKey = `fornost-grc-column-widths:${scope}`;
+  const [values, setValues] = useState<Record<string, number>>({});
+  useEffect(() => {
+    try { setValues(JSON.parse(localStorage.getItem(storageKey) || "{}")); } catch { setValues({}); }
+  }, [storageKey]);
+  const save = (key: string, next: number) => setValues((current) => {
+    const updated = { ...current, [key]: Math.max(96, Math.min(640, Math.round(next))) };
+    localStorage.setItem(storageKey, JSON.stringify(updated));
+    return updated;
+  });
+  return {
+    width: (key, fallback = 190) => values[key] || fallback,
+    begin: (key, event) => {
+      event.preventDefault();
+      const startX = event.clientX, startWidth = values[key] || 190;
+      const move = (e: PointerEvent) => save(key, startWidth + e.clientX - startX);
+      const stop = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", stop); document.body.classList.remove("resizing-columns"); };
+      document.body.classList.add("resizing-columns");
+      window.addEventListener("pointermove", move); window.addEventListener("pointerup", stop, { once: true });
+    },
+    nudge: (key, delta) => save(key, (values[key] || 190) + delta),
+  };
+}
+function ResizableTh({ columnKey, widths, children, lang }: { columnKey: string; widths: ColumnWidthController; children: ReactNode; lang: Lang }) {
+  return <th className="resizable-column"><span>{children}</span><span className="column-resizer" role="separator" aria-label={lang === "tr" ? `${String(children)} sütun genişliği` : `${String(children)} column width`} aria-orientation="vertical" tabIndex={0} onPointerDown={(e) => widths.begin(columnKey, e)} onKeyDown={(e) => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); widths.nudge(columnKey, e.key === "ArrowLeft" ? -16 : 16); } }} /></th>;
+}
+function RiskRegisterCell({
+  row, assets,
+  column,
+  lang,
+}: {
+  row: Row; assets: RiskRecordOptions;
+  column: string;
+  lang: Lang;
+}) {
+  const d = row.data,
+    tr = lang === "tr";
+  if (column === "title")
+    return (
+      <div className="stack title-stack">
+        <b>{riskTitle(row)}</b>
+        <small>{d.riskScope === "organization" ? (tr?"Kurum düzeyi risk":"Organization-level risk") : riskAssetCaption(d.asset, assets, tr) || "—"}</small>
+      </div>
+    );
+  if (column === "fairLite") return <FairCell tr={tr} value={d.fairLite}/>;
+  if (column === "residualRisk") {
+    const score = assessedResidualRiskScore(d);
+    return score === null ? "—" : <div className="score-cell"><b className={`risk ${assuranceRiskLevel(score).toLowerCase()}`}>{score} · {display(assuranceRiskLevel(score),lang)}</b></div>;
+  }
+  if (column === "inherentRisk") {
+    const likelihood = Number(d.inherentLikelihood || d.likelihood || 0),
+      impact = effectiveImpact(d);
+    return (
+      <>
+        <RiskScore
+          l={likelihood}
+          i={impact}
+          n={likelihood * impact}
+          lang={lang}
+        />
+        <small className="cia-summary">
+          {tr ? "G/B/E" : "C/I/A"}: {d.confidentialityImpact || "—"} /{" "}
+          {d.integrityImpact || "—"} / {d.availabilityImpact || "—"}
+        </small>
+      </>
+    );
+  }
+  if (column === "updatedAt" || column === "createdAt")
+    return (
+      <DateTimeCell
+        value={column === "updatedAt" ? row.updatedAt : row.createdAt}
+        lang={lang}
+      />
+    );
+  if (column === "treatment" && d.treatment === "Kabul Et") return <span className="state-pill">{tr ? "Kabul" : "Acceptance"}</span>;
+  if (["status", "treatment", "category"].includes(column))
+    return <StatusPill value={d[column]} lang={lang} />;
+  return display(d[column], lang) || "—";
+}
+function RiskScore({
+  l,
+  i,
+  n,
+  lang,
+}: {
+  l: number;
+  i: number;
+  n: number;
+  lang: Lang;
+}) {
+  return (
+    <div className="score-cell">
+      <span>
+        {lang === "tr" ? "O" : "L"} {l || "—"} <i>×</i>{" "}
+        {lang === "tr" ? "E" : "I"} {i || "—"}
+      </span>
+      {n > 0 ? (
+        <b className={`risk ${band(n).toLowerCase()}`}>
+          {n} · {display(band(n), lang)}
+        </b>
+      ) : (
+        <b>—</b>
+      )}
+    </div>
+  );
+}
+
+const auditCatalog = [...automaticAuditTemplates];
+function auditKind(name: string) {
+  return name.startsWith("ISO")
+    ? "ISO Denetimi"
+    : name.startsWith("SOC")
+      ? "SOC Denetimi"
+      : name.startsWith("PCI DSS")
+        ? "PCI DSS Denetimi"
+      : name.startsWith("NIST") || name.startsWith("CIS") || name.startsWith("COBIT")
+        ? "Framework Değerlendirmesi"
+      : name.startsWith("DORA") || name.startsWith("NIS2") || name.startsWith("KVKK") || name.startsWith("GDPR")
+        ? "Regülasyon Denetimi"
+      : "Diğer Denetim";
+}
+function AuditModule({
+  sort,
+  setSort,
+  userId,
+  rows,
+  evidenceRows,
+  focusedRequirement,
+  audits,
+  visible,
+  selected,
+  select,
+  lang,
+  query,
+  setQuery,
+  openNew,
+  edit,
+  remove,
+  openImport,
+  canWrite,
+  createAudit,
+  deleteAudit,
+  refreshAudits,
+  canDeleteAudit,
+  portfolioState, retryPortfolio,
+  allowPosture,
+  showReadiness = true,
+  go,
+}: {
+  sort?: ViewSort;
+  setSort: (sort: ViewSort | undefined) => void;
+  userId: string;
+  rows: Row[];
+  evidenceRows: Row[];
+  focusedRequirement: string;
+  audits: AuditPortfolioItem[];
+  visible: Row[];
+  selected: string;
+  select: (x: string) => void;
+  lang: Lang;
+  query: string;
+  setQuery: (x: string) => void;
+  openNew: (seed?: Record<string, any>) => void;
+  edit: (r: Row) => void;
+  remove: (id: string) => void;
+  openImport: () => void;
+  canWrite: boolean;
+  createAudit: (input: {
+    name: string;
+    template: string;
+    auditType: string;
+    auditor: string;
+    auditOwner: string;
+    catalogImport?: AuditCatalogImport;
+    posture?: {period:string;token:string};
+  }) => Promise<boolean|"preview-changed">;
+  deleteAudit: (audit: AuditPortfolioItem) => Promise<void>;
+  refreshAudits: () => Promise<unknown>;
+  canDeleteAudit: boolean;
+  portfolioState:"loading"|"ready"|"error"; retryPortfolio:()=>void;
+  allowPosture:boolean;
+  showReadiness?: boolean;
+  go: (module: string) => void;
+}) {
+  const tr = lang === "tr",
+    templateOptions = auditCatalog,
+    [pickerOpen, setPickerOpen] = useState(false),
+    [auditDraft, setAuditDraft] = useState<{
+      periodStart:string; periodEnd:string; targetDate:string;
+      template: string;
+      name: string;
+      auditType: string;
+      auditor: string;
+      auditOwner: string;
+    }>({
+      periodStart:"",periodEnd:"",targetDate:"",
+      template: auditCatalog[0],
+      name: auditCatalog[0],
+      auditType: auditTypes[0][0],
+      auditor: "",
+      auditOwner: "",
+    }),
+    [savingAudit, setSavingAudit] = useState(false);
+  const [posture,setPosture]=useState<AuditChoice>(false);
+  const [readingCatalog,setReadingCatalog]=useState(false);
+  const [catalogImport, setCatalogImport] = useState<AuditCatalogImport|null>(null);
+  const pickerRef=useRecordDialog<HTMLElement>(pickerOpen,()=>setPickerOpen(false));
+  const [auditCreateError,setAuditCreateError] = useState("");
+  const [taskFocus, setTaskFocus] = useState<{ kind: string; id: string; auditId: string; fromMyWork: boolean } | null>(null);
+  const [showUnassigned, setShowUnassigned] = useState(false);
+  const [previewAuditId,setPreviewAuditId]=useState("");
+  const [areaFocus,setAreaFocus]=useState<{id:string;area:string}|null>(null);
+  useEffect(() => {
+    const accept = (request: FornostNavigationRequest | null) => {
+      if (request?.module !== "Denetim Yönetimi") return;
+      const { kind, ref, filter } = request;
+      if (isAuditTaskKind(kind) && ref && filter?.auditId) {
+        setAreaFocus(null);
+        setTaskFocus({ kind, id: ref, auditId: filter.auditId, fromMyWork: request.source === "my-work-enterprise" });
+        consumePendingFornostFocus("Denetim Yönetimi");
+        return;
+      }
+      setTaskFocus(null);
+      if (kind === "audit-area" || kind === "audit") {
+        const target = audits.find(audit => audit.id === ref);
+        if (target) {
+          setAreaFocus(kind === "audit-area" ? { id: target.id, area: filter?.area || "work" } : null);
+          select(target.name);
+          consumePendingFornostFocus("Denetim Yönetimi");
+        }
+      } else {
+        setAreaFocus(null);
+        if (kind === "audit-unassigned") {
+          select(""); setShowUnassigned(true);
+          consumePendingFornostFocus("Denetim Yönetimi");
+        }
+      }
+    };
+    accept(peekPendingFornostFocus());
+    const listener = (event: Event) => accept((event as CustomEvent<FornostNavigationRequest>).detail);
+    window.addEventListener(FORNOST_FOCUS_EVENT, listener);
+    return () => window.removeEventListener(FORNOST_FOCUS_EVENT, listener);
+  }, [audits, select]);
+
+  const taskAudit = taskFocus ? audits.find(audit => audit.id === taskFocus.auditId) : undefined;
+  useEffect(() => {
+    if (taskAudit && (selected !== taskAudit.name || focusedRequirement)) select(taskAudit.name);
+  }, [taskAudit, selected, select, focusedRequirement]);
+
+  const showPortfolio = () => {
+    setTaskFocus(null);
+    setAreaFocus(null);
+    select("");
+  };
+  const returnToWork = taskFocus?.fromMyWork && (
+    <button type="button" className="ghost" onClick={() => navigateToFornost("Benim İşlerim")}>
+      {tr ? "İş listeme dön" : "Back to My Work"}
+    </button>
+  );
+  const portfolioNames = new Set(audits.map((audit) => auditNameKey(audit.name))),
+    portfolioRows = rows.filter((row) =>
+      portfolioNames.has(auditNameKey(row.data.auditName)),
+    );
+  async function submitAudit(event: FormEvent) {
+    event.preventDefault();setAuditCreateError("");
+    if(savingAudit || readingCatalog || posture===null || catalogImport && !catalogImport.rightsConfirmed)return;
+    setSavingAudit(true);
+    try { const ok=await createAudit({...auditDraft,...(catalogImport?{catalogImport}:{}),...(posture?{posture}:{})});
+      if(ok==="preview-changed"){setPosture(null);setAuditCreateError(tr?"Kontrol veya kanıt değişti. Dönemi yeniden önizleyin.":"Controls or evidence changed. Preview the period again.");}
+      else if(ok){setPickerOpen(false);setCatalogImport(null);}else setAuditCreateError(tr?"Denetim oluşturulamadı. Adı ve katalog alanlarını kontrol edin.":"Audit could not be created. Check the name and catalog fields.");
+    }catch{setAuditCreateError(tr?"Bağlantı kesildi. Tekrar denemeden önce portföyü yenileyerek kaydı kontrol edin.":"Connection lost. Refresh the portfolio and check for the audit before retrying.");}finally{setSavingAudit(false);}
+  }
+  function openAuditPicker(){
+    setAuditDraft({template:auditCatalog[0],name:auditCatalog[0],auditType:auditTypes[0][0],auditOwner:'',auditor:'',periodStart:'',periodEnd:'',targetDate:''});
+    setAuditCreateError('');setReadingCatalog(false);setCatalogImport(null);setPosture(false);setPickerOpen(true);
+  }
+  function chooseTemplate(template: string) {
+    setPosture(false);
+    const custom = template === "Özel Denetim" || template === "Custom Audit";
+    setAuditDraft((current) => ({
+      ...current,
+      template,
+      name: custom ? "" : template,
+
+    }));
+  }
+  if (taskFocus && (!taskAudit || taskAudit.name !== selected)) {
+    const failed = portfolioState === "error";
+    const missing = portfolioState === "ready" && !taskAudit;
+    return <section className="workspace-empty">
+      <p role={failed || missing ? "alert" : "status"}>{failed ? (tr ? "Denetim portföyü yüklenemedi." : "The audit portfolio could not be loaded.")
+        : missing ? (tr ? "Denetim bulunamadı veya bu denetime erişiminiz yok." : "Audit unavailable or inaccessible.")
+        : (tr ? "Denetim yükleniyor…" : "Loading audit…")}</p>
+      <div className="actions">{returnToWork}
+        {failed && <button type="button" onClick={retryPortfolio}>{tr ? "Yeniden dene" : "Retry"}</button>}
+        <button type="button" onClick={showPortfolio}>{tr ? "Tüm denetimler" : "All audits"}</button>
+      </div>
+    </section>;
+  }
+  // A directly opened requirement can predate portfolio assignment and have no audit name.
+  if (!selected && focusedRequirement && visible.some(row => row.id === focusedRequirement)) {
+    return <AuditRequirementsTable sort={sort} setSort={setSort} userId={userId} focused
+      focusId={focusedRequirement} evidenceRows={evidenceRows}
+      allItems={visible} items={visible} lang={lang} query={query} setQuery={setQuery}
+      edit={edit} remove={remove} openNew={openNew} canWrite={canWrite} canDelete={canDeleteAudit} />;
+  }
+  const renderPortfolio=(coverage:AuditItemCoverage[]|null)=><>
+          <AuditPortfolioMetrics audits={audits} lang={lang} coverage={coverage}/>
+          <AuditPortfolioWorkspace onCreate={canWrite?openAuditPicker:undefined} audits={audits} rows={portfolioRows} evidence={evidenceRows} activeId={previewAuditId}
+            onSelect={setPreviewAuditId} onOpen={select} onDelete={canDeleteAudit?deleteAudit:undefined}
+            renderActions={audit=><AuditActions key={audit.id} audit={audit} lang={lang} canWrite={canWrite} canDelete={canDeleteAudit} onDelete={deleteAudit} onChanged={async()=>{await refreshAudits();}}/>}
+            showReadiness={showReadiness} lang={lang} translate={value=>display(value,lang)}/>
+          <AuditUnassignedRequirements rows={unassignedAuditRequirements(rows, audits)} lang={lang}
+            open={showUnassigned} setOpen={setShowUnassigned} canWrite={canWrite} canDelete={canDeleteAudit} edit={edit} remove={remove}/>
+  </>;
+  if (!selected)
+    return (
+      <>
+        <section className="module-head">
+          <div>
+            <small className="module-kicker">{tr ? "DENETİM GÜVENCESİ" : "AUDIT ASSURANCE"}</small>
+            <h2>{tr ? "Denetim Portföyü" : "Audit Portfolio"}</h2>
+            <p>
+              {tr
+                ? "Bir denetimi açarak maddelerini, sorumlularını, kanıtlarını ve ilerlemesini yönetin."
+                : "Open an audit to manage its requirements, owners, evidence and progress."}
+            </p>
+          </div>
+          <div className="actions">
+            {canWrite && (
+              <button className="primary workspace-create" onClick={openAuditPicker}>
+                {tr ? "+ Yeni Denetim" : "+ New Audit"}
+              </button>
+            )}
+          </div>
+        </section>
+        {portfolioState==="ready"?showReadiness?<AuditReadinessGate mode="global" lang={lang} records={[...rows,...evidenceRows]} portfolio={renderPortfolio}
+          overview={portfolioRows.length>0?<AuditOverview rows={portfolioRows} lang={lang}/>:null}/>:renderPortfolio(null):portfolioState==="error"?<div className="workspace-empty" role="alert"><b>{tr?"Denetim portföyü yüklenemedi.":"The audit portfolio could not be loaded."}</b>
+          <button onClick={retryPortfolio}>{tr?"Yeniden dene":"Retry"}</button></div>:<p role="status">{tr?"Denetim portföyü yükleniyor…":"Loading audit portfolio…"}</p>}
+        {pickerOpen && (
+          <div
+            className="overlay"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setPickerOpen(false);
+            }}
+          >
+            <section ref={pickerRef} tabIndex={-1} data-escape-layer
+              className="modal audit-picker"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="audit-picker-title"
+            >
+              <div className="modal-head">
+                <div>
+                  <small>{tr ? "DENETİM PORTFÖYÜ" : "AUDIT PORTFOLIO"}</small>
+                  <h2 id="audit-picker-title">
+                    {tr ? "Denetim seç ve ekle" : "Choose and add an audit"}
+                  </h2>
+                </div>
+                <button data-escape-close type="button"
+                  onClick={() => setPickerOpen(false)}
+                  aria-label={tr ? "Kapat" : "Close"}
+                >
+                  ×
+                </button>
+              </div>
+              <form className="form" onSubmit={submitAudit}>
+                {auditCreateError && <p className="wide" role="alert">{auditCreateError}</p>}
+                <label className="wide">
+                  {tr ? "Şablon / seçenek" : "Template / option"}
+                  <select
+                    aria-label={tr ? "Şablon / seçenek" : "Template / option"}
+                    value={auditDraft.template}
+                    onChange={(e) => chooseTemplate(e.target.value)}
+                  >
+                    {templateOptions.map((option) => (
+                      <option key={option}>{option}</option>
+                    ))}
+                    <option>{tr ? "Özel Denetim" : "Custom Audit"}</option>
+                  </select>
+                </label>
+                {!catalogImport && <FrameworkCatalogNotice framework={auditDraft.template} lang={lang} />}
+                <AuditCatalogUpload onBusy={setReadingCatalog} lang={lang} value={catalogImport} onChange={v=>{setCatalogImport(v);setPosture(false);}} />
+
+                <label className="wide">
+                  {tr ? "Denetim adı" : "Audit name"}
+                  <input
+                    required
+                    minLength={3}
+                    maxLength={160}
+                    value={auditDraft.name}
+                    onChange={(e) =>
+                      setAuditDraft({ ...auditDraft, name: e.target.value })
+                    }
+                  />
+                </label>
+                <label>{tr?"Denetim türü":"Audit type"}<select aria-label={tr?"Denetim türü":"Audit type"} value={auditDraft.auditType} onChange={e=>setAuditDraft({...auditDraft,auditType:e.target.value})}>{auditTypes.map(([value,en])=><option value={value} key={value}>{tr?value:en}</option>)}</select></label>
+                <div className="wide audit-period-fields">{([['periodStart','Gözlem Dönemi Başlangıcı','Observation period start'],['periodEnd','Gözlem Dönemi Bitişi','Observation period end'],['targetDate','Hedef Denetim Tarihi','Target audit date']] as const).map(([key,t,en])=><label key={key}>{tr?t:en}<input type="date" name={key} lang={tr?'tr':'en-GB'} aria-label={tr?t:en} value={auditDraft[key]} required={key==='periodStart'?!!auditDraft.periodEnd:key==='periodEnd'?!!auditDraft.periodStart:false} min={key==='periodEnd'?auditDraft.periodStart:undefined} max={key==='periodStart'?auditDraft.periodEnd:undefined}
+                    onChange={e=>{setAuditDraft({...auditDraft,[key]:e.target.value});if(key!=='targetDate'&&posture!==false)setPosture(null);}}/><small>{auditDraft[key]?auditDraft[key].split('-').reverse().join('.'):'dd.mm.yyyy'}</small></label>)}</div>
+                {allowPosture && !catalogImport && automaticAuditTemplates.some(t=>t===auditDraft.template) && <AuditPostureChoice key={auditDraft.template} template={auditDraft.template} tr={tr} range={auditDraft.periodStart&&auditDraft.periodEnd?auditDraft.periodStart+".."+auditDraft.periodEnd:""} choice={posture} onChange={setPosture}/>}
+                <AuditTeamFields tr={tr} owner={auditDraft.auditOwner} team={auditDraft.auditor} onOwner={auditOwner=>setAuditDraft(v=>({...v,auditOwner}))} onTeam={auditor=>setAuditDraft(v=>({...v,auditor}))}/>
+                <p className="audit-picker-note">
+                  {tr
+                    ? "Seçilen standart portföye kart olarak eklenir ve katalog kapsamındaki özetler çalışma tablosuna yüklenir."
+                    : "The selected standard is added as a portfolio card and the available catalog summaries are loaded into the workspace table."}
+                </p>
+                <div className="form-actions">
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => setPickerOpen(false)}
+                  >
+                    {tr ? "Vazgeç" : "Cancel"}
+                  </button>
+                  <button className="primary" disabled={savingAudit || readingCatalog || posture===null || !!(catalogImport && !catalogImport.rightsConfirmed)}>
+                    {savingAudit
+                      ? tr
+                        ? "Ekleniyor…"
+                        : "Adding…"
+                      : tr
+                        ? "Portföye Ekle"
+                        : "Add to Portfolio"}
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>
+        )}
+      </>
+    );
+  const selectedPortfolio = audits.find((audit) => audit.name === selected);
+  const focusedTaskId = (kind: string) => taskFocus?.kind === kind ? taskFocus.id : "";
+  const requestId = focusedTaskId("audit-request");
+  const workpaperId = focusedTaskId("audit-workpaper");
+  const milestoneId = focusedTaskId("audit-milestone");
+  const closureId = focusedTaskId("audit-closure");
+  const auditLocked = selectedPortfolio?.closure_state === "closed";
+  const items = rows.filter(row => auditNameKey(row.data.auditName) === auditNameKey(selected));
+  return (
+    <>
+      <section className="audit-detail-head">
+        <button className="audit-back" onClick={showPortfolio}>
+          ← {tr ? "Tüm denetimler" : "All audits"}
+        </button>
+        <div>
+          <small>{tr ? "DENETİM ÇALIŞMA ALANI" : "AUDIT WORKSPACE"}</small>
+          <h2>{selected}</h2>
+          <p>
+            {selectedPortfolio?.auditor || items[0]?.data.auditor || auditTypes.find(([v])=>v===selectedPortfolio?.audit_type)?.[tr?0:1] || selectedPortfolio?.audit_type || auditKind(selected)} ·{" "}
+            {selectedPortfolio?.audit_owner || items[0]?.data.auditOwner ||
+              (tr ? "Sorumlu henüz atanmadı" : "Owner not assigned")}
+          </p>
+        </div>
+        <div className="actions">
+          {returnToWork}
+          <button className="ghost" disabled={!canWrite || auditLocked} onClick={openImport}>
+            {tr ? "Excel İçe Aktar" : "Import Excel"}
+          </button>
+          <button
+            className="ghost"
+            onClick={() => csvDownload(`${selected}.csv`, items, lang)}
+          >
+            {tr ? "CSV İndir" : "Download CSV"}
+          </button>
+          {canWrite && !auditLocked && (
+            <button className="primary" onClick={() => openNew()}>
+              {tr ? "+ Özel Madde" : "+ Custom Item"}
+            </button>
+          )}
+        </div>
+      </section>
+      {selectedPortfolio&&<AuditActions key={`audit-actions:${selectedPortfolio.id}`} audit={selectedPortfolio} lang={lang} canWrite={canWrite} canDelete={canDeleteAudit} onDelete={deleteAudit} onChanged={async name=>{await refreshAudits();select(name);}}/>}
+      {selectedPortfolio?.closure_state && selectedPortfolio.closure_state !== "open" && <p role="status">{auditClosureLabels[selectedPortfolio.closure_state][tr ? 0 : 1]}{auditLocked ? (tr ? " · Değişiklik için denetim gerekçeyle yeniden açılmalı." : " · Reopen the audit with a reason before making changes.") : ""}</p>}
+      {auditLocked&&canDeleteAudit&&selectedPortfolio?.closure_event&&<button type="button" className="ghost" onClick={()=>navigateToFornost({module:"Denetim Yönetimi",kind:"audit-closure",ref:selectedPortfolio.closure_event,filter:{auditId:selectedPortfolio.id},source:"audit-workspace"})}>{tr?"Salt-okunur kapanış paketini aç":"Open read-only closure package"} →</button>}
+      {!selectedPortfolio && <section className="fw-orphan-notice" role="status"><div><strong>{tr ? "Aktif denetim bağlantısı eksik" : "Active audit link missing"}</strong><p>{tr ? "Bu maddeler için aktif bir denetim kaydı bulunamadı. Kayıtları inceleyip düzenleyebilir veya bağlantısız maddeler görünümünden mevcut bir denetime bağlayabilirsiniz." : "These requirements have no active audit record. Review or edit them, or link them to an existing audit from the unassigned requirements view."}</p></div><button type="button" onClick={() => { setShowUnassigned(true); select(""); }}>{tr ? "Bağlantısız maddeleri aç" : "Open unassigned requirements"}</button></section>}
+      {allowPosture && selectedPortfolio?.catalog?.hasPosture && <AuditBaseline records={new Map(items.map(row=>[String(row.data.requirementRef),row.id]))} key={selectedPortfolio.id} auditId={selectedPortfolio.id} tr={tr}/>}
+      <AuditResearchWorkspace key={selectedPortfolio?.id || `unlinked:${selected}`} auditId={selectedPortfolio?.id || ""} lang={lang}
+        focusArea={areaFocus?.id===selectedPortfolio?.id?areaFocus?.area:""}
+        findings={selectedPortfolio?<AuditFindingsPanel auditId={selectedPortfolio.id} lang={lang}/>:undefined}
+        focusWorkpaper={workpaperId}
+        focusClosure={closureId}
+        items={items} focusedRequirement={focusedRequirement} focusRequest={requestId} go={go}
+        catalog={selectedPortfolio ? <FrameworkCatalogNotice framework={selectedPortfolio.template || ""} snapshot={selectedPortfolio.catalog} lang={lang} /> : null}
+        focusMilestone={milestoneId}
+        plan={selectedPortfolio ? <AuditPlanPanel focusId={milestoneId} auditId={selectedPortfolio.id} canWrite={canWrite && !auditLocked} lang={lang} embedded /> : null}
+        requests={selectedPortfolio ? <AuditRequestPanel readOnly={auditLocked} key={`requests:${selected}:${requestId}`} auditId={selectedPortfolio.id} lang={lang} focusId={requestId} /> : null}
+        workpapers={selectedPortfolio ? <AuditWorkpaperPanel focusId={workpaperId} key={`${selectedPortfolio.id}:${workpaperId}`} auditId={selectedPortfolio.id} lang={lang} readOnly={auditLocked} /> : null}
+        readiness={selectedPortfolio ? <AuditReadinessGate key={selected} lang={lang} auditName={selected} records={[...items, ...evidenceRows]} /> : null}
+        closure={canDeleteAudit && selectedPortfolio ? <AuditClosurePanel key={`closure:${selectedPortfolio.id}:${closureId}`} focusId={closureId} auditId={selectedPortfolio.id} lang={lang} onChanged={refreshAudits} /> : undefined}
+        reports={canDeleteAudit && selectedPortfolio ? <AuditStatusReportPanel auditId={selectedPortfolio.id} lang={lang} embedded /> : undefined}
+        requirements={queue=><AuditRequirementsTable
+        queue={queue} hasBaseline={allowPosture && !!selectedPortfolio?.catalog?.hasPosture}
+        auditId={selectedPortfolio?.id||""}
+        evidenceRows={evidenceRows}
+        focusId={focusedRequirement}
+        sort={sort}
+        setSort={setSort}
+        userId={userId}
+        focused={!!focusedRequirement}
+        key={`requirements:${selected}`}
+        allItems={items}
+        items={visible}
+        lang={lang}
+        query={query}
+        setQuery={setQuery}
+        edit={edit}
+        remove={remove}
+        openNew={openNew}
+        canWrite={canWrite && !auditLocked}
+        canDelete={canDeleteAudit && !auditLocked}
+      />}
+      />
+
+    </>
+  );
+}
+
+function AuditRequirementsTable({
+  queue="all",hasBaseline=false,auditId="",evidenceRows=[],focusId="",
+  sort,
+  setSort,
+  userId,
+  focused,
+  items,
+  allItems,
+  lang,
+  query,
+  setQuery,
+  edit,
+  remove,
+  openNew,
+  canWrite,
+  canDelete,
+}: {
+  sort?: ViewSort;
+  setSort: (sort: ViewSort | undefined) => void;
+  userId: string;
+  queue?:AuditQueue; hasBaseline?:boolean; auditId?:string; evidenceRows?:Row[]; focusId?:string;
+  focused: boolean;
+  items: Row[];
+  allItems: Row[];
+  lang: Lang;
+  query: string;
+  setQuery: (x: string) => void;
+  edit: (r: Row) => void;
+  remove: (id: string) => void;
+  openNew: (seed?: Record<string, any>) => void;
+  canWrite: boolean;
+  canDelete: boolean;
+}) {
+  const tr = lang === "tr",
+    [columns, setColumns] = useState(defaultRegisterColumnKeys("Denetim Yönetimi")),
+    [filters, setFilters] = useState<Record<string, string>>({}),
+    [columnPickerOpen, setColumnPickerOpen] = useState(false),
+    [filterPanelOpen, setFilterPanelOpen] = useState(false),
+    [pagination, setPagination] = useState({ key: "", page: 1, size: 50 });
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("fornost-grc-columns") || "{}");
+      if (Array.isArray(saved["Denetim Yönetimi"]) && saved["Denetim Yönetimi"].length) setColumns(saved["Denetim Yönetimi"]);
+    } catch {}
+  }, []);
+  const [layout,setLayout]=useState<'list'|'board'>('list');
+  const [openId,setOpenId]=useState(focusId);
+  useEffect(()=>{if(focusId)setOpenId(focusId);},[focusId]);
+  const {data:inherited,error:baselineError}=usePosture<{baseline:Baseline|null}>(hasBaseline?{auditId}:null);
+  const baseline=inherited?.baseline;
+  const byRef=useMemo(()=>new Map(baseline?.entries.map(entry=>[entry.ref,entry])),[baseline]);
+  const linksFor=(row:Row)=>byRef.get(String(row.data.requirementRef))?.controls||[];
+  const evidenceFor=(row:Row)=>[...new Set(linksFor(row).flatMap(c=>c.evidence))].flatMap(id=>baseline?.evidence[id]?[baseline.evidence[id]]:[]);
+  const registerRef = useRef<HTMLElement>(null);
+  const returnFocusId = useRef("");
+  const saveColumns = (keys: string[]) => {
+    setColumns(keys);
+    try {
+      const saved = JSON.parse(localStorage.getItem("fornost-grc-columns") || "{}");
+      localStorage.setItem("fornost-grc-columns", JSON.stringify({ ...saved, "Denetim Yönetimi": keys }));
+    } catch {}
+  };
+  const filtered = sortRegisterRows(items.filter((row) => auditRequirementMatches(row.data,queue) && Object.entries(filters).every(([key, value]) => !value || String(row.data[key] ?? "") === value)), 'Denetim Yönetimi', sort, lang);
+  const filterKey = JSON.stringify([query, filters, sort, queue]);
+  useEffect(() => { setPagination(value => ({ ...value, key: filterKey, page: 1 })); }, [filterKey]);
+  const page = auditRequirementPage(filtered, pagination.key === filterKey ? pagination.page : 1, pagination.size);
+  const goPage = (value: number) => setPagination({ key: filterKey, page: value, size: page.size });
+  const openIndex = filtered.findIndex(row => row.id === openId);
+  const openItem = filtered[openIndex];
+  // A requirement removed by a queue, search or refresh must not reopen when the filter is cleared.
+  useEffect(() => {
+    if (openId && !openItem && allItems.some(row => row.id === openId)) setOpenId("");
+  }, [openId, openItem, allItems]);
+  useEffect(() => {
+    if (openItem || !returnFocusId.current) return;
+    const selector = `button[data-requirement-id="${CSS.escape(returnFocusId.current)}"]`;
+    const target = registerRef.current?.querySelector<HTMLButtonElement>(selector);
+    (target || registerRef.current)?.focus();
+    returnFocusId.current = "";
+  }, [openItem]);
+  const showRequirement = (index: number) => {
+    const row = filtered[index];
+    if (!row) return;
+    goPage(Math.floor(index / page.size) + 1);
+    setOpenId(row.id);
+  };
+  const closeRequirement = () => {
+    returnFocusId.current = openId;
+    goPage(Math.floor(openIndex / page.size) + 1);
+    setOpenId("");
+  };
+  const clearFilters = () => { setFilters({}); setQuery(""); };
+  return (
+    <section ref={registerRef} tabIndex={-1} className="table-card smart-register audit-requirements-register" data-review-open={!!openItem}>
+      <div className="audit-layout-switch" aria-label={tr?"Madde görünümü":"Requirement view"}><button type="button" aria-pressed={layout==='list'} onClick={()=>setLayout('list')}>{tr?"Liste":"List"}</button><button type="button" aria-pressed={layout==='board'} onClick={()=>setLayout('board')}>{tr?"Pano":"Board"}</button></div>
+      <div className="audit-table-heading">
+        <div><small>{tr ? "STANDART MADDELERİ" : "STANDARD REQUIREMENTS"}</small><h3>{tr ? "Denetim maddeleri ve sorumluluk takibi" : "Audit requirements and ownership tracking"}</h3></div>
+        {canWrite && <button className="ghost" onClick={() => openNew()}>{tr ? "+ Özel Madde" : "+ Custom Item"}</button>}
+      </div>
+      <RegisterToolbar userId={userId} focused={focused} module="Denetim Yönetimi" lang={lang} rows={allItems} resultCount={filtered.length} query={query} setQuery={setQuery} selectedColumnKeys={columns} setSelectedColumnKeys={saveColumns} filters={filters} setFilters={setFilters} sort={sort} setSort={setSort} columnPickerOpen={columnPickerOpen} setColumnPickerOpen={setColumnPickerOpen} filterPanelOpen={filterPanelOpen} setFilterPanelOpen={setFilterPanelOpen} />
+      <div className="audit-requirement-pager" aria-label={tr ? "Madde sayfalaması" : "Requirement pagination"}>
+        <span role="status">{page.start}–{page.end} / {page.total} {tr ? "madde" : "requirements"}</span>
+        <label>{tr ? "Sayfa başına" : "Per page"}<select aria-label={tr ? "Sayfa başına" : "Per page"} value={page.size} onChange={event => setPagination({ key: filterKey, page: 1, size: Number(event.target.value) })}>{[50, 100, 200].map(size => <option key={size} value={size}>{size}</option>)}</select></label>
+        <div><button type="button" disabled={page.page === 1} onClick={() => goPage(1)}>{tr ? "İlk" : "First"}</button><button type="button" disabled={page.page === 1} onClick={() => goPage(page.page - 1)}>{tr ? "Önceki" : "Previous"}</button><span>{page.page} / {page.pages}</span><button type="button" disabled={page.page === page.pages} onClick={() => goPage(page.page + 1)}>{tr ? "Sonraki" : "Next"}</button><button type="button" disabled={page.page === page.pages} onClick={() => goPage(page.pages)}>{tr ? "Son" : "Last"}</button></div>
+        <button type="button" disabled={!filtered.length} onClick={() => csvDownload("audit-filtered-requirements.csv", filtered, lang)}>{tr ? "Sonuçları indir" : "Export results"} ({filtered.length})</button>
+      </div>
+      {layout==='board'&&<p className="fw-muted">{tr?"Pano bu sayfadaki filtrelenmiş maddeleri gösterir. Kartı açarak çalışmaya devam edin.":"The board shows filtered requirements on this page. Open a card to continue working."}</p>}
+      <div className="audit-review-layout">
+        <div className="table-wrap" tabIndex={0} role="region" aria-label={tr ? "Kayıt tablosu" : "Record table"}>
+          {filtered.length > 0 ? (
+            layout === "board"
+              ? <AuditRequirementBoard items={page.rows} selectedId={openId} lang={lang} onOpen={row => setOpenId(row.id)} />
+               : <SmartRegister auditLinks={hasBaseline?r=><small className="audit-inherited-codes">{[...linksFor(r).map(c=>/^CTL-\d+$/i.test(c.code)?c.code:c.title),...evidenceFor(r).map(p=>p.code||p.title)].join(' · ')||'—'}</small>:undefined} module="Denetim Yönetimi" rows={page.rows} inspectedId={openId} inspect={row => setOpenId(row.id)}
+                  lang={lang} edit={edit} remove={remove} canWrite={canWrite} canDelete={canDelete} columns={columns} />
+          ) : allItems.length > 0 ? (
+            <div className="audit-empty" role="status">
+              <b>{tr ? "Arama veya filtrelerle eşleşen madde yok." : "No requirements match your search or filters."}</b>
+              <button type="button" className="ghost" onClick={clearFilters}>{tr ? "Arama ve filtreleri temizle" : "Clear search and filters"}</button>
+            </div>
+          ) : (
+            <div className="audit-empty">
+              <b>{tr ? "Bu şablon için otomatik madde bulunamadı." : "No automatic requirements are available for this template."}</b>
+              <p>{tr ? "Excel ile içe aktarabilir veya özel madde ekleyebilirsiniz." : "Import from Excel or add a custom item."}</p>
+            </div>
+          )}
+        </div>
+        {openItem && <AuditRequirementDesk
+          inheritedControls={linksFor(openItem)} inheritedEvidence={evidenceFor(openItem)} baselineUnavailable={hasBaseline&&(!baseline||!!baselineError)}
+          row={openItem} position={openIndex + 1} total={filtered.length}
+          auditId={auditId} evidence={evidenceRows} lang={lang} canWrite={canWrite}
+          onEdit={() => edit(openItem)} onClose={closeRequirement}
+          onPrevious={() => showRequirement(openIndex - 1)} onNext={() => showRequirement(openIndex + 1)}
+        />}
+      </div>
+    </section>
+  );
+}
+
+function AuditWorkspaceTabs({
+  items,
+  allRows,
+  lang,
+  query,
+  setQuery,
+  edit,
+  remove,
+  openNew,
+  canWrite,
+  createTicket,
+}: {
+  items: Row[];
+  allRows: Row[];
+  lang: Lang;
+  query: string;
+  setQuery: (x: string) => void;
+  edit: (r: Row) => void;
+  remove: (id: string) => void;
+  openNew: (seed?: Record<string, any>) => void;
+  canWrite: boolean;
+  createTicket: (row: Row) => Promise<void>;
+}) {
+  const tr = lang === "tr",
+    [tab, setTab] = useState(items.length ? "overview" : "controls"),
+    [auditColumns, setAuditColumns] = useState(
+      defaultRegisterColumnKeys("Denetim Yönetimi"),
+    ),
+    [auditFilters, setAuditFilters] = useState<Record<string, string>>({}),
+    [auditColumnPicker, setAuditColumnPicker] = useState(false),
+    [auditFilterPanel, setAuditFilterPanel] = useState(false),
+    [libraryOpen, setLibraryOpen] = useState(false),
+    [libraryQuery, setLibraryQuery] = useState(""),
+    soc2 = items.some(
+      (r) =>
+        r.data.frameworkTemplate ||
+        String(r.data.auditName).startsWith("SOC 2"),
+    );
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem("fornost-grc-columns") || "{}",
+      );
+      if (
+        Array.isArray(saved["Denetim Yönetimi"]) &&
+        saved["Denetim Yönetimi"].length
+      )
+        setAuditColumns(saved["Denetim Yönetimi"]);
+    } catch {}
+  }, []);
+  const setAuditColumnPreference = (keys: string[]) => {
+    setAuditColumns(keys);
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem("fornost-grc-columns") || "{}",
+      );
+      localStorage.setItem(
+        "fornost-grc-columns",
+        JSON.stringify({ ...saved, "Denetim Yönetimi": keys }),
+      );
+    } catch {
+      localStorage.setItem(
+        "fornost-grc-columns",
+        JSON.stringify({ "Denetim Yönetimi": keys }),
+      );
+    }
+  };
+  const filteredAuditItems = items.filter((row) =>
+    Object.entries(auditFilters).every(
+      ([key, value]) => !value || String(row.data[key] ?? "") === value,
+    ),
+  );
+  const evidence = allRows.filter((r) => r.module === "Kanıtlar"),
+    linkedEvidence = (ref: string) =>
+      evidence.filter((r) => r.data.controlRef === ref);
+  const assignedRefs = new Set(
+    items
+      .map((r) => String(r.data.controlRef || r.data.requirementRef || ""))
+      .filter(Boolean),
+  );
+  const libraryControls = allRows.filter(
+    (r) =>
+      r.module === "Kontroller" &&
+      JSON.stringify(r.data)
+        .toLocaleLowerCase(tr ? "tr-TR" : "en-US")
+        .includes(libraryQuery.toLocaleLowerCase(tr ? "tr-TR" : "en-US")),
+  );
+  const addFromLibrary = (control: Row) => {
+    const d = control.data;
+    setLibraryOpen(false);
+    openNew({
+      requirementRef: d.controlRef || "",
+      requirementTitle: d.controlTitle || "",
+      controlRef: d.controlRef || "",
+      owner: d.owner || "",
+      businessUnit: d.businessUnit || "",
+      frequency: d.frequency || "",
+      frameworks: d.frameworks || "",
+      description: d.description || "",
+      expectedEvidence: d.expectedEvidence || "",
+      status: "Başlanmadı",
+      progress: "0",
+      evidenceStatus: "Kanıt Bekleniyor",
+    });
+  };
+  const statusCount = (value: string) =>
+    items.filter((r) => r.data.status === value).length;
+  const tested = items.filter(
+    (r) =>
+      r.data.operatingEffectiveness &&
+      r.data.operatingEffectiveness !== "Test Bekliyor",
+  ).length;
+  const findings = items.filter(
+    (r) => r.data.finding || r.data.responsibleNote,
+  );
+  const tabs = [
+    ["overview", tr ? "Genel Bakış" : "Overview"],
+    ["scope", tr ? "Kapsam" : "Scope"],
+    ["controls", tr ? "Kontroller" : "Controls"],
+    ["evidence", tr ? "Kanıtlar" : "Evidence"],
+    ["tests", tr ? "Kontrol Testleri" : "Control Tests"],
+    ["findings", tr ? "Gap ve Aksiyonlar" : "Gaps & Actions"],
+  ];
+  return (
+    <>
+      <nav
+        className="audit-workspace-tabs"
+        aria-label={tr ? "Denetim çalışma alanı" : "Audit workspace"}
+      >
+        {tabs.map(([key, label]) => (
+          <button
+            key={key}
+            className={tab === key ? "active" : ""}
+            onClick={() => setTab(key)}
+          >
+            {label}
+            {key === "findings" && findings.length > 0 ? (
+              <span>{findings.length}</span>
+            ) : null}
+          </button>
+        ))}
+      </nav>
+      {tab === "overview" && (
+        <section className="soc2-overview-grid">
+          <article className="soc2-readiness-card">
+            <header>
+              <div>
+                <small>{soc2 ? "SOC 2 TYPE II" : "AUDIT READINESS"}</small>
+                <h3>
+                  {tr ? "Denetim hazırlık görünümü" : "Audit readiness view"}
+                </h3>
+              </div>
+              <span>
+                {items[0]?.data.frameworkTemplate || items[0]?.data.auditType}
+              </span>
+            </header>
+            <div className="soc2-status-grid">
+              {[
+                [statusCount("Tamamlandı"), tr ? "Tamamlandı" : "Complete", "ready"],
+                [statusCount("Devam Ediyor"), tr ? "Devam ediyor" : "In progress", "partial"],
+                [statusCount("Başlanmadı"), tr ? "Başlanmadı" : "Not started", "missing"],
+                [
+                  tested,
+                  tr
+                    ? "Operasyonel test tamamlandı"
+                    : "Operating tests complete",
+                  "tested",
+                ],
+              ].map(([value, label, tone]) => (
+                <div key={String(label)} className={String(tone)}>
+                  <b>{value}</b>
+                  <span>{label}</span>
+                </div>
+              ))}
+            </div>
+            <footer>
+              <span>
+                {tr
+                  ? "Hazırlık değerleri mevcut denetim akışını ve test sonuçlarını gösterir."
+                  : "Readiness values reflect the current audit workflow and test results."}
+              </span>
+            </footer>
+          </article>
+          <article className="soc2-period-card">
+            <small>{tr ? "DENETİM DÖNEMİ" : "AUDIT PERIOD"}</small>
+            <h3>
+              {items[0]?.data.startDate || "—"} →{" "}
+              {items[0]?.data.endDate || "—"}
+            </h3>
+            <p>
+              {tr
+                ? "Type II kapsamında kontrollerin dönem boyunca çalıştığını kanıtlayan tarihli kayıtlar ve örneklemler izlenir."
+                : "Dated evidence and samples demonstrate that controls operated throughout the Type II period."}
+            </p>
+            <dl>
+              <div>
+                <dt>{tr ? "Toplam kriter" : "Total criteria"}</dt>
+                <dd>{items.length}</dd>
+              </div>
+              <div>
+                <dt>{tr ? "Kanıt bağlanan" : "Evidence linked"}</dt>
+                <dd>
+                  {
+                    items.filter(
+                      (r) => linkedEvidence(r.data.controlRef).length > 0,
+                    ).length
+                  }
+                </dd>
+              </div>
+              <div>
+                <dt>{tr ? "Açık aksiyon" : "Open actions"}</dt>
+                <dd>{findings.length}</dd>
+              </div>
+            </dl>
+          </article>
+        </section>
+      )}
+      {tab === "scope" && (
+        <section className="audit-scope-grid">
+          {[
+            [
+              "Security",
+              tr ? "Başlangıç kapsamında" : "In initial scope",
+              items.filter((r) =>
+                String(r.data.scopeCategory).includes("Security"),
+              ).length,
+            ],
+            [
+              "Availability",
+              tr ? "Başlangıç kapsamında" : "In initial scope",
+              items.filter((r) => r.data.scopeCategory === "Availability")
+                .length,
+            ],
+            [
+              "Confidentiality",
+              tr ? "Başlangıç kapsamında" : "In initial scope",
+              items.filter((r) => r.data.scopeCategory === "Confidentiality")
+                .length,
+            ],
+            [
+              "Processing Integrity + Privacy",
+              tr ? "Faz 2 adayı" : "Phase 2 candidate",
+              0,
+            ],
+          ].map(([name, status, count], i) => (
+            <article key={String(name)} className={i === 3 ? "phase-two" : ""}>
+              <span>{i < 3 ? "✓" : "→"}</span>
+              <div>
+                <small>{status}</small>
+                <h3>{name}</h3>
+                <p>
+                  {count} {tr ? "kriter" : "criteria"}
+                </p>
+              </div>
+            </article>
+          ))}
+        </section>
+      )}
+      {tab === "controls" && (
+        <section className="table-card smart-register">
+          <div className="audit-control-source">
+            <div>
+              <small>{tr ? "DENETİM KONTROLLERİ" : "AUDIT CONTROLS"}</small>
+              <b>
+                {tr
+                  ? "Kütüphaneden seçin veya özel madde oluşturun"
+                  : "Choose from the library or create a custom item"}
+              </b>
+            </div>
+            {canWrite && (
+              <div>
+                <button className="ghost" onClick={() => openNew()}>
+                  {tr ? "Özel Madde" : "Custom Item"}
+                </button>
+                <button
+                  className="primary"
+                  onClick={() => setLibraryOpen(true)}
+                >
+                  {tr
+                    ? "+ Kütüphaneden Kontrol Ekle"
+                    : "+ Add from Control Library"}
+                </button>
+              </div>
+            )}
+          </div>
+          {items.length ? (
+            <>
+              <RegisterToolbar
+                module="Denetim Yönetimi"
+                lang={lang}
+                rows={items}
+                resultCount={filteredAuditItems.length}
+                query={query}
+                setQuery={setQuery}
+                selectedColumnKeys={auditColumns}
+                setSelectedColumnKeys={setAuditColumnPreference}
+                filters={auditFilters}
+                setFilters={setAuditFilters}
+                columnPickerOpen={auditColumnPicker}
+                setColumnPickerOpen={setAuditColumnPicker}
+                filterPanelOpen={auditFilterPanel}
+                setFilterPanelOpen={setAuditFilterPanel}
+              />
+              <div className="table-wrap" tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
+                <SmartRegister
+                  module="Denetim Yönetimi"
+                  rows={filteredAuditItems}
+                  lang={lang}
+                  edit={edit}
+                  remove={remove}
+                  canWrite={canWrite}
+                  columns={auditColumns}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="audit-empty">
+              <b>
+                {tr
+                  ? "Bu denetimde henüz kontrol yok."
+                  : "This audit has no controls yet."}
+              </b>
+              <p>
+                {tr
+                  ? "Merkezi kütüphaneden mevcut bir kontrol seçin veya denetime özel madde oluşturun."
+                  : "Choose an existing control from the central library or create an audit-specific item."}
+              </p>
+            </div>
+          )}
+        </section>
+      )}
+      {tab === "evidence" && (
+        <section className="table-card soc2-work-table">
+          <header>
+            <div>
+              <small>
+                {tr ? "KANIT TALEP LİSTESİ" : "EVIDENCE REQUEST LIST"}
+              </small>
+              <h3>
+                {tr
+                  ? "Beklenen ve yüklenen kanıtlar"
+                  : "Expected and uploaded evidence"}
+              </h3>
+            </div>
+            <b>
+              {evidence.length} {tr ? "kütüphane kaydı" : "library records"}
+            </b>
+          </header>
+          <div className="table-wrap" tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
+            <table>
+              <thead>
+                <tr>
+                  <th>TSC</th>
+                  <th>{tr ? "Beklenen kanıt" : "Expected evidence"}</th>
+                  <th>{tr ? "Sahip / Frekans" : "Owner / Frequency"}</th>
+                  <th>{tr ? "Yüklenen" : "Uploaded"}</th>
+                  <th>{tr ? "Durum" : "Status"}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((r) => {
+                  const linked = linkedEvidence(r.data.controlRef);
+                  return (
+                    <tr key={r.id}>
+                      <td>
+                        <b>{r.data.requirementRef}</b>
+                      </td>
+                      <td>{r.data.expectedEvidence || "—"}</td>
+                      <td>
+                        <b>{r.data.owner || "—"}</b>
+                        <small>{r.data.frequency || "—"}</small>
+                      </td>
+                      <td>
+                        <span className="audit-count-chip">
+                          {linked.length}
+                        </span>
+                      </td>
+                      <td>
+                        <StatusPill
+                          value={
+                            linked.length
+                              ? r.data.evidenceStatus
+                              : "Kanıt Bekleniyor"
+                          }
+                          lang={lang}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+      {tab === "tests" && (
+        <section className="table-card soc2-work-table">
+          <header>
+            <div>
+              <small>
+                {tr ? "TYPE II ETKİNLİK TESTİ" : "TYPE II EFFECTIVENESS TEST"}
+              </small>
+              <h3>
+                {tr
+                  ? "Tasarım ve operasyonel etkinlik"
+                  : "Design and operating effectiveness"}
+              </h3>
+            </div>
+            <b>
+              {tested}/{items.length} {tr ? "tamamlandı" : "complete"}
+            </b>
+          </header>
+          <div className="table-wrap" tabIndex={0} role="region" aria-label={lang === "tr" ? "Kayıt tablosu" : "Record table"}>
+            <table>
+              <thead>
+                <tr>
+                  <th>TSC</th>
+                  <th>{tr ? "Test yaklaşımı" : "Test approach"}</th>
+                  <th>{tr ? "Tasarım" : "Design"}</th>
+                  <th>{tr ? "Operasyon" : "Operation"}</th>
+                  <th>{tr ? "Örneklem" : "Sample"}</th>
+                  <th>{tr ? "Denetçi" : "Auditor"}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((r) => (
+                  <tr key={r.id}>
+                    <td>
+                      <b>{r.data.requirementRef}</b>
+                      <small>{r.data.requirementTitle}</small>
+                    </td>
+                    <td>{r.data.typeIITestApproach || "—"}</td>
+                    <td>
+                      <StatusPill
+                        value={r.data.designEffectiveness}
+                        lang={lang}
+                      />
+                    </td>
+                    <td>
+                      <StatusPill
+                        value={r.data.operatingEffectiveness}
+                        lang={lang}
+                      />
+                    </td>
+                    <td>
+                      {r.data.sampleSize || "—"} /{" "}
+                      {r.data.populationSize || "—"}
+                    </td>
+                    <td>
+                      <StatusPill value={r.data.auditorResult} lang={lang} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+      {tab === "findings" && (
+        <section className="soc2-findings">
+          {findings.map((r) => (
+            <article key={r.id}>
+              <header>
+                <span>{r.data.requirementRef}</span>
+                <StatusPill
+                  value={r.data.status}
+                  lang={lang}
+                />
+              </header>
+              <h3>{r.data.requirementTitle}</h3>
+              {r.data.responsibleNote && (
+                <p>
+                  <b>{tr ? "Gerekli aksiyon" : "Required action"}</b>
+                  {r.data.responsibleNote}
+                </p>
+              )}
+              {r.data.ticketRef && (
+                <a
+                  className="soc2-ticket-ref"
+                  href={r.data.ticketUrl || undefined}
+                  target={r.data.ticketUrl ? "_blank" : undefined}
+                  rel="noreferrer"
+                >
+                  {tr ? "Bağlı ticket" : "Linked ticket"}: {r.data.ticketRef}
+                </a>
+              )}
+              <footer>
+                <span>{r.data.owner}</span>
+                <span>{r.data.dueDate}</span>
+                {canWrite && (
+                  <button onClick={() => edit(r)}>
+                    {tr ? "Aksiyonu güncelle" : "Update action"}
+                  </button>
+                )}
+                {canWrite && !r.data.ticketRef && (
+                  <button
+                    className="ticket-action"
+                    onClick={() => createTicket(r)}
+                  >
+                    {tr ? "Ticket Aç" : "Create Ticket"}
+                  </button>
+                )}
+              </footer>
+            </article>
+          ))}
+        </section>
+      )}
+      {libraryOpen && (
+        <div
+          className="overlay"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setLibraryOpen(false);
+          }}
+        >
+          <section data-escape-layer
+            className="modal audit-control-picker"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="control-library-title"
+          >
+            <div className="modal-head">
+              <div>
+                <small>
+                  {tr ? "MERKEZİ KONTROL HAVUZU" : "CENTRAL CONTROL POOL"}
+                </small>
+                <h2 id="control-library-title">
+                  {tr ? "Denetime kontrol ekle" : "Add control to audit"}
+                </h2>
+              </div>
+              <button data-escape-close type="button"
+                onClick={() => setLibraryOpen(false)}
+                aria-label={tr ? "Kapat" : "Close"}
+              >
+                ×
+              </button>
+            </div>
+            <div className="audit-control-search">
+              <input
+                autoFocus
+                value={libraryQuery}
+                onChange={(e) => setLibraryQuery(e.target.value)}
+                placeholder={
+                  tr
+                    ? "Kod, başlık, standart veya sahip ara…"
+                    : "Search code, title, standard or owner…"
+                }
+              />
+              <span>
+                {libraryControls.length} {tr ? "kontrol" : "controls"}
+              </span>
+            </div>
+            <div className="audit-control-list">
+              {libraryControls.map((control) => {
+                const d = control.data,
+                  assigned = assignedRefs.has(String(d.controlRef || ""));
+                return (
+                  <article key={control.id}>
+                    <div>
+                      <b>{d.controlRef || control.id}</b>
+                    <h3>
+                      {d.controlTitle ||
+                        (tr ? "Başlıksız kontrol" : "Untitled control")}
+                    </h3>
+                      <p>
+                        {[d.owner, d.frameworks, d.frequency]
+                          .filter(Boolean)
+                          .join(" · ") || "—"}
+                      </p>
+                    </div>
+                    <button
+                      disabled={assigned}
+                      onClick={() => addFromLibrary(control)}
+                    >
+                      {assigned
+                        ? tr
+                          ? "Eklendi"
+                          : "Added"
+                        : tr
+                          ? "Seç ve Düzenle"
+                          : "Select & Edit"}
+                    </button>
+                  </article>
+                );
+              })}
+              {!libraryControls.length && (
+                <div className="audit-empty">
+                  <b>
+                    {tr
+                      ? "Eşleşen kontrol bulunamadı."
+                      : "No matching control found."}
+                  </b>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+    </>
+  );
+}
+
+
+
+type RegisterColumn = { key: string; tr: string; en: string };
+const systemRegisterColumns: RegisterColumn[] = [
+  { key: "createdAt", tr: "Oluşturulma Tarihi", en: "Created At" },
+  { key: "updatedAt", tr: "Son Güncelleme", en: "Last Updated" },
+];
+
+function getAvailableRegisterColumns(module: string): RegisterColumn[] {
+  const preferred = [...(registerColumns[module] || []), ...(module==="Risk Assessment"?[{key:"fairLite",tr:"Finansal Maruziyet",en:"Financial exposure"}]:[])];
+  const controlLabels:Record<string,[string,string]>={controlRef:["İç Referans Kodu (İsteğe Bağlı)","Internal reference code (optional)"],controlTitle:["Kontrol Başlığı","Control title"],lastTestDate:["Son Kontrol Testi","Last control test"]};
+  const seen = new Set(preferred.map((column) => column.key));
+  const direct = (fields[module] || [])
+    .filter((key) => !seen.has(key) && !(module==="Kanıtlar"&&key==="reviewStatus"))
+    .map((key) => ({
+      key,
+      tr: (module==="Kontroller"&&controlLabels[key]?.[0]) || labelMap.tr[key] || key,
+      en: (module==="Kontroller"&&controlLabels[key]?.[1]) || labelMap.en[key] || key,
+    }));
+  for (const column of systemRegisterColumns)
+    if (!seen.has(column.key)) direct.push(column);
+  return [...preferred, ...direct];
+}
+function defaultRegisterColumnKeys(module: string) {
+  const compactDefaults:Record<string,string[]>={
+    "Risk Assessment":["title","inherentRisk","residualRisk","fairLite","status","owner","treatment"],
+    BIA:["process","ownership","criticality","recovery","readiness","test","continuityPlan","updatedAt"],
+    "Varlık Envanteri":["title","ownership","criticality","dataClassification","assetLinks","coverage","lifecycle","updatedAt"],
+    Kontroller:["control","owner","frameworks","implementation","linkedRisks","evidence","status","updatedAt"],
+  };
+  return compactDefaults[module] || (registerColumns[module] || []).map((column) => column.key);
+}
+function formatPercent(value: number, lang: Lang) {
+  return lang === "tr" ? `%${value}` : `${value}%`;
+}
+function formatRecordDate(value: string | undefined, lang: Lang) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(lang === "tr" ? "tr-TR" : "en-GB", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+function DateTimeCell({ value, lang }: { value?: string; lang: Lang }) {
+  if (!value) return <>—</>;
+  const date = new Date(value);
+  return (
+    <div className="stack date-stack">
+      <b>{formatRecordDate(value, lang)}</b>
+      <small>
+        {Number.isNaN(date.getTime())
+          ? ""
+          : new Intl.RelativeTimeFormat(lang === "tr" ? "tr" : "en", {
+              numeric: "auto",
+            }).format(
+              Math.round((date.getTime() - Date.now()) / 86400000),
+              "day",
+            )}
+      </small>
+    </div>
+  );
+}
+
+function RegisterToolbar({
+  userId,
+  focused,
+  module,
+  lang,
+  rows,
+  resultCount,
+  sourceState = "ready",
+  query,
+  setQuery,
+  selectedColumnKeys,
+  setSelectedColumnKeys,
+  filters,
+  setFilters,
+  sort,
+  setSort,
+  columnPickerOpen,
+  setColumnPickerOpen,
+  filterPanelOpen,
+  setFilterPanelOpen,
+}: {
+  userId?: string;
+  focused?: boolean;
+  module: string;
+  lang: Lang;
+  rows: Row[];
+  resultCount: number;
+  sourceState?: "loading" | "error" | "ready";
+  query: string;
+  setQuery: (value: string) => void;
+  selectedColumnKeys: string[];
+  setSelectedColumnKeys: (keys: string[]) => void;
+  filters: Record<string, string>;
+  setFilters: (filters: Record<string, string>) => void;
+  sort?: ViewSort;
+  setSort?: (sort: ViewSort | undefined) => void;
+  columnPickerOpen: boolean;
+  setColumnPickerOpen: (open: boolean) => void;
+  filterPanelOpen: boolean;
+  setFilterPanelOpen: (open: boolean) => void;
+}) {
+  const tr = lang === "tr",
+    available = getAvailableRegisterColumns(module),
+    filterKeys = registerFilterKeys[module] || [];
+  const toolbarId = useId();
+  const viewsButton = useRef<HTMLButtonElement>(null);
+  const [viewsScope, setViewsScope] = useState<string | null>(null);
+  const scopeKey = JSON.stringify([userId, module]);
+  const viewsOpen = viewsScope === scopeKey;
+  const columnButtonRef = useRef<HTMLButtonElement>(null);
+  const [pickerPosition, setPickerPosition] = useState<CSSProperties>({});
+  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  useEffect(() => {
+    if (!columnPickerOpen) return;
+    const placePicker = () => {
+      const rect = columnButtonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const width = Math.min(420, window.innerWidth - 24);
+      const maxHeight = Math.min(540, window.innerHeight - 24);
+      const left = Math.max(
+        12,
+        Math.min(window.innerWidth - width - 12, rect.right - width),
+      );
+      const openUp =
+        window.innerHeight - rect.bottom < Math.min(390, maxHeight) &&
+        rect.top > window.innerHeight - rect.bottom;
+      setPickerPosition(
+        openUp
+          ? {
+              left,
+              width,
+              maxHeight,
+              top: "auto",
+              bottom: Math.max(12, window.innerHeight - rect.top + 8),
+            }
+          : {
+              left,
+              width,
+              maxHeight,
+              top: Math.min(window.innerHeight - 12, rect.bottom + 8),
+              bottom: "auto",
+            },
+      );
+    };
+    placePicker();
+    window.addEventListener("resize", placePicker);
+    window.addEventListener("scroll", placePicker, true);
+    return () => {
+      window.removeEventListener("resize", placePicker);
+      window.removeEventListener("scroll", placePicker, true);
+    };
+  }, [columnPickerOpen]);
+  const toggleColumn = (key: string) => {
+    const next = selectedColumnKeys.includes(key)
+      ? selectedColumnKeys.filter((item) => item !== key)
+      : [...selectedColumnKeys, key];
+    if (next.length) setSelectedColumnKeys(next);
+  };
+  const optionsFor = (key: string) =>
+    [
+      ...new Set(
+        rows.map((row) => String(row.data[key] ?? "")).filter(Boolean),
+      ),
+    ].sort((a, b) => a.localeCompare(b, lang === "tr" ? "tr" : "en"));
+  return (
+    <div className="register-toolbar compact-register-toolbar">
+      <div className="register-toolbar-main">
+        <div className="register-search-and-count">
+          <div className="register-search">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
+            <input
+              aria-label={tr ? "Kayıtlarda ara" : "Search records"}
+              placeholder={ui[lang].search}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+          <strong className="register-result-count" role="status">
+            {sourceState === "ready" ? `${resultCount} ${!tr && resultCount === 1 ? "record" : ui[lang].record}` : sourceState === "loading" ? (tr ? "Yükleniyor…" : "Loading…") : (tr ? "Kayıt sayısı doğrulanamadı" : "Record count unavailable")}
+          </strong>
+        </div>
+        <div className="register-view-actions">
+          {setSort && <RegisterSortControls compact module={module} lang={lang} sort={sort} onChange={setSort} disabled={sourceState !== 'ready'} />}
+          <button
+            type="button" aria-expanded={filterPanelOpen} aria-controls={filterPanelOpen ? toolbarId + "-filters" : undefined}
+            className={filterPanelOpen || activeFilterCount ? "active" : ""}
+            onClick={() => {
+              setFilterPanelOpen(!filterPanelOpen);
+              setColumnPickerOpen(false);
+            }}
+          >
+            {tr ? "Filtreler" : "Filters"}
+            {activeFilterCount > 0 && <b>{activeFilterCount}</b>}
+          </button>
+          <div className="column-picker-wrap">
+            <button
+              type="button" aria-haspopup="dialog" aria-expanded={columnPickerOpen}
+              ref={columnButtonRef}
+              className={columnPickerOpen ? "active" : ""}
+              onClick={() => {
+                setColumnPickerOpen(!columnPickerOpen);
+                setFilterPanelOpen(false);
+              }}
+            >
+              {tr ? "Sütunlar" : "Columns"}
+              <b>{selectedColumnKeys.length}</b>
+            </button>
+            {columnPickerOpen && (
+              <div
+                data-escape-layer className="column-picker"
+                style={pickerPosition}
+                role="dialog"
+                aria-label={tr ? "Görüntülenecek sütunlar" : "Visible columns"}
+              >
+                <header>
+                  <div>
+                    <b>{tr ? "Görüntülenecek sütunlar" : "Visible columns"}</b>
+                    <small>
+                      {tr
+                        ? "Tercihin bu cihazda saklanır"
+                        : "Saved on this device"}
+                    </small>
+                  </div>
+                  <button
+                    onClick={() =>
+                      setSelectedColumnKeys(defaultRegisterColumnKeys(module))
+                    }
+                  >
+                    {tr ? "Varsayılan" : "Default"}
+                  </button>
+                  <button type="button" data-escape-close onClick={()=>setColumnPickerOpen(false)} aria-label={tr?"Kapat":"Close"}>×</button>
+                </header>
+                <div>
+                  {available.map((column) => (
+                    <label key={column.key}>
+                      <input
+                        type="checkbox"
+                        checked={selectedColumnKeys.includes(column.key)}
+                        onChange={() => toggleColumn(column.key)}
+                      />
+                      <span>{column[lang]}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          {userId && <button type="button" ref={viewsButton} className={viewsOpen ? "active" : ""}
+            aria-expanded={viewsOpen} aria-controls={toolbarId + "-views"} onClick={() => {
+              setViewsScope(viewsOpen ? null : scopeKey);
+              setColumnPickerOpen(false);
+            }}>{tr ? "Görünümler" : "Views"}</button>}
+        </div>
+      </div>
+      {userId && <div id={toolbarId + "-views"} className="register-views-panel" hidden={!viewsOpen} onKeyDown={event => {
+        if (event.key === "Escape" && !event.defaultPrevented) {
+          event.preventDefault();
+          setViewsScope(null);
+          viewsButton.current?.focus();
+        }
+      }}>
+        <SavedRegisterViewsPanel userId={userId} module={module} lang={lang} focused={focused}
+          current={{query, filters, columns:selectedColumnKeys, ...(sort ? {sort} : {})}} schema={{filters:filterKeys,columns:available.map(column=>column.key),sortKeys:viewSortOptions(module).map(option=>option.key)}} labels={{...labelMap[lang],...Object.fromEntries(available.map(column=>[column.key,column[lang]]))}}
+          apply={view=>{setQuery(view.query);setFilters(view.filters);setSelectedColumnKeys(view.columns);setSort?.(view.sort);setColumnPickerOpen(false);setFilterPanelOpen(Object.keys(view.filters).length>0);}} />
+      </div>}
+      {filterPanelOpen && (
+        <div className="register-filters" id={toolbarId + "-filters"}>
+          {filterKeys.map((key) => (
+            <label key={key}>
+              <span>{labelMap[lang][key] || key}</span>
+              <select
+                aria-label={labelMap[lang][key] || key}
+                value={filters[key] || ""}
+                onChange={(event) =>
+                  setFilters({ ...filters, [key]: event.target.value })
+                }
+              >
+                <option value="">{tr ? "Tümü" : "All"}</option>
+                {filters[key] && !optionsFor(key).includes(filters[key]) && <option value={filters[key]}>{display(filters[key], lang)} · {tr ? "Güncel listede yok" : "Not in current list"}</option>}
+                {optionsFor(key).map((option) => (
+                  <option key={option} value={option}>
+                    {display(option, lang)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+          {activeFilterCount > 0 && (
+            <button onClick={() => setFilters({})}>
+              {tr ? "Filtreleri Temizle" : "Clear Filters"}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+function ageInDays(value: any) {
+  if (!value) return null;
+  const n = (Date.now() - new Date(value).getTime()) / 86400000;
+  return Number.isFinite(n) ? n : null;
+}
+function biaWarnings(r: Row, lang: Lang) {
+  const tr = lang === "tr",
+    d = r.data,
+    out: string[] = [];
+  if (!hasRecoveryTarget(d.rto) || !hasRecoveryTarget(d.rpo)) out.push(tr ? "Eksik Bilgi" : "Missing Data");
+  if (exceedsMtpd(d))
+    out.push(tr ? "Hedef Uyumsuz" : "Target Conflict");
+  if (d.criticality === "Kritik" && d.drStatus !== "Mevcut")
+    out.push(tr ? "DR Eksik" : "DR Gap");
+  if (["Test Edilmedi","Not Tested"].includes(d.testResult))out.push(tr?"İlk Test Bekleniyor":"Awaiting first test");
+  else if (d.nextTestDate && dueTimestamp(d.nextTestDate)<Date.now())
+    out.push(tr ? "Test Gecikmiş" : "Test Overdue");
+  const reviewAge = ageInDays(d.lastReview);
+  if (reviewAge !== null && reviewAge > 365)
+    out.push(tr ? "Gözden Geçir" : "Review Due");
+  if (d.criticality === "Kritik" && !d.asset)
+    out.push(tr ? "Varlık Eksik" : "Asset Missing");
+  return out;
+}
+function StatusPill({ value, lang }: { value: any; lang: Lang }) {
+  return value ? (
+    <span
+      className={`state-pill ${String(value).toLocaleLowerCase("tr-TR").replaceAll(" ", "-")}`}
+    >
+      {display(value, lang)}
+    </span>
+  ) : (
+    <>—</>
+  );
+}
+function SmartCell({
+  module, assetLinks,openAssetLinks,canReadAssetLinks,
+  column,
+  row,
+  lang,
+  viewEvidence,
+}: AssetLinkActions & {
+  module: string;
+  column: string;
+  row: Row;
+  lang: Lang;
+  viewEvidence?: (row: Row) => void;
+}) {
+  const bia=useContext(BiaRegisterContext);
+  const d = row.data,
+    tr = lang === "tr";
+  if (column === "updatedAt" || column === "createdAt")
+    return (
+      <DateTimeCell
+        value={column === "updatedAt" ? row.updatedAt : row.createdAt}
+        lang={lang}
+      />
+    );
+  if (module === "Denetim Yönetimi" && column === "audit")
+    {
+      const reference = String(d.requirementRef || d.controlRef || "—"),
+        rawTitle = String(d.requirementTitle || d.title || "").trim(),
+        redundantTitle = [
+          `${d.auditName || ""} ${reference} kontrolü`,
+          `${d.frameworkTemplate || ""} ${reference} kontrolü`,
+          `ISO/IEC 27001:2022 ${reference} kontrolü`,
+        ].some((value) => value.trim().toLocaleLowerCase("tr-TR") === rawTitle.toLocaleLowerCase("tr-TR"));
+      return (
+        <div className="stack title-stack audit-requirement-cell">
+          <b>{reference}</b>
+          {rawTitle && !redundantTitle && <small>{rawTitle}</small>}
+          {!!d.requirementStatement && <details onClick={event=>event.stopPropagation()}><summary>{tr ? "Gereksinim ve test ayrıntıları" : "Requirement and assessment details"}</summary><p style={{whiteSpace:"pre-wrap"}}>{String(d.requirementStatement)}</p>{d.requirementGuidance && <p style={{whiteSpace:"pre-wrap"}}>{String(d.requirementGuidance)}</p>}{d.requirementAssessment && <p style={{whiteSpace:"pre-wrap"}}>{String(d.requirementAssessment)}</p>}{d.catalogSource && /^https:\/\//.test(String(d.catalogSource)) && <a href={String(d.catalogSource)} target="_blank" rel="noreferrer">{tr ? "Katalog kaynağı" : "Catalog source"}</a>}</details>}
+
+        </div>
+      );
+    }
+  if (module === "Denetim Yönetimi" && column === "progress")
+    return (
+      <div className="audit-progress">
+        <span>
+          <i
+            style={{
+              width: `${Math.max(0, Math.min(100, Number(d.progress || 0)))}%`,
+            }}
+          />
+        </span>
+        <b>{formatPercent(Number(d.progress || 0), lang)}</b>
+      </div>
+    );
+  if (module === "Denetim Yönetimi" && column === "links")
+    return (
+      <div className="audit-links">
+        {[d.controlRef, d.riskRef, d.evidenceRef]
+          .filter(Boolean)
+          .map((x: any) => (
+            <span key={x}>{x}</span>
+          ))}
+      </div>
+    );
+  if (module === "Denetim Yönetimi" && column === "dueDate") {
+    const deadline = auditRequirementDeadline(d);
+    const late = isOverdueAuditRequirement(d, Date.now());
+    return (
+      <div className={`stack ${late ? "late" : ""}`}>
+        <b>{deadline || "—"}</b>
+        <small>{late ? (tr ? "Gecikmiş" : "Overdue") : d.endDate !== deadline ? d.endDate : ""}</small>
+      </div>
+    );
+  }
+  if (column === "ownership")
+    return (
+      <div className="stack">
+        <b>
+          {module === "Denetim Yönetimi"
+            ? d.owner || "—"
+            : d.businessUnit || "—"}
+        </b>
+        <small>
+          {module === "Denetim Yönetimi"
+            ? d.businessUnit || "—"
+            : d.owner || "—"}
+        </small>
+      </div>
+    );
+  if (module === "Denetim Yönetimi" && column === "followUpOwner")
+    return (
+      <div className="stack">
+        <b>{d.followUpOwner || d.auditOwner || d.testOwner || "—"}</b>
+        <small>
+          {tr ? "Koordinasyon ve takip" : "Coordination and follow-up"}
+        </small>
+      </div>
+    );
+  if(module==="Kanıtlar"&&column==="control")return <EvidenceControlsCell data={d}/>;
+  if(module==="Kontroller"&&column==="control"){
+    const internal=String(d.controlRef||"").trim();
+    return <div className="stack title-stack"><b>{riskTitle({...row,data:{title:d.controlTitle||d.title}})}</b>
+      {internal&&![row.id,displayRecordCode(row)].some(v=>v.toLowerCase()===internal.toLowerCase())&&<small>{internal}</small>}</div>;
+  }
+  if(module==="Kontroller"&&(column==="linkedRisks"||column==="evidence"))return <ControlLinksCell row={row} tr={tr} kind={column==="linkedRisks"?"risks":"evidence"}/>;
+  if(module==="Kontroller"&&column==="controlType"){
+    const key=controlTypeKey(d.controlType);
+    return <>{controlTypes[key as keyof typeof controlTypes]?.[tr?0:1]||key||"—"}</>;
+  }
+  if (column === "control")
+    return (
+      <div className="stack">
+        <b>{d.controlRef || "—"}</b>
+        <small>{d.controlTitle || "—"}</small>
+      </div>
+    );
+  if(module==="Kanıtlar"&&column==="status"&&d.status==="İncelemede")return <span className="coverage-count">{evidenceState(d,tr)}</span>;
+  if (["criticality", "riskLevel", "status", "implementation"].includes(column))
+    return <StatusPill value={d[column]} lang={lang} />;
+  if(module==="BIA" && column==="continuityPlan")return <BiaPlanCell row={row} tr={tr}/>;
+  if(module==="BIA" && column==="process"){
+    const asset=bia?.assets.resolve(String(d.asset||""));
+    const code=[asset?.code,asset?.id].find(ref=>ref && /^AST-\d+$/i.test(ref));
+    return <div className="stack title-stack"><b>{riskTitle({...row,data:{title:d.process}})}</b>
+      <small>{[display(d.processCategory,lang),code].filter(Boolean).join(" · ")||"—"}</small></div>;
+  }
+  if (column === "businessImpact") {
+    const n = biaImpact(d).highest;
+    return n ? (
+      <div className="impact-score">
+        <b>{n}</b>
+        <span>{display(band(n * 5), lang)}</span>
+      </div>
+    ) : (
+      <>—</>
+    );
+  }
+  if (column === "mtpd")
+    return hasRecoveryTarget(d.mtpd) ? (
+      <b>
+        {d.mtpd} {tr ? "saat" : "hours"}
+      </b>
+    ) : (
+      <>—</>
+    );
+  if (column === "recovery")
+    return (
+      <div className="stack">
+        <b>RTO {hasRecoveryTarget(d.rto) ? d.rto+"h" : "—"}</b>
+        <small>RPO {hasRecoveryTarget(d.rpo) ? d.rpo+"h" : "—"}</small>
+      </div>
+    );
+  if (column === "biaGovernance")
+    return (
+      <div className="stack">
+        <b>{d.approver || (tr ? "Onaylayan atanmamış" : "Approver not assigned")}</b>
+        <small>{biaDate(d.approvalDate || d.nextReview,bia?.snapshot?.dateFormat)}</small>
+      </div>
+    );
+  if (column === "readiness"){
+    const asset=bia?.assets.resolve(String(d.asset||""));
+    const values=[[tr?"Yedek":"Backup",d.backupStatus||asset?.data.backupStatus],["DR",d.drStatus],[tr?"Manuel":"Manual",d.manualWorkaround]];
+    return <div className="asset-coverage">{values.map(([label,value])=>{
+      const state=["Mevcut","Available"].includes(String(value))?"covered":["Mevcut Değil","Unavailable"].includes(String(value))?"gap":assetCoverage(value);
+      const status=({covered:tr?"Aktif":"Active",gap:tr?"Eksik":"Missing",partial:tr?"Kısmi":"Partial",na:tr?"Uygulanamaz":"Not applicable",unknown:tr?"Bilinmiyor":"Unknown"})[state];
+      return <span key={String(label)} data-state={state} role="img" aria-label={label+" · "+status} title={label+" · "+status}>{state==="covered"?"✓ ":state==="gap"?"! ":state==="partial"?"◐ ":"— "}{String(label)}</span>;
+    })}</div>;
+  }
+  if (column === "test") {
+    const warnings = biaWarnings(row, lang);
+    return (
+      <div className="stack">
+        <b>{display(d.testResult, lang) || (tr ? "Test yok" : "No test")}</b>
+        <small>{biaDate(d.lastTestDate,bia?.snapshot?.dateFormat)}</small>
+        <div className="warnings">
+          {warnings.map((x) => (
+            <span key={x}>{x}</span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (module === "Varlık Envanteri" && column === "title")
+    return <div className="stack title-stack"><b>{riskTitle(row)}</b>
+      <small>{[d.environment,d.assetType].filter(Boolean).map(value=>display(value,lang)).join(" · ")||"—"}</small></div>;
+  if (module === "Varlık Envanteri" && column === "assetLinks")
+    return <div className="asset-link-counts">{(["Risk Assessment","BIA"] as const).map(target=>{
+      const allowed=canReadAssetLinks?.(target),count=assetLinks?.get(row.id)?.[target].size??0;
+      const label=target==="BIA"?"BIA":tr?"Risk":count===1?"Risk":"Risks";
+      return allowed && openAssetLinks ? <button type="button" key={target} onClick={()=>openAssetLinks(row.id,target)}>{count} {label}</button>
+        : <span key={target}>{label} —</span>;
+    })}</div>;
+  if (column === "assetType")
+    return (
+      <div className="stack">
+        <b>{display(d.assetType, lang) || "—"}</b>
+        <small>{display(d.environment, lang) || "—"}</small>
+      </div>
+    );
+  if (column === "exposure")
+    return (
+      <div className="readiness">
+        <span className={d.internetFacing === "Evet" ? "warn" : "ok"}>
+          Internet
+        </span>
+        <span className={d.personalData === "Evet" ? "warn" : "ok"}>
+          {tr ? "KV" : "PD"}
+        </span>
+      </div>
+    );
+  if (column === "cia")
+    return (
+      <div className="readiness cia-pills">
+        <span className="ok">
+          {tr ? "G" : "C"} {d.confidentialityRating || "—"}
+        </span>
+        <span className="ok">
+          {tr ? "B" : "I"} {d.integrityRating || "—"}
+        </span>
+        <span className="ok">{tr ? "E" : "A"} {d.availabilityRating || "—"}</span>
+      </div>
+    );
+  if (column === "coverage")
+    return <div className="asset-coverage">{[["EDR",d.edrStatus],["SIEM",d.siemStatus],[tr?"Yedek":"Backup",d.backupStatus],[tr?"Tarama":"Scan",d.vulnScan]].map(([label,value])=>{
+      const state=assetCoverage(value);
+      const status=state==="covered"?(tr?"Kapsamda":"Covered"):state==="gap"?(tr?"Kapsam dışı":"Not covered"):state==="partial"?(tr?"Kısmi":"Partial"):state==="na"?(tr?"Uygulanamaz":"Not applicable"):(tr?"Bilinmiyor":"Unknown");
+      const signal=label==="Tarama"||label==="Scan"?"scan":label;
+      const linked=row.collector_signals?.split(",").includes(signal);
+      const description=label+" · "+status+(linked?(tr?" · Kaynaktan sinyal algılandı":" · Source signal detected"):"");
+      return <span key={label} role="img" aria-label={description} data-state={state} title={description}><span aria-hidden="true">{state==="covered"?"✓":state==="gap"?"!":state==="partial"?"◐":"—"} </span>{label}{linked?(tr?" · Sinyal":" · Signal"):""}</span>;
+    })}</div>;
+  if (module==="Varlık Envanteri" && column==="vendor") {
+    if (d.externalVendor || !d.vendor) return String(d.externalVendor || "—");
+    const vendor = linkedRows.find(item=>item.module==="Tedarikçiler" && (item.id===d.vendor || item.code===d.vendor));
+    if (vendor) return [vendor.data.title,vendor.code].filter(Boolean).join(" · ") || "—";
+    return isLegacyTechnicalRecordId(String(d.vendor)) ? "—" : String(d.vendor);
+  }
+  if (column === "lifecycle")
+    return (
+      <div className="stack">
+        <StatusPill value={d.status} lang={lang} />
+        <small>
+          {d.eolDate
+            ? `EOL ${d.eolDate}`
+            : tr
+              ? "EOL girilmemiş"
+              : "No EOL date"}
+        </small>
+      </div>
+    );
+  if (module === "Uyum" && column === "framework")
+    return <b>{d.framework || "—"}</b>;
+  if (column === "evidence") {
+    const count = linkedRows.filter(
+      (x) => x.module === "Kanıtlar" && x.data.controlRef === d.controlRef,
+    ).length;
+    return (
+      <span className={count ? "coverage-count ok" : "coverage-count miss"}>
+        {count} {tr ? "kanıt" : "evidence"}
+      </span>
+    );
+  }
+  if (module === "Tedarikçiler" && column === "title")
+    return (
+      <div className="stack title-stack">
+        <b>
+          {displayRecordCode(row)} · {d.title || "—"}
+        </b>
+        <small>{d.service || d.vendorType || "—"}</small>
+      </div>
+    );
+  if (column === "frameworks")
+    return <span className="clamp-text">{d.frameworks || "—"}</span>;
+  if (module === "Kanıtlar" && column === "evidenceTitle")
+    return (
+      <button className="evidence-link" onClick={() => viewEvidence?.(row)}>
+        <span className="evidence-thumb-mark">▣</span>
+        <span>
+          <b>{d.evidenceTitle || displayRecordCode(row)}</b>
+          <small>
+            {d.fileName || (tr ? "Örnek ekran görüntüsü" : "Sample screenshot")}
+          </small>
+        </span>
+      </button>
+    );
+  if (column === "freshness") return <EvidenceFreshness row={row} lang={lang} />;
+  return display(d[column], lang) || "—";
+}
+function EvidenceFreshness({ row, lang }: { row: Row; lang: Lang }) {
+  return <StatusPill value={useEvidenceFreshness(row, lang)} lang={lang} />;
+}
+function EvidencePreview({
+  row,
+  review,
+  lang,
+  onClose,
+}: {
+  row: Row;
+  review:(row:Row)=>React.ReactNode;
+  lang: Lang;
+  onClose: () => void;
+}) {
+  const d = row.data, tr = lang === "tr";
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+  return createPortal(
+    <div className="overlay evidence-overlay" onMouseDown={onClose}>
+      <section data-escape-layer
+        className="evidence-preview"
+        onMouseDown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={tr ? "Kanıt önizleme" : "Evidence preview"}
+      >
+        <header className="evidence-preview-head">
+          <div>
+            <small>
+              {displayRecordCode(row)} · {tr ? "KANIT ÖNİZLEME" : "EVIDENCE PREVIEW"}
+            </small>
+            <h2>{d.evidenceTitle || displayRecordCode(row)}</h2>
+            <p>
+              {d.controlRef || "—"} · {d.owner || "—"} · {d.period || "—"}
+            </p>
+          </div>
+          <button data-escape-close
+            type="button"
+            onClick={onClose}
+            aria-label={tr ? "Kapat" : "Close"}
+          >
+            ×
+          </button>
+        </header>
+        <div className="ev-review-grid">
+          <EvidenceDocumentPreview fileKey={d.fileKey} fileName={d.fileName} demoImage={d.demoImage} title={d.evidenceTitle || displayRecordCode(row)} lang={lang}/>
+          <section className="ev-review-context" aria-label={tr ? "Kanıt bağlamı" : "Evidence context"}>
+            <small>{tr ? "KANIT BAĞLAMI" : "EVIDENCE CONTEXT"}</small>
+            <h3>{tr ? "Dosyayı bağlamıyla değerlendirin" : "Review the file in context"}</h3>
+            <dl>{[
+              [tr ? "Kayıt durumu" : "Record status", evidenceState(d,tr)],
+              [tr ? "Kanıt dönemi" : "Evidence period", d.period],
+              [tr ? "Sorumlu" : "Owner", d.owner],
+              [tr ? "İnceleyen" : "Reviewer", d.reviewer],
+              [tr ? "Kontrol bağlantıları" : "Control references", d.controlRefs || d.controlRef],
+              [tr ? "Standartlar" : "Standards", d.frameworks],
+              [tr ? "Kaynak sistem" : "Source system", d.sourceSystem],
+              [tr ? "Toplanma tarihi" : "Collected at", d.collectedAt],
+              [tr ? "Geçerlilik sonu" : "Expires at", d.expiresAt],
+              [tr ? "Sürüm" : "Version", d.versionNo ? `v${d.versionNo}` : "—"],
+            ].map(([label,value]) => <div key={label}><dt>{label}</dt><dd>{value || "—"}</dd></div>)}</dl>
+            {review(row)}
+            {d.notes && <p>{d.notes}</p>}
+            <div className="ev-review-note">{tr ? "Kütüphane durumu denetim talebinin kabulü değildir. Talebe ait teslim ve kabul kararını ilgili denetimin Talepler ve inceleme görünümünden yönetin." : "Library status is separate from audit request acceptance. Manage submission and acceptance in the audit’s Requests and review view."}</div>
+          </section>
+        </div>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
+type AssetLinkActions = {
+  assetLinks?: Map<string,AssetLinks>; openAssetLinks?: (id:string,module:AssetTarget)=>void;
+  canReadAssetLinks?: (module:AssetTarget)=>boolean;
+};
+function SmartRegister({
+  auditLinks,
+  evidenceAssessment, assetLinks,openAssetLinks,canReadAssetLinks,
+  module,
+  rows,
+  lang,
+  inspect,
+  inspectedId,
+  edit,
+  remove,
+  viewEvidence,
+  columns,
+  canWrite = true,
+  canDelete = false,
+}: AssetLinkActions & {
+  auditLinks?:(row:Row)=>React.ReactNode;
+  evidenceAssessment?: EvidenceRegisterAssessment;
+  module: string;
+  rows: Row[];
+  lang: Lang;
+  inspect?: (r: Row, button: HTMLButtonElement) => void;
+  inspectedId?: string;
+  edit: (r: Row) => void;
+  remove: (id: string) => void;
+  viewEvidence?: (row: Row) => void;
+  columns?: string[];
+  canWrite?: boolean;
+  canDelete?: boolean;
+}) {
+  const cols = getAvailableRegisterColumns(module).filter((column) =>
+      (columns || defaultRegisterColumnKeys(module)).includes(column.key),
+    ),
+    auditOpenColumn = cols.some(column => column.key === "audit") ? "audit" : cols[0]?.key,
+    u = ui[lang],
+    showRecordCode = module !== "Denetim Yönetimi",
+    widths = useColumnWidths(module);
+  return (
+    <EvidenceAssessmentContext.Provider value={evidenceAssessment || null}><table className={`smart-table ${module === "BIA" ? "bia-table" : ""}`}>
+      <colgroup>
+        {showRecordCode && <col style={{ width: widths.width("recordCode", 130) }} />}
+        {cols.map((c) => (
+          <col
+            key={c.key}
+            style={{
+              width: widths.width(
+                c.key,
+                module === "Kanıtlar" && c.key === "evidenceTitle" ? 320 : 190,
+              ),
+            }}
+          />
+        ))}
+        {canWrite && <col className="row-actions-column" style={{ width: 180 }} />}
+      </colgroup>
+      <thead>
+        <tr>
+          {showRecordCode && <ResizableTh lang={lang} columnKey="recordCode" widths={widths}>{lang === "tr" ? "Kod" : "Code"}</ResizableTh>}
+          {cols.map((c) => (
+            <ResizableTh lang={lang} key={c.key} columnKey={c.key} widths={widths}>{c[lang]}</ResizableTh>
+          ))}
+          {canWrite && <th className="row-actions-heading">{lang === "tr" ? "İşlemler" : "Actions"}</th>}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.id} onDoubleClick={() => canWrite && edit(r)}>
+            {showRecordCode && (
+              <td>
+                {module === "Kanıtlar" ? (
+                  <><button
+                    className="code code-link"
+                    onClick={() => viewEvidence?.(r)}
+                  >
+                    {displayRecordCode(r)}
+                  </button>
+                  {inspect && <button type="button" className="record-open evidence-details-link" data-record-id={r.id} onClick={event => inspect(r, event.currentTarget)}>{lang === "tr" ? "Ayrıntılar" : "Details"}</button>}</>
+                ) : (
+                  <RecordCode row={r} inspect={inspect} lang={lang} />
+                )}
+              </td>
+            )}
+            {cols.map((c) => (
+              <td
+                key={c.key}
+                className={
+                  module === "Kanıtlar"
+                    ? `evidence-column evidence-column-${c.key}`
+                    : undefined
+                }
+              >
+                {module==="Denetim Yönetimi"&&c.key===auditOpenColumn&&inspect?<div><SmartCell module={module} column={c.key} row={r} lang={lang}/>{auditLinks?.(r)}<button type="button" className="audit-requirement-open" data-requirement-id={r.id} aria-current={r.id===inspectedId ? "true" : undefined} onClick={e=>inspect(r,e.currentTarget)}><span>{lang==="tr"?"Maddeyi aç":"Open requirement"} →</span></button></div>:<SmartCell
+                  module={module}
+                  column={c.key}
+                  row={r}
+                  lang={lang}
+                  viewEvidence={viewEvidence} assetLinks={assetLinks} openAssetLinks={openAssetLinks} canReadAssetLinks={canReadAssetLinks}
+                />}
+              </td>
+            ))}
+            {canWrite && (
+              <td className="row-actions-cell">
+                <div className="row-actions">
+                  <button onClick={() => edit(r)}>{u.edit}</button>
+                  {canDelete && <button onClick={() => remove(r.id)}>{u.delete}</button>}
+                </div>
+              </td>
+            )}
+          </tr>
+        ))}
+        {!rows.length && (
+          <tr>
+            <td colSpan={cols.length + (canWrite ? 1 : 0) + (showRecordCode ? 1 : 0)} className="empty">
+              {u.empty}
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table></EvidenceAssessmentContext.Provider>
+  );
+}

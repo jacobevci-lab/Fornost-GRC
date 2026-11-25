@@ -1,0 +1,19 @@
+# Read and respond to your assigned policy
+
+Open your **Policy attestation** task in **My Work**, or use **Policy Center → Attestation → Accept / Decline** on your own row. Inspect the campaign, audience, due date, assigned version, summary, complete text, mappings and SHA-256. Choose acceptance or refusal, enter a note (3–1,000 characters), confirm that you read the assigned version, and choose **Record response**. The result remains open for inspection. **View response** reopens your completed response or a closed campaign's outstanding assignment.
+
+A campaign stays bound to its original issued version when a later version is published. The earlier-version notice explains which text your answer concerns. An overdue open campaign still accepts responses. A closed campaign, retired policy, invalid source or lost access prevents a new response. Acceptance is the subject's explicit decision; it is not a claim of legal certification or an administrator's proxy acceptance.
+
+## Recovery and retained evidence
+
+A changed policy, version, campaign, assignment or permission rejects a stale submission. Your note remains. **Refresh details**, inspect the changes, choose **Use current context**, and confirm again. A failed source read disables recording and retains the note. If a response is lost after recording, retry the same response or refresh to find the recorded result. Inputs remain locked while the result is uncertain; refreshing rechecks the record. No second answer is created. Closing the dialog or navigating away discards an unsaved local draft.
+
+Reviewed responses retain an immutable receipt containing the original full source, decision, note, subject identity, timestamp and content digest. Completed responses show the retained copy even after a later publication or closure. If that copy cannot be verified, the screen explicitly labels it and identifies the current campaign source instead. Older responses from the legacy API have no reviewed snapshot and are labelled accordingly. The canonical attestation continues to drive campaign counts, closure and My Work completion.
+
+## Administration and API
+
+Apply additive migration `0100_policy_attestation_receipts.sql`. Its unique attestation constraint and update/delete rejection triggers preserve one immutable receipt per reviewed answer. A code rollback must retain legitimate canonical responses and receipts. No new menu, notification, access grant or palette is introduced. Only the assigned active subject can use the response workspace, including full-access Viewers. Admins cannot answer for another subject; existing campaign inspection remains available to Admins. Scoped core-module grants do not grant enterprise Policy Center access.
+
+`GET /api/policy-lifecycle?view=attestation&attestationId=…` returns the assigned source, revision, response capability and the subject's receipt. `POST` action `attest` with `responseMode: reviewed` requires `attestationId`, `requestId` (`PAR-` plus UUID), `expectedRevision`, `decision` (`attested` or `declined`), `note` and the existing confirmation phrase (`OKUDUM VE KABUL EDİYORUM` / `KABUL ETMİYORUM`). The localized UI supplies that phrase only after explicit confirmation. Identical retries by the original active authorized actor return the original result; altered reuse conflicts. Supplying reviewed fields without the correct mode is rejected. Legacy callers omitting all reviewed fields retain their old contract and do not create a reviewed receipt.
+
+The SQL claim binds every source field and the live account's identity, role, status and access policy. The canonical response, receipt and event commit together or roll back together. Content integrity is verified before accepting a reviewed response. Tests and exact release identities are recorded in the PR; production deployment is a separate stage.

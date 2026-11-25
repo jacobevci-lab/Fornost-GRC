@@ -1,0 +1,164 @@
+.ai-literacy {
+  padding: 22px;
+  color: var(--text-primary);
+}
+.ai-literacy > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+}
+.ai-literacy h3 {
+  margin: 4px 0;
+  font-size: 23px;
+}
+.ai-literacy p {
+  color: var(--text-secondary);
+}
+.ai-literacy a,
+.ai-literacy button {
+  padding: 9px 12px;
+  border: 1px solid #b7652a;
+  border-radius: 7px;
+  background: #8f451b;
+  color: #fff;
+  font-weight: 750;
+}
+.ai-literacy .stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin: 15px 0;
+}
+.ai-literacy .stats article,
+.ai-literacy > form,
+.ai-literacy .list > article {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+.ai-literacy .stats b {
+  display: block;
+  font-size: 21px;
+}
+.ai-literacy .stats span {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.ai-literacy > form {
+  margin-bottom: 12px;
+}
+.ai-literacy .grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.ai-literacy label,
+.ai-literacy .decision {
+  display: grid;
+  gap: 5px;
+  margin: 7px 0;
+  font-size: 11px;
+}
+.ai-literacy input,
+.ai-literacy select,
+.ai-literacy textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-primary);
+}
+.ai-literacy fieldset,
+.ai-literacy .checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 10px 0;
+}
+.ai-literacy fieldset {
+  border: 1px solid var(--border);
+}
+.ai-literacy fieldset label,
+.ai-literacy .checks label {
+  display: flex;
+  align-items: center;
+}
+.ai-literacy fieldset input,
+.ai-literacy .checks input {
+  width: auto;
+}
+.ai-literacy .notice {
+  padding: 10px;
+  border: 1px solid #b7652a;
+  border-radius: 7px;
+}
+.ai-literacy .list {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+.ai-literacy .list header {
+  display: flex;
+  justify-content: space-between;
+}
+.ai-literacy small {
+  display: block;
+  color: var(--text-secondary);
+}
+.ai-literacy dl {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+.ai-literacy dt {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+.ai-literacy dd {
+  margin: 2px 0;
+}
+.ai-literacy .modules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 9px 0;
+}
+.ai-literacy .modules span {
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  font-size: 10px;
+}
+.ai-literacy .modules .done {
+  color: #58a98a;
+}
+.ai-literacy .modules .missing {
+  color: #e28b61;
+}
+.ai-literacy footer {
+  display: flex;
+  gap: 7px;
+}
+.ai-literacy .warn {
+  background: #765621;
+}
+.ai-literacy .danger {
+  background: #762f2b;
+}
+.ai-literacy .decision {
+  border-left: 3px solid #b7652a;
+  padding-left: 10px;
+}
+@media (max-width: 800px) {
+  .ai-literacy .grid,
+  .ai-literacy dl,
+  .ai-literacy .stats {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ai-literacy > header {
+    display: block;
+  }
+}

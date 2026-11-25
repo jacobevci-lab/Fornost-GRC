@@ -1,0 +1,479 @@
+import type { ConnectedGrcRow } from "./connected-grc-model";
+
+type JsonRecord = Record<string, unknown>;
+export type ConnectedGrcEnterprisePayloads = Partial<Record<
+  | "audits"
+  | "findings"
+  | "incidents"
+  | "continuity"
+  | "policy"
+  | "riskAppetite"
+  | "regulatory"
+  | "thirdParty"
+  | "evidenceAutomation"
+  | "aiModels" | "aiAlerts" | "aiFindings",
+  JsonRecord
+>>;
+
+export const connectedGrcEnterpriseEndpoints = [
+  { key: "audits", path: "/api/audits" },
+  { key: "findings", path: "/api/findings?view=graph" },
+  { key: "incidents", path: "/api/incidents" },
+  { key: "continuity", path: "/api/continuity" },
+  { key: "policy", path: "/api/policy-lifecycle" },
+  { key: "riskAppetite", path: "/api/risk-appetite" },
+  { key: "regulatory", path: "/api/regulatory-intelligence" },
+  { key: "thirdParty", path: "/api/third-party-risk" },
+  { key: "evidenceAutomation", path: "/api/evidence-automation" },
+] as const;
+
+// AI inventory and alerts are Admin-only; do not request them for other roles.
+export const connectedAiEndpoints = [
+  { key: "aiModels", path: "/api/ai/models" },
+  { key: "aiAlerts", path: "/api/ai/assurance-alerts" },
+  { key: "aiFindings", path: "/api/ai/findings" },
+] as const;
+export function connectedGrcEndpoints(includeAi: boolean) {
+  return includeAi ? [...connectedGrcEnterpriseEndpoints, ...connectedAiEndpoints] : [...connectedGrcEnterpriseEndpoints];
+}
+
+// Only collections consumed by the graph participate in readiness. Limits mirror
+// the authoritative list APIs; reaching a limit is conservatively incomplete.
+const sourceCollections: Record<keyof ConnectedGrcEnterprisePayloads, Record<string, number>> = {
+  audits: { audits: Infinity },
+  findings: { findings: 3000 },
+  incidents: { incidents: 3000 },
+  continuity: { plans: 2000, exercises: 2000, gaps: 2000 },
+  policy: { documents: 1000, versions: 3000, exceptions: 2000 },
+  riskAppetite: { appetites: 1000, measurements: 5000, breaches: 3000, scenarios: 2000 },
+  regulatory: { sources: 500, changes: 1000, impacts: 2000 },
+  thirdParty: { vendors: 1000, assessments: 2000, findings: 3000 },
+  evidenceAutomation: { sources: Infinity, rules: Infinity, runs: 100, findings: 100 },
+  aiModels: { models: 500 }, aiAlerts: { alerts: 500 }, aiFindings: { findings: 500 },
+};
+
+export function connectedSourceValidity(key: keyof ConnectedGrcEnterprisePayloads, body: unknown): "ready" | "invalid" | "incomplete" {
+  const payload = record(body);
+  if (!payload) return "invalid";
+  let incomplete = false;
+  for (const [collection, limit] of Object.entries(sourceCollections[key])) {
+    const items = payload[collection];
+    if (!Array.isArray(items)) return "invalid";
+    const ids = new Set<string>();
+    for (const item of items) {
+      const row = record(item);
+      const rawId = key === "thirdParty" && collection === "vendors" ? row?.vendorId : row?.id;
+      if (typeof rawId !== "string" || !rawId.trim()) return "invalid";
+      const id = rawId.normalize("NFKC").trim();
+      if (ids.has(id)) return "invalid";
+      ids.add(id);
+    }
+    if (key === "findings" && payload.graphCoverage !== undefined) {
+      const coverage = record(payload.graphCoverage);
+      if (!coverage || !Number.isSafeInteger(coverage.total) || Number(coverage.total) < items.length
+        || coverage.loaded !== items.length || typeof coverage.complete !== "boolean"
+        || (coverage.complete && coverage.total !== items.length)) return "invalid";
+      if (!coverage.complete) incomplete = true;
+    } else if (items.length >= limit) incomplete = true;
+  }
+  return incomplete ? "incomplete" : "ready";
+}
+
+// These APIs currently return at most 500 rows. At the boundary we cannot
+// distinguish an exact fit from truncation, so never label the source complete.
+export function connectedAiSourceComplete(key: string, body: unknown): boolean {
+  const collection = { aiModels: "models", aiAlerts: "alerts", aiFindings: "findings" }[key];
+  if (!collection) return true;
+  const items = record(body)?.[collection];
+  if (!Array.isArray(items) || items.length >= 500) return false;
+  const ids = items.map(item => record(item)?.id);
+  return ids.every(id => typeof id === "string" && id.trim().length > 0) && new Set(ids).size === ids.length;
+}
+
+const record = (value: unknown): JsonRecord | null => value && typeof value === "object" && !Array.isArray(value) ? value as JsonRecord : null;
+const records = (value: unknown) => Array.isArray(value) ? value.map(record).filter((item): item is JsonRecord => Boolean(item)) : [];
+const text = (value: unknown) => String(value ?? "").normalize("NFKC").trim();
+const list = (value: unknown): string[] => Array.isArray(value)
+  ? value.flatMap(list)
+  : text(value).split(/[;,|\n]+/).map((item) => item.trim()).filter(Boolean);
+const unique = (...values: unknown[]) => Array.from(new Set(values.flatMap(list).filter(Boolean)));
+const updatedAt = (item: JsonRecord) => text(item.updatedAt || item.updated_at || item.recordedAt || item.detectedAt || item.createdAt || item.created_at) || undefined;
+const idOf = (scope: string, kind: string, item: JsonRecord, index: number) => `${scope}:${kind}:${text(item.id || item.code || (kind === "vendor" && (item.vendorId || item.vendor_id)) || index)}`;
+const makeRow = (scope: string, kind: string, module: string, item: JsonRecord, index: number, data: JsonRecord): ConnectedGrcRow => ({
+  id: idOf(scope, kind, item, index),
+  code: text(data.publicCode || item.recordCode || item.record_code || item.shortCode || item.short_code || item.code || item.externalRef || item.external_ref) || undefined,
+  module,
+  updatedAt: updatedAt(item),
+  data: {
+    kind,
+    owner: text(item.owner),
+    status: text(item.status),
+    ...data,
+    canonicalRefs: unique(item.id),
+    aliasRefs: unique(item.id, item.code, item.externalRef, item.external_ref, data.title, data.name, data.identityRefs),
+  },
+});
+
+function findingsRows(payload: JsonRecord) {
+  const source = records(payload.findings);
+  const findings = source.map((item, index) => {
+    const sourceType = text(item.sourceType || item.source_type).toLowerCase();
+    const sourceRef = text(item.sourceRef || item.source_ref);
+    const riskRefs = unique(item.riskRef, item.risk_ref, sourceType === "risk" ? sourceRef : "");
+    const controlRefs = unique(item.controlRef, item.control_ref, sourceType === "control" ? sourceRef : "");
+    const traceable = Boolean(sourceRef || riskRefs.length || controlRefs.length);
+    const sourceField: Record<string, string> = {
+      ai: sourceRef.startsWith("AIM-")?"aiModelRef":"aiFindingRef",
+      audit: "findingAuditRef",
+      vendor: "findingVendorRef",
+      regulatory: "findingRegulatoryRef",
+      policy: "findingPolicyRef",
+      incident: "findingIncidentRef",
+      risk: "findingRiskRef",
+      control: "findingControlRef",
+      "continuous-control": "findingAutomationRuleRef",
+    };
+    const dynamic = sourceRef && sourceField[sourceType] ? { [sourceField[sourceType]]: sourceRef } : {};
+    return makeRow("enterprise", traceable ? "finding" : "finding-manual", "Bulgular ve CAPA", item, index, {
+      title: text(item.title),
+      sourceType,
+      sourceRef,
+      findingRiskRef: riskRefs,
+      findingControlRef: controlRefs,
+      status: text(item.status),
+      severity: text(item.severity),
+      owner: text(item.owner),
+      reviewer: text(item.reviewer),
+      acceptUntil: text(item.acceptUntil || item.accept_until),
+      dueDate: text(item.dueDate || item.due_date),
+      correctiveAction: text(item.correctiveAction || item.corrective_action),
+      preventiveAction: text(item.preventiveAction || item.preventive_action),
+      ...dynamic,
+    });
+  });
+
+  const remediations = source.filter((item) => Boolean(
+    text(item.status)
+    || text(item.owner)
+    || text(item.dueDate || item.due_date)
+    || text(item.correctiveAction || item.corrective_action)
+    || text(item.preventiveAction || item.preventive_action),
+  )).map((item, index) => {
+    const sourceType = text(item.sourceType || item.source_type).toLowerCase();
+    const sourceRef = text(item.sourceRef || item.source_ref);
+    const riskRefs = unique(item.riskRef, item.risk_ref, sourceType === "risk" ? sourceRef : "");
+    const controlRefs = unique(item.controlRef, item.control_ref, sourceType === "control" ? sourceRef : "");
+    const findingCode = text(item.code);
+    return makeRow("enterprise", "remediation", "Bulgular ve CAPA", { ...item, id: `REMEDIATION:${text(item.id || item.code || index)}` }, index, {
+      publicCode: findingCode ? `${findingCode}-REM` : undefined,
+      title: text(item.correctiveAction || item.corrective_action || `Remediation · ${text(item.title)}`),
+      identityRefs: unique(`REMEDIATION:${text(item.id || item.code || index)}`),
+      remediationFindingRef: unique(item.id, item.code),
+      remediationRiskRef: riskRefs,
+      remediationControlRef: controlRefs,
+      remediationAutomationRuleRef: sourceType === "continuous-control" ? unique(sourceRef) : [],
+      status: text(item.status),
+      owner: text(item.owner),
+      dueDate: text(item.dueDate || item.due_date),
+      correctiveAction: text(item.correctiveAction || item.corrective_action),
+      preventiveAction: text(item.preventiveAction || item.preventive_action),
+    });
+  });
+
+  return [...findings, ...remediations];
+}
+
+function incidentRows(payload: JsonRecord) {
+  return records(payload.incidents).map((item, index) => makeRow("enterprise", "incident", "Güvenlik Olayları", item, index, {
+    title: text(item.title),
+    incidentAssetRefs: unique(item.assetRefs, item.asset_refs),
+    incidentRiskRef: unique(item.riskRef, item.risk_ref),
+    incidentBiaRef: unique(item.biaRef, item.bia_ref),
+  }));
+}
+
+function continuityRows(payload: JsonRecord) {
+  const plans = records(payload.plans).map((item, index) => makeRow("enterprise", "continuity-plan", "İş Sürekliliği", item, index, {
+    title: text(item.name || item.title || item.process),
+    name: text(item.name),
+    process: text(item.process),
+    continuityAssets:item.assetRefs,continuitySuppliers:item.supplierRefs,
+    continuityBiaRef: unique(item.biaRef, item.bia_ref),
+    owner:text(item.owner),status:text(item.status),
+    rtoHours:item.rtoHours ?? item.rto_hours,rpoHours:item.rpoHours ?? item.rpo_hours,
+  }));
+  const exercises = records(payload.exercises).map((item, index) => makeRow("enterprise", "continuity-exercise", "İş Sürekliliği", item, index, {
+    title: text(item.name || item.title || `Exercise ${index + 1}`),
+    continuityPlanRef: unique(item.planId, item.plan_id),
+  }));
+  const gaps = records(payload.gaps).map((item, index) => makeRow("enterprise", "continuity-gap", "İş Sürekliliği", item, index, {
+    title: text(item.title || item.rootCause || item.root_cause || `Gap ${index + 1}`),
+    continuityPlanRef: unique(item.planId, item.plan_id),
+  }));
+  return [...plans, ...exercises, ...gaps];
+}
+
+function policyRows(payload: JsonRecord) {
+  const documents = records(payload.documents || payload.policies);
+  const documentById = new Map(documents.map((item) => [text(item.id), item]));
+  const policies = documents.map((item, index) => makeRow("enterprise", "policy", "Politika Merkezi", item, index, {
+    aliasRefs:unique(item.legacyCode,item.aliasRefs),
+    title: text(item.title || item.name),
+    name: text(item.title || item.name),
+  }));
+  const versions = records(payload.versions).map((item, index) => {
+    const policyId = text(item.policyId || item.policy_id);
+    const parent = documentById.get(policyId);
+    const parentTitle = text(parent?.title || parent?.name || policyId);
+    const version = text(item.versionNumber || item.version_number);
+    return makeRow("enterprise", "policy-version", "Politika Merkezi", item, index, {
+      title: `${parentTitle}${version ? ` v${version}` : ""}`.trim(),
+      policyRef: unique(policyId),
+      policyControlRefs: unique(item.controlRefs, item.control_refs),
+      policyRiskRefs: unique(item.riskRefs, item.risk_refs),
+      policyRegulationRefs: unique(item.regulationRefs, item.regulation_refs),
+    });
+  });
+  const exceptions=records(payload.exceptions).filter(item=>item.scopeRef||item.riskRef||Array.isArray(item.controlRefs)&&item.controlRefs.length).map((item,index)=>
+    makeRow("enterprise","policy-exception","Politika Merkezi",item,index,{
+      title:text(item.scope||item.id), policyRef:unique(item.policyId),policyControlRefs:unique(item.controlRefs),policyRiskRefs:unique(item.riskRef),
+      policyScopeAsset:unique(item.scopeKind==="asset"?item.scopeRef:undefined),policyScopeVendor:unique(item.scopeKind==="vendor"?item.scopeRef:undefined),
+    }));
+  return [...policies, ...versions,...exceptions];
+}
+
+function riskAppetiteRows(payload: JsonRecord) {
+  const appetites = records(payload.appetites).map((item, index) => makeRow("enterprise", "risk-appetite", "Risk İştahı ve KRI", item, index, {
+    title: text(item.statement || item.kriName || item.kri_name || item.category),
+    name: text(item.kriName || item.kri_name),
+    appetiteRiskRefs: list(item.riskRefs),
+  }));
+  const measurements = records(payload.measurements).map((item, index) => makeRow("enterprise", "kri-measurement", "Risk İştahı ve KRI", item, index, {
+    kriEvidenceRef: text(item.evidenceId),
+    title: text(item.periodEnd || item.period_end || `Measurement ${index + 1}`),
+    appetiteRef: unique(item.appetiteId, item.appetite_id),
+  }));
+  const breaches = records(payload.breaches).map((item, index) => makeRow("enterprise", "kri-breach", "Risk İştahı ve KRI", item, index, {
+    title: text(item.responsePlan || item.response_plan || item.severity || `Breach ${index + 1}`),
+    appetiteRef: unique(item.appetiteId, item.appetite_id),
+    measurementRef: unique(item.measurementId, item.measurement_id),
+  }));
+  const scenarios = records(payload.scenarios).map((item, index) => makeRow("enterprise", "risk-scenario", "Risk İştahı ve KRI", item, index, {
+    title: text(item.name || `Scenario ${index + 1}`),
+    appetiteRef: unique(item.appetiteId, item.appetite_id),
+  }));
+  return [...appetites, ...measurements, ...breaches, ...scenarios];
+}
+
+function regulatoryRows(payload: JsonRecord) {
+  const sources = records(payload.sources).map((item, index) => makeRow("enterprise", "regulatory-source", "Regülasyon Merkezi", item, index, {
+    title: text(item.name || item.title),
+    name: text(item.name || item.title),
+  }));
+  const changes = records(payload.changes).map((item, index) => makeRow("enterprise", "regulatory-change", "Regülasyon Merkezi", item, index, {
+    title: text(item.title),
+    ...Object.fromEntries(Object.entries({control:'regulatoryControlRef',policy:'regulatoryPolicyRef',risk:'regulatoryRiskRef',process:'regulatoryProcessRef'}).map(([type,field])=>[field,records(item.preliminary).filter(t=>t.type===type).map(t=>text(t.id))])),
+    regulatorySourceRef: unique(item.sourceId, item.source_id, item.sourceName, item.source_name),
+  }));
+  const impacts = records(payload.impacts).map((item, index) => {
+    const targetType = text(item.targetType || item.target_type).toLowerCase();
+    const targetRef = text(item.targetRef || item.target_ref);
+    const targetField: Record<string, string> = {
+      control: "regulatoryControlRef",
+      policy: "regulatoryPolicyRef",
+      risk: "regulatoryRiskRef",
+      asset: "regulatoryAssetRef",
+      vendor: "regulatoryVendorRef",
+      process: "regulatoryProcessRef",
+      audit: "regulatoryAuditRef",
+      evidence: "regulatoryEvidenceRef",
+    };
+    return makeRow("enterprise", "regulatory-impact", "Regülasyon Merkezi", item, index, {
+      title: text(item.targetTitle || item.target_title || targetRef || `Impact ${index + 1}`),
+      targetType,
+      regulatoryChangeRef: unique(item.changeId, item.change_id),
+      ...(targetRef && targetField[targetType] ? { [targetField[targetType]]: targetRef } : {}),
+    });
+  });
+  return [...sources, ...changes, ...impacts];
+}
+
+function thirdPartyRows(payload: JsonRecord) {
+  const vendors = records(payload.vendors).map((item, index) => {
+    const vendorId = text(item.vendorId || item.vendor_id || item.id);
+    return makeRow("enterprise", "vendor", "Tedarikçiler", item, index, {
+      title: text(item.name || item.service),
+      name: text(item.name),
+      owner: text(item.businessOwner || item.business_owner || item.owner),
+      vendorId,
+      identityRefs: unique(vendorId),
+      publicCode: text(item.code) !== "—" && text(item.code) || (/^VEN-\d{3,}$/i.test(vendorId)?vendorId:undefined),
+    });
+  });
+  const assessments = records(payload.assessments).map((item, index) => makeRow("enterprise", "vendor-assessment", "Tedarikçiler", item, index, {
+    title: text(item.title || `Assessment ${item.cycleNumber || item.cycle_number || index + 1}`),
+    vendorRef: unique(item.vendorId, item.vendor_id),
+  }));
+  const findings = records(payload.findings).map((item, index) => makeRow("enterprise", "vendor-finding", "Tedarikçiler", item, index, {
+    title: text(item.title || `Vendor finding ${index + 1}`),
+    vendorRef: unique(item.vendorId, item.vendor_id),
+    vendorAssessmentRef: unique(item.assessmentId, item.assessment_id),
+  }));
+  return [...vendors, ...assessments, ...findings];
+}
+
+function assuranceScore(health: string) {
+  if (health === "healthy") return 100;
+  if (health === "stale") return 65;
+  if (health === "failing") return 25;
+  return 0;
+}
+
+function evidenceAutomationRows(payload: JsonRecord) {
+  const rawRules = records(payload.rules);
+  const rawFindings = records(payload.findings);
+  const ruleById = new Map(rawRules.map((item) => [text(item.id), item]));
+  const findingRefsByRule = new Map<string, string[]>();
+  for (const finding of rawFindings) {
+    const ruleId = text(finding.ruleId || finding.rule_id);
+    const findingId = text(finding.id);
+    if (!ruleId || !findingId) continue;
+    findingRefsByRule.set(ruleId, unique(findingRefsByRule.get(ruleId), `FINDING:${findingId}`));
+  }
+
+  const sources = records(payload.sources).map((item, index) => makeRow("enterprise", "automation-source", "Kanıt Otomasyonu", item, index, {
+    title: text(item.name || item.vendor || `Automation source ${index + 1}`),
+    name: text(item.name),
+    identityRefs: unique(item.id),
+    automationHealth: text(item.lastTestStatus || item.last_test_status),
+  }));
+
+  const rules = rawRules.map((item, index) => {
+    const ruleId = text(item.id);
+    return makeRow("enterprise", "automation-rule", "Kanıt Otomasyonu", item, index, {
+      title: text(item.name || `Continuous control ${index + 1}`),
+      name: text(item.name),
+      identityRefs: unique(item.id, `RULE:${ruleId}`),
+      automationSourceRef: unique(item.sourceId, item.source_id),
+      automationControlRefs: unique(item.controlRefs, item.control_refs),
+      automationAssuranceRef: unique(`ASSURANCE:${ruleId}`),
+      automationHealth: text(item.health || item.lastStatus || item.last_status),
+      automationAssessmentIssue: text(item.assessmentIssue),
+      automationFreshness: text(item.freshness),
+      lastEvidenceAt: text(item.lastEvidenceAt || item.last_evidence_at),
+    });
+  });
+
+  const assurances = rawRules.map((item, index) => {
+    const ruleId = text(item.id);
+    const health = text(item.health || item.lastStatus || item.last_status).toLowerCase();
+    const freshness = text(item.freshness).toLowerCase();
+    const score = assuranceScore(health);
+    return makeRow("enterprise", "automation-assurance", "Kanıt Otomasyonu", { ...item, id: `ASSURANCE:${ruleId}` }, index, {
+      title: `Control Assurance · ${text(item.name || `Continuous control ${index + 1}`)}`,
+      identityRefs: unique(`ASSURANCE:${ruleId}`),
+      automationRuleRef: unique(ruleId, `RULE:${ruleId}`),
+      automationControlRefs: unique(item.controlRefs, item.control_refs),
+      automationFindingRefs: findingRefsByRule.get(ruleId) || [],
+      automationHealth: health,
+      automationFreshness: freshness,
+      assuranceState: health === "healthy" ? "effective" : health === "stale" ? "degraded" : health === "failing" ? "ineffective" : "unknown",
+      assuranceScore: score,
+    });
+  });
+
+  const findings = rawFindings.map((item, index) => {
+    const findingId = text(item.id);
+    const ruleId = text(item.ruleId || item.rule_id);
+    const rule = ruleById.get(ruleId);
+    return makeRow("enterprise", "automation-finding", "Kanıt Otomasyonu", item, index, {
+      title: text(item.title || `Continuous assurance finding ${index + 1}`),
+      identityRefs: unique(item.id, `FINDING:${findingId}`),
+      automationRuleRef: unique(ruleId, `RULE:${ruleId}`),
+      automationAssuranceRef: unique(`ASSURANCE:${ruleId}`),
+      automationControlRefs: unique(rule?.controlRefs, rule?.control_refs),
+      automationEvidenceRef: unique(item.evidenceId, item.evidence_id),
+      automationRemediationRef: unique(`REMEDIATION:${findingId}`),
+      severity: text(item.severity),
+      status: text(item.status),
+      owner: text(item.owner),
+      dueDate: text(item.dueDate || item.due_date),
+    });
+  });
+
+  const remediations = rawFindings.map((item, index) => {
+    const findingId = text(item.id);
+    const ruleId = text(item.ruleId || item.rule_id);
+    const rule = ruleById.get(ruleId);
+    const explicitRiskRefs = unique(item.riskId, item.risk_id);
+    return makeRow("enterprise", "automation-remediation", "Kanıt Otomasyonu", { ...item, id: `REMEDIATION:${findingId}` }, index, {
+      title: `Remediation · ${text(item.title || `Continuous assurance finding ${index + 1}`)}`,
+      identityRefs: unique(`REMEDIATION:${findingId}`),
+      automationFindingRef: unique(`FINDING:${findingId}`, findingId),
+      automationRuleRef: unique(ruleId, `RULE:${ruleId}`),
+      automationControlRefs: unique(rule?.controlRefs, rule?.control_refs),
+      // Legacy generated risks used the finding ID. Do not add that fallback
+      // beside an explicit risk or silently substitute it for a broken reference.
+      automationRiskRef: explicitRiskRefs.length ? explicitRiskRefs : unique(findingId),
+      owner: text(item.owner),
+      dueDate: text(item.dueDate || item.due_date),
+      status: text(item.status),
+      closureEvidenceRef: text(item.closureEvidenceRef || item.closure_evidence_ref),
+    });
+  });
+
+  // A run is historical evidence of execution, not a new current assurance
+  // score. Resolve by immutable IDs; never guess a rule from its display name.
+  const runs = records(payload.runs).filter((item) => text(item.id)).map((item, index) => {
+    const ruleId = text(item.ruleId || item.rule_id);
+    const rule = ruleById.get(ruleId);
+    return makeRow("enterprise", "automation-run", "Kanıt Otomasyonu", item, index, {
+      title: `Run · ${text(item.ruleName || item.rule_name || item.id)}`,
+      identityRefs: unique(item.id),
+      automationRuleRef: ruleId ? unique(ruleId, `RULE:${ruleId}`) : [],
+      automationControlRefs: unique(rule?.controlRefs, rule?.control_refs),
+      automationEvidenceRef: unique(item.evidenceId, item.evidence_id),
+      status: text(item.status),
+      executedAt: text(item.createdAt || item.created_at),
+      triggerType: text(item.triggerType || item.trigger_type),
+      errorCode: text(item.errorCode || item.error_code),
+    });
+  });
+
+  return [...sources, ...rules, ...assurances, ...findings, ...remediations, ...runs];
+}
+
+function aiRows(payloads: ConnectedGrcEnterprisePayloads): ConnectedGrcRow[] {
+  const project = (key: "aiModels" | "aiAlerts" | "aiFindings", collection: string, kind: string) =>
+    records(payloads[key]?.[collection]).filter(item => typeof item.id === "string" && item.id.trim()).slice(0, 500).map((item, index) =>
+      makeRow("enterprise", kind, "AI Yönetişimi", item, index, {
+        title: text(item.systemName || item.title || item.id),
+        owner: text(item.owner), status: text(item.status), severity: text(item.severity || item.riskTier),
+        dueDate: text(item.dueDate || item.reviewDate),
+        modelName: text(item.modelName),
+        // Only explicit native IDs are relationships. Control prose, evidence
+        // descriptions and arbitrary sourceRef values are not GRC references.
+        ...(kind==='ai-model'&&record(item.governanceRefs)?Object.fromEntries(Object.entries(record(item.governanceRefs)!).filter(([key])=>['asset','vendor','risk','control','evidence','incident'].includes(key)).map(([key,refs])=>['system_'+key,unique(refs)])):{}),
+        aiModelRef: kind === "ai-model" ? [] : unique(item.modelId),
+        aiFindingRef: kind === "ai-alert" ? unique(item.findingId) : [],
+      }));
+  return [...project("aiModels", "models", "ai-model"), ...project("aiAlerts", "alerts", "ai-alert"), ...project("aiFindings", "findings", "ai-finding")];
+}
+
+export function buildConnectedGrcEnterpriseRows(payloads: ConnectedGrcEnterprisePayloads): ConnectedGrcRow[] {
+  const rows = [
+    ...records(payloads.audits?.audits).map((item,index)=>makeRow("enterprise","audit","Denetim Yönetimi",item,index,{title:text(item.name),owner:text(item.audit_owner),auditName:text(item.name),auditControlRefs:unique(item.auditControlRefs),auditEvidenceRefs:unique(item.auditEvidenceRefs),frameworkTemplate:text(item.template),archived:!!item.archived,closureState:text(item.closure_state)})),
+    ...aiRows(payloads),
+    ...findingsRows(payloads.findings || {}),
+    ...incidentRows(payloads.incidents || {}),
+    ...continuityRows(payloads.continuity || {}),
+    ...policyRows(payloads.policy || {}),
+    ...riskAppetiteRows(payloads.riskAppetite || {}),
+    ...regulatoryRows(payloads.regulatory || {}),
+    ...thirdPartyRows(payloads.thirdParty || {}),
+    ...evidenceAutomationRows(payloads.evidenceAutomation || {}),
+  ];
+  const deduped = new Map<string, ConnectedGrcRow>();
+  for (const row of rows) deduped.set(row.id, row);
+  return Array.from(deduped.values()).sort((a, b) => a.module.localeCompare(b.module, "tr") || a.id.localeCompare(b.id));
+}

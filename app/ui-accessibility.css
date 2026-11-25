@@ -1,0 +1,90 @@
+/* Final UI layer: readable enterprise density, predictable media rendering. */
+html{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{font-size:14px;line-height:1.5}
+
+/* Sidebar */
+.brand small{font-size:10px!important;letter-spacing:.1em!important}
+.shell nav{gap:17px!important}
+.nav-group{gap:4px}
+.nav-group>small{padding:4px 11px 6px!important;color:#758299!important;font-size:9px!important;line-height:1.2;letter-spacing:.13em!important}
+.nav-group button{min-height:42px!important;padding:7px 10px!important;color:#a5afbf!important;font-size:12px!important;line-height:1.25!important;font-weight:680!important}
+.nav-group button i{width:28px!important;height:28px!important;flex:0 0 28px}
+.nav-group button i svg{width:17px;height:17px;display:block}
+.aside-note b{font-size:11px!important}.aside-note p{font-size:10px!important}.platform-state{font-size:9px!important}
+
+/* Header and shared page typography */
+.header-context small{font-size:9px!important}.header-context h1{font-size:19px!important}
+.header-live{font-size:10px!important}.language-switch button{font-size:10px!important}
+.user b{font-size:11px!important}.user small{font-size:9px!important}.user>span{font-size:10px!important}
+.module-head h2{font-size:23px!important}.module-head p{font-size:12px!important;line-height:1.55}
+.module-head>div>small{display:block;margin-bottom:6px;color:var(--cp-indigo);font-size:9px;font-weight:900;letter-spacing:.13em}
+.primary,.ghost,.row-actions button,.form-actions button{font-size:12px!important}
+
+/* Dashboard */
+.cockpit-titlebar>div>small{font-size:9px!important}.cockpit-titlebar p{font-size:12px!important}
+.cockpit-actions button{font-size:11px!important}
+.posture-ring small,.posture-primary>div:last-child>small{font-size:9px!important}
+.posture-primary>div:last-child>span{max-width:190px!important;font-size:10.5px!important}
+.rail-metric small{height:auto;min-height:28px;font-size:9px!important;line-height:1.3}
+.rail-metric span{font-size:10px!important}
+.cockpit-panel-head small{font-size:8.5px!important}.cockpit-panel-head h3{font-size:13px!important}.cockpit-panel-head>button{font-size:10px!important}
+.exposure-total small{font-size:8.5px!important}.exposure-total span{font-size:10px!important}
+.risk-legend>div{font-size:9px!important}.risk-legend b{font-size:10px!important}
+.priority-head{font-size:8.5px!important}
+.priority-table>button span>b{font-size:10.5px!important}.priority-table>button span>small,.priority-table>button>span:nth-child(2){font-size:9px!important}
+.attention-queue span b,.resilience-list span b{font-size:10.5px!important}.attention-queue span small,.resilience-list span small{font-size:9px!important}
+.assurance-bars span b{font-size:10px!important}.assurance-bars span em,.assurance-bars small{font-size:9px!important}.assurance-foot small{font-size:9px!important}
+.resilience-list em{font-size:9px!important}.cockpit-empty{font-size:11px!important}
+.workspace-launcher>div small{font-size:8.5px!important}.workspace-launcher>div b{font-size:12px!important}
+.workspace-launcher span b{font-size:10px!important}.workspace-launcher span small{font-size:9px!important}.workspace-launcher>button>i{font-size:8.5px!important}
+.cockpit-footnote{font-size:9px!important}
+
+/* Tables, forms and operational cards */
+table{font-size:12px!important}th{font-size:10px!important}td{line-height:1.45}
+.table-tools b,.table-tools span{font-size:11px!important}.table-tools input,.register-search{font-size:12px}
+.row-actions button,.risk,.tag{font-size:10px!important}
+.form label,.setting-field,.integration-field{font-size:11px!important}
+.form input,.form select,.form textarea,.setting-field input,.setting-field select,.integration-field input,.integration-field select{font-size:12px!important}
+.form input,.form select,.setting-field input,.setting-field select{min-height:42px}
+.modal-head small{font-size:10px!important}
+.asset-multi-picker p,.asset-multi-picker small{font-size:10px!important}
+
+/* Settings and integrations */
+.settings-card-head h3{font-size:16px!important}.settings-card-head p{font-size:11px!important;line-height:1.5}.settings-card-head>span,.admin-badge{font-size:10px!important}
+.settings-card{margin-bottom:18px}.catalog-grid article>header b{font-size:12px!important}.catalog-grid article>header span{font-size:10px!important}
+.catalog-values>div{font-size:10px!important}.catalog-manager>footer,.catalog-message{font-size:10px!important}
+.tls-state b,.tls-state span,.security-note b,.security-note p,.reminder-rule b,.reminder-rule p,.settings-footer span{font-size:11px!important}
+.integration-hub>header small{font-size:9px!important}.integration-hub>header h3{font-size:18px!important}.integration-hub>header p{font-size:11px!important}.integration-hub>header>span{font-size:10px!important}
+.integration-page .integration-grid{grid-template-columns:1fr}
+.integration-card h4{font-size:14px!important}.integration-card header p{font-size:11px!important}.integration-switch{font-size:10px!important}
+.integration-note,.integration-message{font-size:11px!important}.integration-card>footer button{font-size:11px!important}
+.settings-empty{margin:28px 0;padding:28px;border:1px solid var(--cp-line);border-radius:16px;background:var(--cp-panel)}
+.settings-empty b{font-size:16px}.settings-empty p{margin:6px 0 0;color:var(--cp-muted);font-size:12px}
+
+/* Evidence and runtime media */
+.evidence-link{max-width:440px}.evidence-link small{font-size:10px!important}
+.evidence-preview{width:min(1120px,calc(100vw - 32px));max-height:calc(100vh - 32px)}
+.evidence-preview-head small{font-size:10px!important}.evidence-preview-head p{font-size:12px!important}
+.evidence-stage{min-height:360px;padding:24px;background:color-mix(in srgb,var(--cp-panel-2) 82%,#000 4%)}
+.evidence-stage img{width:auto!important;max-width:100%;height:auto!important;max-height:68vh;object-fit:contain;image-rendering:auto}
+.evidence-stage iframe{width:100%;min-height:62vh}
+.evidence-meta b{font-size:9px!important}.evidence-meta span,.evidence-meta a{font-size:11px!important;overflow-wrap:anywhere}
+
+/* Legacy governance rows had unreadable 7px labels. */
+.risk-appetite-row small,.risk-appetite-row strong,.risk-appetite-row p,
+.kri-breach-row small,.kri-breach-row strong,.kri-breach-row p,
+.executive-report-row small,.executive-report-row strong,.executive-report-row p,
+.risk-scenario-row small,.risk-scenario-row strong,.risk-scenario-row p,
+.resilience-row small,.resilience-row strong,.resilience-row p,
+.ict-dependency-row small,.ict-dependency-row strong,.ict-dependency-row p{font-size:10px!important;line-height:1.45}
+.risk-scenario-row button,.resilience-row button,.ict-dependency-row button{font-size:10px!important}
+
+@media(max-width:900px){
+  .shell>aside nav{display:flex!important;gap:10px!important;padding-bottom:8px}.nav-group{display:flex!important}.nav-group>small{display:none}.nav-group button{min-width:max-content}
+  .evidence-meta{grid-template-columns:1fr 1fr}
+}
+@media(max-width:620px){
+  .module-head h2{font-size:20px!important}.module-head p{font-size:11px!important}
+  .settings-card-head,.integration-card>header{align-items:flex-start;flex-direction:column}
+  .evidence-stage{min-height:240px;padding:10px}.evidence-meta{grid-template-columns:1fr}
+}

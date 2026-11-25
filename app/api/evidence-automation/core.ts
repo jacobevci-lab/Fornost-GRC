@@ -1,0 +1,232 @@
+import { approveMapping, ensureMappingSchema, MappingAgentError } from '../../evidence/mapping-agent';
+import { assessmentFingerprint, ensureAssessmentLineageSchema } from "../../evidence/assessment-lineage";
+import {insertEvidenceSource,SourceCreationConflict} from '../../evidence/source-create';
+import { updateEvidenceSource, recordEvidenceSourceTest } from '../../evidence/source-write';
+import { EvidenceExecutionConflict, observedExecutionGuard, executionReceipt } from '../../evidence/execution-guard';
+import {insertAutomationRule,ruleCreationRequestId,RuleCreationConflict,InvalidRuleCreationRequest} from '../../evidence/rule-write';
+import {CoreReferenceUnavailable} from '../../core-reference-write';
+import { NextRequest, NextResponse } from "next/server";
+import { constantTimeEqual, requireRole, type AppRole } from "../auth/security";
+import { clean, decryptSecret, encryptSecret, safeHttpUrl } from "../integrations/security";
+import { controlHealth, evidenceFreshness, nextControlRun, remediationDueDate, validateContinuousControl } from "../../evidence/continuous-controls";
+import { ConnectorError, collectProvider, providerConfiguration, providerCredentials, mayReuseProviderCredentials } from "../../connectors/collector";
+import { assessControl, assessmentSummary, controlTemplate, templatesForSource, type ControlAssessment } from "../../connectors/control-templates";
+import { reconcileApprovedRetests } from "../../continuous-assurance-runtime";
+import { parseControlRunId } from '../../connectors/control-run-contract';
+import { readControlRun, InvalidStoredControlRun } from '../../connectors/control-run-register';
+
+import {automationSummary,clearSignals,detectedCoverage,freshnessOptions,policyTable,reviewerGuard,signalTable,signalIndex} from "../../evidence/connector-governance";
+import {commitAutomationReport} from "../../evidence/automation-artifact";
+import {reserveRecordCodes} from "../../record-code-store";
+type Env = Record<string,unknown> & { DB:D1Database };
+type SourceRow={asset_code?:string;id:string;name:string;vendor:string;category:string;driver:string;enabled:number;config_json:string;secret_ciphertext:string|null;last_test_status:string|null;last_test_at:string|null};
+type RuleRow={reviewer?:string;current_run_id?:string|null;last_error_code?:string|null;evidence_run_id?:string|null;assessment_revision:number;last_run_id:string|null;updated_at:string;template_id:string|null;template_version:number|null;id:string;name:string;source_id:string;control_refs:string;json_path:string;operator:string;expected:string;schedule:string;enabled:number;last_status:string|null;last_run_at:string|null;freshness_hours:number;failure_threshold:number;consecutive_failures:number;auto_finding:number;remediation_owner:string;remediation_due_days:number;next_run_at:string|null;last_evidence_at:string|null};
+type FindingRow={id:string;rule_id:string;evidence_id:string|null;title:string;severity:string;owner:string;due_date:string;status:string;detail:string;occurrence_count:number;created_at:string;updated_at:string;acknowledged_by:string|null;acknowledged_at:string|null;closure_note:string|null;closure_evidence_ref:string|null;closure_evidence_sha256:string|null;closed_by:string|null;closed_at:string|null};
+type DetectedPath={path:string;type:"object"|"array"|"string"|"number"|"boolean"|"null"};
+type ControlSuggestion={ref:string;title:string;score:number;matches:string[]};
+const schema=[signalTable,signalIndex,policyTable,
+`CREATE TABLE IF NOT EXISTS simple_grc_record_code_counters(module TEXT PRIMARY KEY,value INTEGER NOT NULL DEFAULT 0,updated_at TEXT NOT NULL)`,
+`CREATE TABLE IF NOT EXISTS evidence_source_creation_requests(actor TEXT NOT NULL,request_id TEXT NOT NULL,payload_hash TEXT NOT NULL,source_id TEXT NOT NULL UNIQUE,created_at TEXT NOT NULL,PRIMARY KEY(actor,request_id))`,
+`CREATE TABLE IF NOT EXISTS evidence_rule_creation_requests(actor TEXT NOT NULL,request_id TEXT NOT NULL,payload_hash TEXT NOT NULL,rule_id TEXT NOT NULL UNIQUE,created_at TEXT NOT NULL,PRIMARY KEY(actor,request_id))`,
+`CREATE TABLE IF NOT EXISTS simple_grc_record_codes(record_id TEXT PRIMARY KEY,module TEXT NOT NULL,code TEXT NOT NULL UNIQUE,created_at TEXT NOT NULL)`,
+`CREATE TABLE IF NOT EXISTS evidence_automation_sources(id TEXT PRIMARY KEY,name TEXT NOT NULL,vendor TEXT NOT NULL,category TEXT NOT NULL,driver TEXT NOT NULL,enabled INTEGER NOT NULL DEFAULT 1,config_json TEXT NOT NULL,secret_ciphertext TEXT,last_test_status TEXT,last_test_at TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,updated_by TEXT NOT NULL)`,
+`CREATE TABLE IF NOT EXISTS evidence_automation_rules(id TEXT PRIMARY KEY,name TEXT NOT NULL,source_id TEXT NOT NULL,control_refs TEXT NOT NULL,json_path TEXT NOT NULL,operator TEXT NOT NULL,expected TEXT NOT NULL,schedule TEXT NOT NULL,enabled INTEGER NOT NULL DEFAULT 1,last_status TEXT,last_run_at TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,updated_by TEXT NOT NULL)`,
+`CREATE TABLE IF NOT EXISTS evidence_automation_runs(id TEXT PRIMARY KEY,rule_id TEXT NOT NULL,rule_name TEXT NOT NULL,source_name TEXT NOT NULL,status TEXT NOT NULL,score INTEGER NOT NULL,detail TEXT NOT NULL,response_hash TEXT NOT NULL,evidence_id TEXT,created_at TEXT NOT NULL,actor TEXT NOT NULL)`,
+`CREATE TABLE IF NOT EXISTS evidence_automation_findings(id TEXT PRIMARY KEY,rule_id TEXT NOT NULL,evidence_id TEXT,title TEXT NOT NULL,severity TEXT NOT NULL,owner TEXT NOT NULL,due_date TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'open',detail TEXT NOT NULL,occurrence_count INTEGER NOT NULL DEFAULT 1,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,acknowledged_by TEXT,acknowledged_at TEXT,closure_note TEXT,closure_evidence_ref TEXT,closure_evidence_sha256 TEXT,closed_by TEXT,closed_at TEXT)`,
+`CREATE UNIQUE INDEX IF NOT EXISTS evidence_automation_findings_open_idx ON evidence_automation_findings(rule_id) WHERE status!='closed'`,
+`CREATE INDEX IF NOT EXISTS evidence_automation_findings_status_due_idx ON evidence_automation_findings(status,due_date)`,
+`CREATE TABLE IF NOT EXISTS simple_grc_records(id TEXT PRIMARY KEY,module TEXT NOT NULL,data_json TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL)`,
+];
+async function runtime(){const {env}=await import("cloudflare:workers");return env as unknown as Env}
+const ruleColumns:Record<string,string>={last_run_id:"TEXT",template_id:"TEXT",template_version:"INTEGER",freshness_hours:"INTEGER NOT NULL DEFAULT 24",failure_threshold:"INTEGER NOT NULL DEFAULT 1",consecutive_failures:"INTEGER NOT NULL DEFAULT 0",auto_finding:"INTEGER NOT NULL DEFAULT 1",remediation_owner:"TEXT NOT NULL DEFAULT ''",remediation_due_days:"INTEGER NOT NULL DEFAULT 7",next_run_at:"TEXT",last_evidence_at:"TEXT"};
+const runColumns:Record<string,string>={assessment_json:"TEXT",trigger_type:"TEXT NOT NULL DEFAULT 'manual'",duration_ms:"INTEGER NOT NULL DEFAULT 0",error_code:"TEXT"};
+async function addMissingColumns(db:D1Database,table:string,columns:Record<string,string>){const info=await db.prepare(`PRAGMA table_info(${table})`).all<{name:string}>(),present=new Set(info.results.map(x=>x.name));for(const[name,definition]of Object.entries(columns))if(!present.has(name)){try{await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`).run()}catch(error){const current=await db.prepare(`PRAGMA table_info(${table})`).all<{name:string}>();if(!current.results.some(column=>column.name===name))throw error}}}
+export async function ensureEvidenceAutomationSchema(db:D1Database){for(const sql of schema)await db.prepare(sql).run();await db.prepare(clearSignals).run();await addMissingColumns(db,"evidence_automation_rules",ruleColumns);await addMissingColumns(db,"evidence_automation_runs",runColumns);await db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS evidence_automation_rules_template_idx ON evidence_automation_rules(source_id,template_id)").run();await db.prepare("CREATE INDEX IF NOT EXISTS evidence_automation_rules_due_idx ON evidence_automation_rules(enabled,next_run_at)").run();await db.prepare("CREATE INDEX IF NOT EXISTS evidence_automation_runs_rule_created_idx ON evidence_automation_runs(rule_id,created_at)").run();await ensureAssessmentLineageSchema(db);await db.prepare("CREATE INDEX IF NOT EXISTS evidence_automation_runs_evidence_idx ON evidence_automation_runs(evidence_id)").run()}
+function json(data:unknown,status=200){return NextResponse.json(data,{status,headers:{"cache-control":"no-store"}})}
+function envText(env:Env,key:string){return String(env[key]??"").trim()}
+function privateAllowed(env:Env){return ["true","1"].includes(envText(env,"FORNOST_ALLOW_PRIVATE_CONNECTORS").toLowerCase())}
+function config(body:Record<string,unknown>){return {baseUrl:clean(body.baseUrl,2048),authType:clean(body.authType,30)||"bearer",headerName:clean(body.headerName,80)||"x-api-key"}}
+async function sha256(value:string){const bytes=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));return [...new Uint8Array(bytes)].map(x=>x.toString(16).padStart(2,"0")).join("")}
+function pick(input:unknown,path:string){if(!path||path==="$"||path===".")return input;return path.replace(/^\$\.?/,"").split(".").filter(Boolean).reduce<unknown>((value,key)=>value&&typeof value==="object"?(value as Record<string,unknown>)[key]:undefined,input)}
+function evaluate(value:unknown,operator:string,expected:string){if(operator==="exists")return value!==undefined&&value!==null&&value!=="";if(operator==="eq")return String(value)===expected;if(operator==="contains")return String(value).toLowerCase().includes(expected.toLowerCase());const actual=Number(value),target=Number(expected);if(!Number.isFinite(actual)||!Number.isFinite(target))return false;return operator==="gte"?actual>=target:operator==="lte"?actual<=target:false}
+function publicSource(row:SourceRow){return {assetCode:row.asset_code,id:row.id,name:row.name,vendor:row.vendor,category:row.category,driver:row.driver,enabled:!!row.enabled,config:JSON.parse(row.config_json||"{}"),hasSecret:!!row.secret_ciphertext,lastTestStatus:row.last_test_status,lastTestAt:row.last_test_at}}
+function publicRule(row:RuleRow,now=new Date()){return {updatedAt:row.updated_at,reviewer:row.reviewer,lastRunId:row.current_run_id,lastErrorCode:row.last_error_code,evidenceRunId:row.evidence_run_id,templateId:row.template_id,templateVersion:row.template_version,id:row.id,name:row.name,sourceId:row.source_id,controlRefs:row.control_refs,jsonPath:row.json_path,operator:row.operator,expected:row.expected,schedule:row.schedule,enabled:!!row.enabled,lastStatus:row.last_status,lastRunAt:row.last_run_at,freshnessHours:row.freshness_hours,failureThreshold:row.failure_threshold,consecutiveFailures:row.consecutive_failures,autoFinding:!!row.auto_finding,remediationOwner:row.remediation_owner,remediationDueDays:row.remediation_due_days,nextRunAt:row.next_run_at,lastEvidenceAt:row.last_evidence_at,freshness:evidenceFreshness(row.last_evidence_at,row.freshness_hours,now),health:controlHealth({enabled:!!row.enabled,lastStatus:row.last_status,lastEvidenceAt:row.last_evidence_at,freshnessHours:row.freshness_hours,consecutiveFailures:row.consecutive_failures},now)}}
+function publicFinding(row:FindingRow){return {id:row.id,ruleId:row.rule_id,evidenceId:row.evidence_id,title:row.title,severity:row.severity,owner:row.owner,dueDate:row.due_date,status:row.status,detail:row.detail,occurrenceCount:row.occurrence_count,createdAt:row.created_at,updatedAt:row.updated_at,acknowledgedBy:row.acknowledged_by,acknowledgedAt:row.acknowledged_at,closureNote:row.closure_note,closureEvidenceRef:row.closure_evidence_ref,closureEvidenceSha256:row.closure_evidence_sha256,closedBy:row.closed_by,closedAt:row.closed_at}}
+
+function jsonValueType(value:unknown):DetectedPath["type"]{if(value===null)return"null";if(Array.isArray(value))return"array";const kind=typeof value;return kind==="string"||kind==="number"||kind==="boolean"?kind:"object"}
+function discoverJsonPaths(payload:unknown){const paths:DetectedPath[]=[];const queue:Array<{value:unknown;path:string}>=[{value:payload,path:"$"}];let visited=0;while(queue.length&&visited<240&&paths.length<80){const current=queue.shift()!;visited+=1;const type=jsonValueType(current.value);if(current.path!=="$")paths.push({path:current.path,type});if(type==="object"&&current.value){for(const [key,value] of Object.entries(current.value as Record<string,unknown>).slice(0,40))queue.push({value,path:`${current.path}.${key.replace(/\./g,"_")}`})}else if(type==="array"){for(const [index,value] of (current.value as unknown[]).slice(0,3).entries())queue.push({value,path:`${current.path}.${index}`})}}return {rootType:jsonValueType(payload),paths,totalPaths:paths.length,truncated:queue.length>0||visited>=240}}
+const domainKeywords:Record<string,string[]>={
+ "Cloud & SaaS":["cloud","saas","azure","aws","m365","tenant","configuration","service"],
+ "Firewall & Network":["firewall","network","segmentation","rule","traffic","vpn","gateway"],
+ "XDR, EDR & SIEM":["endpoint","edr","xdr","siem","logging","monitoring","detection","incident","malware","alert"],
+ "IAM, PAM & IGA":["identity","access","account","authentication","authorization","mfa","privileged","pam","iam"],
+ "Data, DB & Application":["data","database","application","vulnerability","patch","scan","secure","dlp"],
+ "Work & Custom":["ticket","workflow","change","incident","remediation","issue","integration"],
+};
+const ignoredTokens=new Set(["https","api","rest","json","com","www","microsoft","generic","service","the","and","for","with","from"]);
+function words(value:unknown){return [...new Set(clean(value,4000).normalize("NFKC").toLocaleLowerCase("en-US").split(/[^a-z0-9çğıöşü_-]+/i).flatMap(part=>part.split(/[_-]+/)).map(part=>part.trim()).filter(part=>part.length>=3&&!ignoredTokens.has(part)))];}
+async function suggestControls(db:D1Database,source:SourceRow,paths:DetectedPath[]):Promise<ControlSuggestion[]>{const rows=await db.prepare("SELECT r.id,r.data_json,coalesce(c.code,r.id) AS code FROM simple_grc_records r LEFT JOIN simple_grc_record_codes c ON c.record_id=r.id WHERE r.module='Kontroller' ORDER BY r.updated_at DESC LIMIT 1200").all<{id:string;data_json:string;code:string}>();const sourceTokens=[...new Set([...words(source.name),...words(source.vendor),...(domainKeywords[source.category]||[]),...paths.slice(0,30).flatMap(path=>words(path.path))])].slice(0,80);const suggestions:ControlSuggestion[]=[];for(const row of rows.results){let data:Record<string,unknown>={};try{const parsed=JSON.parse(row.data_json);if(parsed&&typeof parsed==="object"&&!Array.isArray(parsed))data=parsed}catch{}const ref=row.code;if(!/^CTL-\d+$/i.test(ref))continue;const title=clean(data.controlTitle||data.title||data.name||data.objective||ref,240);const haystack=clean([ref,title,data.description,data.objective,data.category,data.type,data.frameworkRefs,data.framework].filter(Boolean).join(" "),6000).normalize("NFKC").toLocaleLowerCase("en-US");const matches=sourceTokens.filter(token=>haystack.includes(token)).slice(0,8);if(!matches.length)continue;const score=matches.reduce((sum,token)=>sum+(title.toLocaleLowerCase("en-US").includes(token)?3:1),0);suggestions.push({ref,title,score,matches})}return suggestions.sort((a,b)=>b.score-a.score||a.ref.localeCompare(b.ref)).slice(0,8)}
+
+export async function GET(req:NextRequest){const access=await requireRole(req,["Admin","Editor","Viewer"]);if(access.response)return access.response;
+ const params=req.nextUrl.searchParams;let runId:string|null;
+ try{runId=parseControlRunId(params.get("runId"));if(runId&&(params.getAll("runId").length!==1||[...params.keys()].some(key=>key!=="runId")))throw new Error('Mixed run scope.');}catch{return json({error:"Geçersiz çalışma kimliği veya kapsamı."},400);}
+ const env=await runtime();await ensureEvidenceAutomationSchema(env.DB);
+ if(runId){try{const run=await readControlRun(env.DB,runId);return run?json({run}):json({error:"Çalışma bulunamadı."},404);}catch(error){if(error instanceof InvalidStoredControlRun)return json({error:"Kaydedilmiş çalışma ayrıntıları doğrulanamadı."},503);throw error;}}
+ const [sources,rules,runs,findings]=await Promise.all([env.DB.prepare("SELECT s.*,c.code AS asset_code FROM evidence_automation_sources s LEFT JOIN simple_grc_record_codes c ON c.record_id=json_extract(s.config_json,'$.assetRef') AND c.module='Varlık Envanteri' ORDER BY s.name").all<SourceRow>(),env.DB.prepare(`SELECT r.*, (SELECT reviewer FROM evidence_rule_review_policy p WHERE p.rule_id=r.id) AS reviewer, latest.id AS current_run_id, latest.error_code AS last_error_code,
+  (SELECT CASE WHEN COUNT(*)=1 THEN MIN(e.id) END FROM evidence_automation_runs e
+   WHERE e.rule_id=r.id AND e.created_at=r.last_evidence_at AND e.evidence_id IS NOT NULL AND e.status IN ('pass','fail')) AS evidence_run_id
+  FROM evidence_automation_rules r LEFT JOIN evidence_automation_runs latest ON latest.rule_id=r.id AND latest.status=r.last_status
+    AND latest.id=COALESCE(r.last_run_id,(SELECT CASE WHEN COUNT(*)=1 THEN MIN(h.id) END FROM evidence_automation_runs h
+      WHERE h.rule_id=r.id AND h.created_at=r.last_run_at AND h.status=r.last_status))
+  ORDER BY r.name`).all<RuleRow>(),env.DB.prepare("SELECT id,rule_id,rule_name,source_name,status,score,detail,evidence_id,created_at,trigger_type,duration_ms,error_code,assessment_json IS NOT NULL AS has_assessment FROM evidence_automation_runs ORDER BY created_at DESC LIMIT 100").all<Record<string,unknown>>(),env.DB.prepare("SELECT * FROM evidence_automation_findings ORDER BY CASE status WHEN 'open' THEN 0 WHEN 'acknowledged' THEN 1 ELSE 2 END,due_date,created_at DESC LIMIT 100").all<FindingRow>()]),now=new Date(),publicRules=rules.results.map(r=>publicRule(r,now));return json({metrics:await automationSummary(env.DB,now),sources:sources.results.map(publicSource),rules:publicRules,runs:runs.results.map(r=>({id:r.id,ruleId:r.rule_id,ruleName:r.rule_name,sourceName:r.source_name,status:r.status,score:r.score,detail:r.detail,evidenceId:r.evidence_id,createdAt:r.created_at,triggerType:r.trigger_type,durationMs:r.duration_ms,errorCode:r.error_code,hasAssessment:!!r.has_assessment})),findings:findings.results.map(publicFinding),summary:{healthy:publicRules.filter(r=>r.health==="healthy").length,failing:publicRules.filter(r=>r.health==="failing").length,stale:publicRules.filter(r=>r.health==="stale"||r.health==="missing").length,due:publicRules.filter(r=>r.enabled&&(!r.nextRunAt||r.nextRunAt<=now.toISOString())).length,openFindings:findings.results.filter(r=>r.status!=="closed").length}})}
+
+export async function POST(req:NextRequest){if(Number(req.headers.get("content-length")||0)>65_536)return json({error:"İstek boyutu çok büyük."},413);const body=await req.json().catch(()=>({})) as Record<string,unknown>,action=clean(body.action,40),roles:AppRole[]=action==="run-rule"||action==="run-due"||action==="acknowledge-finding"?["Admin","Editor"]:["Admin"],env=await runtime(),configuredToken=envText(env,"FORNOST_SCHEDULER_TOKEN"),presentedToken=req.headers.get("x-fornost-scheduler-token")||"",scheduled=action==="run-due"&&configuredToken.length>=32&&presentedToken.length>=32&&constantTimeEqual(configuredToken,presentedToken);let actorEmail="system:scheduler";if(!scheduled){const access=await requireRole(req,roles);if(access.response)return access.response;actorEmail=access.actor.email}await ensureEvidenceAutomationSchema(env.DB);try{
+ if(action==="save-source"){const requestId=ruleCreationRequestId(body.requestId),requestedId=clean(body.sourceId,80),name=clean(body.name,150),vendor=clean(body.vendor,150)||name,category=clean(body.category,80),driver=body.providerId?"provider-v1":clean(body.driver,40)||"rest-json",native=body.driver==="provider-v1"||!!body.providerId,prepared=native?providerConfiguration(body,privateAllowed(env)):null,cfg=prepared?.config||config(body),secret=prepared?providerCredentials(prepared.profile,body.credentials):clean(body.secret,4096);if(!name||!safeHttpUrl(cfg.baseUrl,privateAllowed(env)))return json({error:"Kaynak adı ve güvenli bir API adresi gerekli."},400);const existing=requestedId?await env.DB.prepare("SELECT * FROM evidence_automation_sources WHERE id=?").bind(requestedId).first<SourceRow>():null;const assetRef=body.assetRef===undefined?(existing?JSON.parse(existing.config_json).assetRef:""):body.assetRef;
+ if(assetRef){if(typeof assetRef!=="string"||assetRef.length>160||!await env.DB.prepare("SELECT 1 FROM simple_grc_records WHERE id=? AND module='Varlık Envanteri'").bind(assetRef).first())return json({code:"ASSET_UNAVAILABLE"},422);Object.assign(cfg,{assetRef})}
+ if(requestedId&&!existing)return json({error:"Güncellenecek kanıt kaynağı bulunamadı."},404);if(prepared&&!secret&&(!existing?.secret_ciphertext||!mayReuseProviderCredentials(JSON.parse(existing.config_json||"{}"),cfg)))return json({error:"Yeni kaynak veya değişen kimlik için ürün kimlik bilgileri gerekli."},400);if(existing?.driver==="provider-v1"&&!prepared&&!secret)return json({error:"Ürün profili değişirken yeni kimlik bilgisi girin."},400);let encrypted=existing?.secret_ciphertext||null;if(secret){const key=envText(env,"FORNOST_SETTINGS_ENCRYPTION_KEY");if(!key)return json({error:"Entegrasyon şifreleme anahtarı yapılandırılmamış."},503);encrypted=await encryptSecret(secret,key)}const id=existing?.id||crypto.randomUUID(),now=new Date().toISOString();let reassessmentRequired=false,saved={sourceId:id,reused:false};if(existing)({reassessmentRequired}=await updateEvidenceSource(env.DB,existing,{name,vendor,category,driver,config_json:JSON.stringify(cfg),secret_ciphertext:encrypted},now,actorEmail));else saved=await insertEvidenceSource(env.DB,{id,name,vendor,category,driver,config_json:JSON.stringify(cfg),secret_ciphertext:encrypted,secret,encryptionKey:envText(env,"FORNOST_SETTINGS_ENCRYPTION_KEY"),now,actor:actorEmail},requestId);return json({ok:true,...saved,reassessmentRequired,message:existing?"Kanıt kaynağı güvenli biçimde güncellendi.":"Kanıt kaynağı güvenli biçimde kaydedildi."})}
+ const reviewer=clean(body.reviewer,254).toLowerCase();
+ const validatePolicy=async(owner:string)=>{
+   if(!freshnessOptions.some(h=>h===Number(body.freshnessHours??24)))return json({code:"INVALID_TTL"},422);
+   const guard=reviewerGuard(reviewer,owner,actorEmail);
+   if(!reviewer||!await env.DB.prepare(`SELECT 1 WHERE ${guard.sql}`).bind(...guard.values).first())return json({code:"INDEPENDENT_REVIEWER_REQUIRED"},422);
+ };
+ if(action==="save-rule-policy"){
+   const id=clean(body.ruleId,80),observed=await env.DB.prepare("SELECT r.*,p.reviewer FROM evidence_automation_rules r LEFT JOIN evidence_rule_review_policy p ON p.rule_id=r.id WHERE r.id=?").bind(id).first<RuleRow>();
+   if(!observed)return json({code:"RULE_UNAVAILABLE"},404);
+   if(observed.updated_at!==body.expectedUpdatedAt||(observed.reviewer||"")!==body.expectedReviewer)throw new EvidenceExecutionConflict();
+   const owner=observed.remediation_owner||actorEmail;
+   const invalid=await validatePolicy(owner);if(invalid)return invalid;
+   const guard=reviewerGuard(reviewer,owner,actorEmail);
+   const stamp=new Date(Math.max(Date.now(),(Date.parse(observed.updated_at)||0)+1)).toISOString();
+   const [saved]=await env.DB.batch([
+     env.DB.prepare(`UPDATE evidence_automation_rules SET freshness_hours=?,remediation_owner=?,updated_at=?,updated_by=? WHERE id=? AND updated_at=?
+       AND coalesce((SELECT reviewer FROM evidence_rule_review_policy WHERE rule_id=?),'')=? AND ${guard.sql}`)
+       .bind(Number(body.freshnessHours),owner,stamp,actorEmail,id,observed.updated_at,id,observed.reviewer||"",...guard.values),
+     env.DB.prepare(`INSERT INTO evidence_rule_review_policy(rule_id,reviewer) SELECT ?,? WHERE changes()=1
+       ON CONFLICT(rule_id) DO UPDATE SET reviewer=excluded.reviewer`).bind(id,reviewer),
+   ]);
+   if(!saved.meta?.changes)throw new EvidenceExecutionConflict();
+   return json({ok:true});
+ }
+ if(action==="save-template-rule"){
+  const template=controlTemplate(clean(body.templateId,80)),sourceId=clean(body.sourceId,80),controlRefs=clean(body.controlRefs,1000);
+  if(!template||!controlRefs)return json({error:"Hazır kontrol ve kontrol eşlemesi gerekli."},400);
+  const source=await env.DB.prepare("SELECT * FROM evidence_automation_sources WHERE id=? AND enabled=1").bind(sourceId).first<SourceRow>();
+  if(!source||!templatesForSource({driver:source.driver,config:JSON.parse(source.config_json)}).some(item=>item.id===template.id))return json({error:"Bu test seçilen kaynak ve veri kümesi ile çalışmaz."},400);
+  const duplicate=await env.DB.prepare("SELECT id FROM evidence_automation_rules WHERE source_id=? AND template_id=?").bind(sourceId,template.id).first();
+  if(duplicate&&!body.mappingRunId)return json({error:"Bu kaynak için hazır kontrol zaten var; mevcut kontrolü kullanın."},409);
+  const schedule=clean(body.schedule,30)||"daily",policy=validateContinuousControl({schedule,freshnessHours:body.freshnessHours??24,failureThreshold:body.failureThreshold??1,remediationDueDays:body.remediationDueDays??7,autoFinding:body.autoFinding}),id=crypto.randomUUID(),now=new Date();
+  const owner=clean(body.remediationOwner,200)||actorEmail;
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(owner))return json({error:"Geçerli sorumlu e-posta adresi gerekli."},400);
+  const invalid=await validatePolicy(owner);if(invalid)return invalid;
+  const input={id,reviewer,name:clean(body.name,150)||template.name.tr,sourceId,controlRefs,jsonPath:"$",operator:"template",expected:"",schedule,now:now.toISOString(),actor:actorEmail,freshnessHours:policy.freshnessHours,failureThreshold:policy.failureThreshold,autoFinding:policy.autoFinding,owner,remediationDueDays:policy.remediationDueDays,nextRunAt:nextControlRun(schedule,now),templateId:template.id,templateVersion:template.version};
+  let saved={ruleId:id,reused:false};
+  if(body.mappingRunId){await ensureMappingSchema(env.DB);saved=await approveMapping(env.DB,String(body.mappingRunId),body.mappingProposalIndex as number,input,source);}
+  else saved=await insertAutomationRule(env.DB,input);
+  return json({ok:true,...saved,message:"Hazır kontrol etkinleştirildi. İlk sonucu görmek için Çalıştır seçin."});
+ }
+ if(action==="save-rule"){const requestId=ruleCreationRequestId(body.requestId),name=clean(body.name,150),sourceId=clean(body.sourceId,80),controlRefs=clean(body.controlRefs,1000),jsonPath=clean(body.jsonPath,300),operator=clean(body.operator,20),expected=clean(body.expected,300),schedule=clean(body.schedule,30),remediationOwner=clean(body.remediationOwner,200);if(!name||!sourceId||!controlRefs||!["exists","eq","gte","lte","contains"].includes(operator))return json({error:"Kural alanları geçersiz veya eksik."},400);if(!await env.DB.prepare("SELECT id FROM evidence_automation_sources WHERE id=?").bind(sourceId).first())return json({error:"Kanıt kaynağı bulunamadı."},404);const policy=validateContinuousControl({schedule,freshnessHours:body.freshnessHours,failureThreshold:body.failureThreshold,remediationDueDays:body.remediationDueDays,autoFinding:body.autoFinding}),id=crypto.randomUUID(),now=new Date();const invalid=await validatePolicy(remediationOwner||actorEmail);if(invalid)return invalid;
+ if(body.mappedControls!==undefined){
+   if(!Array.isArray(body.mappedControls)||!body.mappedControls.length||body.mappedControls.length>12
+     ||body.mappedControls.some(v=>typeof v!=="string"||!/^CTL-\d+$/i.test(v))||body.mappedControls.join("; ")!==controlRefs)return json({code:"REFERENCE_UNAVAILABLE"},422);
+ }
+ const saved=await insertAutomationRule(env.DB,{id,reviewer,name,sourceId,controlRefs,jsonPath,operator,expected,schedule,now:now.toISOString(),actor:actorEmail,freshnessHours:policy.freshnessHours,failureThreshold:policy.failureThreshold,autoFinding:policy.autoFinding,owner:remediationOwner||actorEmail,remediationDueDays:policy.remediationDueDays,nextRunAt:nextControlRun(schedule,now)},requestId);return json({ok:true,...saved,message:"Sürekli kontrol kuralı ve çalışma takvimi kaydedildi."})}
+ if(action==="test-source"){const id=clean(body.sourceId,80),source=await env.DB.prepare("SELECT * FROM evidence_automation_sources WHERE id=?").bind(id).first<SourceRow>();if(!source)return json({error:"Kaynak bulunamadı."},404);const now=new Date().toISOString();try{const connection=await requestSource(source,env,false);await recordEvidenceSourceTest(env.DB,source,'success',now);return json({ok:true,connection,message:"API bağlantısı ve JSON yanıtı doğrulandı. Bu sonuç kontrol uyumluluğu değildir."})}catch(error){if(error instanceof EvidenceExecutionConflict)throw error;await recordEvidenceSourceTest(env.DB,source,'error',now);throw error}}
+ if(action==="discover-source"){const id=clean(body.sourceId,80),source=await env.DB.prepare("SELECT * FROM evidence_automation_sources WHERE id=?").bind(id).first<SourceRow>();if(!source)return json({error:"Kaynak bulunamadı."},404);const now=new Date().toISOString();try{const payload=await requestSource(source,env,true),detected=discoverJsonPaths(payload),suggestedControls=await suggestControls(env.DB,source,detected.paths);const config=JSON.parse(source.config_json);
+ await recordEvidenceSourceTest(env.DB,source,'success',now,config.assetRef?{assetId:config.assetRef,signals:detectedCoverage(config,detected.paths,payload)}:undefined);
+ return json({ok:true,sourceId:id,message:"Bağlantı doğrulandı; JSON yapısı ve kontrol adayları keşfedildi.",detected,suggestedControls})}catch(error){if(error instanceof EvidenceExecutionConflict)throw error;await recordEvidenceSourceTest(env.DB,source,'error',now);throw error}}
+ if(action==="run-rule"){const ruleId=clean(body.ruleId,80),result=await executeRule(env,ruleId,actorEmail,"manual"),reconciled=await reconcileApprovedRetests(env.DB);return json({ok:true,message:result.status==="pass"?"Kanıt toplandı ve doğrulama başarılı.":result.status==="fail"?"Kanıt toplandı; bulgu ve düzeltme akışı değerlendirildi.":"Kontrol doğrulanamadı. Çalışma ayrıntılarını ve kaynak durumunu inceleyin.",reconciledAssuranceWork:reconciled,...result})}
+ if(action==="run-due"){const batch=await executeDueRules(env,actorEmail),reconciled=await reconcileApprovedRetests(env.DB);return json({ok:true,message:`${batch.recorded} kontrol sonucu kaydedildi; ${batch.unrecorded} çalışma kaydedilemedi; ${batch.skipped} çalışma atlandı.`,reconciledAssuranceWork:reconciled,...batch})}
+ if(action==="toggle-rule"){const id=clean(body.ruleId,80),enabled=body.enabled===true?1:0,now=new Date().toISOString();const rule=await env.DB.prepare("SELECT schedule FROM evidence_automation_rules WHERE id=?").bind(id).first<{schedule:string}>();if(!rule)return json({error:"Kural bulunamadı."},404);await env.DB.prepare("UPDATE evidence_automation_rules SET enabled=?,next_run_at=?,updated_at=?,updated_by=? WHERE id=?").bind(enabled,enabled?nextControlRun(rule.schedule,new Date(now)):null,now,actorEmail,id).run();return json({ok:true,message:enabled?"Sürekli kontrol etkinleştirildi.":"Sürekli kontrol duraklatıldı."})}
+ if(action==="acknowledge-finding"){const id=clean(body.findingId,80),now=new Date().toISOString();const result=await env.DB.prepare("UPDATE evidence_automation_findings SET status='acknowledged',acknowledged_by=?,acknowledged_at=?,updated_at=? WHERE id=? AND status='open'").bind(actorEmail,now,now,id).run();if(!Number(result.meta?.changes||0))return json({error:"Açık bulgu bulunamadı."},404);return json({ok:true,message:"Bulgu sahiplenildi ve düzeltme takibine alındı."})}
+ if(action==="close-finding"){const id=clean(body.findingId,80),note=clean(body.note,1200),evidenceRef=clean(body.evidenceReference,500),hash=clean(body.evidenceSha256,64).toLowerCase(),confirmation=clean(body.confirmation,80);if(note.length<10||!evidenceRef||!/^[a-f0-9]{64}$/.test(hash)||confirmation!=="BULGUYU KAPAT")return json({error:"Kapanış notu, kanıt referansı, SHA-256 ve BULGUYU KAPAT onayı gerekli."},400);const finding=await env.DB.prepare("SELECT * FROM evidence_automation_findings WHERE id=? AND status!='closed'").bind(id).first<FindingRow>();if(!finding)return json({error:"Açık bulgu bulunamadı."},404);if(finding.acknowledged_by===actorEmail)return json({error:"Bulguyu sahiplenen kişi aynı bulguyu kapatamaz."},409);const now=new Date().toISOString();await env.DB.prepare("UPDATE evidence_automation_findings SET status='closed',closure_note=?,closure_evidence_ref=?,closure_evidence_sha256=?,closed_by=?,closed_at=?,updated_at=? WHERE id=?").bind(note,evidenceRef,hash,actorEmail,now,now,id).run();const record=await env.DB.prepare("SELECT data_json FROM simple_grc_records WHERE id=?").bind(id).first<{data_json:string}>();if(record){const data=JSON.parse(record.data_json);data.status="Kapalı";data.closureNote=note;data.closureEvidence=evidenceRef;data.closureEvidenceSha256=hash;await env.DB.prepare("UPDATE simple_grc_records SET data_json=?,updated_at=? WHERE id=?").bind(JSON.stringify(data),now,id).run()}return json({ok:true,message:"Bulgu bağımsız kanıtla kapatıldı."})}
+ return json({error:"Geçersiz işlem."},400)
+ }catch(error){if(error instanceof MappingAgentError)return json({error:"AI eşlemesi kullanılamıyor; kaynağı ve mevcut kontrolü inceleyin, gerekirse yeniden analiz edin.",code:error.code},error.status);if(error instanceof SourceCreationConflict)return json({error:error.message,code:"SOURCE_CREATION_CONFLICT",sourceId:error.sourceId||undefined},409);if(error instanceof RuleCreationConflict)return json({error:error.message,code:"RULE_CREATION_CONFLICT",ruleId:error.ruleId||undefined},409);if(error instanceof InvalidRuleCreationRequest)return json({error:error.message,code:"INVALID_CREATION_REQUEST"},400);if(error instanceof EvidenceExecutionConflict)return json({error:error.message,code:"EXECUTION_CONFLICT"},409);if(error instanceof CoreReferenceUnavailable)return json({error:error.message,code:"REFERENCE_UNAVAILABLE"},422);if(action==="save-template-rule")return json({error:String(error).toLowerCase().includes("unique")?"Bu kaynak için hazır kontrol zaten var.":error instanceof Error?error.message:"Hazır kontrol kaydedilemedi."},String(error).toLowerCase().includes("unique")?409:400);return json({error:error instanceof Error?error.message:"Kanıt otomasyonu işlemi başarısız.",code:error instanceof ConnectorError?error.code:undefined},error instanceof ConnectorError&&error.code==="CONFIG_INVALID"?400:502)}}
+
+type ExecutionOptions={fetcher?:(input:string,init?:RequestInit)=>Promise<Response>;now?:Date};
+export async function executeRule(env:Env,ruleId:string,actor:string,triggerType:"manual"|"scheduler",options:ExecutionOptions={}){
+ const rule=await env.DB.prepare("SELECT r.*,p.reviewer FROM evidence_automation_rules r LEFT JOIN evidence_rule_review_policy p ON p.rule_id=r.id WHERE r.id=?").bind(ruleId).first<RuleRow>();
+ if(!rule)throw new EvidenceExecutionConflict();
+ if(!rule.enabled&&triggerType==="scheduler")return {ruleId,status:"skipped"};
+ const source=await env.DB.prepare("SELECT * FROM evidence_automation_sources WHERE id=?").bind(rule.source_id).first<SourceRow>();
+ if(!source)throw new EvidenceExecutionConflict();
+ if(!source.enabled)throw new EvidenceExecutionConflict();
+ const review=rule.reviewer?reviewerGuard(rule.reviewer,rule.remediation_owner,actor):null;
+ if(review&&!await env.DB.prepare(`SELECT 1 WHERE ${review.sql}`).bind(...review.values).first())throw new EvidenceExecutionConflict();
+ const fingerprint=await assessmentFingerprint(rule,source);
+ const started=Date.now(),now=options.now||new Date(),nowIso=now.toISOString(),runId=crypto.randomUUID();
+ let assessment:ControlAssessment|null=null,payload:unknown,raw="",responseHash="",status:"pass"|"fail"|"error"="error",detail="",errorCode:string|null=null;
+ try{
+  if(!source.enabled)throw new Error("Kanıt kaynağı duraklatılmış.");
+  if(rule.template_id&&!templatesForSource({driver:source.driver,config:JSON.parse(source.config_json)}).some(item=>item.id===rule.template_id&&item.version===rule.template_version))throw new Error("Hazır kontrol kaynak veya sürüm eşleşmesi geçersiz.");
+  payload=await requestSource(source,env,true,options.fetcher);raw=JSON.stringify(payload);responseHash=await sha256(raw);
+  if(rule.template_id){
+   assessment=assessControl(rule.template_id,Number(rule.template_version),JSON.parse(source.config_json),payload,now);
+   status=assessment.status;detail=assessmentSummary(assessment);if(status==="error")errorCode="ASSESSMENT_INCOMPLETE";
+  }else{const value=pick(payload,rule.json_path);status=evaluate(value,rule.operator,rule.expected)?"pass":"fail";detail=`${rule.json_path||"$"} = ${String(value).slice(0,160)}; ${rule.operator} ${rule.expected||"(değer var)"}`;}
+ }catch(error){detail=error instanceof Error?error.message:"Kaynak toplama hatası";errorCode=error instanceof ConnectorError?error.code:"SOURCE_REQUEST_FAILED";responseHash=await sha256(detail);}
+ const passed=status==="pass",failures=passed?0:rule.consecutive_failures+1;
+ // Unverifiable assessments keep their diagnostic run but cannot create passing evidence.
+ const evidenceId=status!=="error"?`EVD-AUTO-${crypto.randomUUID()}`:null;
+ const observedRule=observedExecutionGuard('rule',rule,'r'),observedSource=observedExecutionGuard('source',source,'s'),receipt=executionReceipt(rule.id,runId);
+ // The claim and every dependent write share one transaction. A late response
+ // cannot overwrite a completed run or attach evidence to an edited mapping.
+ const statements=[env.DB.prepare(`UPDATE evidence_automation_rules AS r SET last_run_id=?,last_status=?,last_run_at=?,last_evidence_at=COALESCE(?,last_evidence_at),consecutive_failures=?,next_run_at=?,updated_at=?,updated_by=? WHERE ${observedRule.sql} AND EXISTS(SELECT 1 FROM evidence_automation_sources s WHERE ${observedSource.sql})${review?' AND '+review.sql:''}`)
+  .bind(runId,status,nowIso,evidenceId?nowIso:null,failures,nextControlRun(rule.schedule,now),nowIso,actor,...observedRule.values,...observedSource.values,...(review?.values||[])),
+  env.DB.prepare(`INSERT INTO evidence_automation_runs(id,rule_id,rule_name,source_name,status,score,detail,response_hash,evidence_id,created_at,actor,trigger_type,duration_ms,error_code,assessment_json,assessment_fingerprint) SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE ${receipt.sql}`)
+  .bind(runId,rule.id,rule.name,source.name,status,assessment?.score??(passed?100:0),detail,responseHash,evidenceId,nowIso,actor,triggerType,Date.now()-started,errorCode,assessment?JSON.stringify(assessment):null,fingerprint,...receipt.values)];
+ if(!passed&&rule.auto_finding&&failures>=rule.failure_threshold)statements.push(...findingStatements(env.DB,rule,evidenceId,detail,actor,now,runId,status,errorCode));
+ let evidenceCode="";
+ if(evidenceId){
+  [evidenceCode]=await reserveRecordCodes(env.DB,"Kanıtlar",1,nowIso);
+  const assetRef=JSON.parse(source.config_json).assetRef;
+  const evidence={...(assetRef?{sourceAssetRef:assetRef}:{}),controlRefs:rule.control_refs,sourceSystem:source.name,evidenceTitle:rule.name,controlRef:rule.control_refs,owner:actor,period:nowIso.slice(0,10),source:source.name,collectionMethod:"API",validationStatus:status,validationDetail:detail,responseHash,assessmentFingerprint:fingerprint,automationRunId:runId,automationRuleId:rule.id,collectedAt:nowIso,freshUntil:new Date(now.getTime()+rule.freshness_hours*60*60_000).toISOString(),rawSnapshot:raw.slice(0,200000),rawSnapshotTruncated:raw.length>200000,controlAssessment:assessment,status:passed?"Güncel":"İnceleme Gerekli"};
+  if(rule.reviewer){
+    await commitAutomationReport(env.DB,{id:evidenceId,stamp:nowIso,code:evidenceCode,data:evidence,reviewer:rule.reviewer,owner:rule.remediation_owner,actor,claim:statements[0],dependent:statements.slice(1)});
+    return {ruleId,runId,evidenceId,evidenceCode,status,failures,errorCode};
+  }
+  statements.push(env.DB.prepare(`INSERT INTO simple_grc_record_codes(record_id,module,code,created_at) SELECT ?,'Kanıtlar',?,? WHERE ${receipt.sql}`).bind(evidenceId,evidenceCode,nowIso,...receipt.values));
+  statements.push(env.DB.prepare(`INSERT INTO simple_grc_records(id,module,data_json,created_at,updated_at) SELECT ?,?,?,?,? WHERE ${receipt.sql}`).bind(evidenceId,"Kanıtlar",JSON.stringify(evidence),nowIso,nowIso,...receipt.values));
+ }
+ const committed=await env.DB.batch(statements);
+ if(!committed[0].meta?.changes)throw new EvidenceExecutionConflict();
+ return {ruleId,runId,evidenceId,evidenceCode,status,failures,errorCode};
+}
+
+/** A single invalid/conflicting rule must not prevent other due controls from running. */
+export async function executeDueRules(env:Env,actor:string,options:ExecutionOptions={}){
+ const now=options.now||new Date();
+ const due=await env.DB.prepare(`SELECT r.id FROM evidence_automation_rules r JOIN evidence_automation_sources s ON s.id=r.source_id AND s.enabled=1 WHERE r.enabled=1 AND (datetime(r.next_run_at) IS NULL OR datetime(r.next_run_at)<=datetime(?)) ORDER BY COALESCE(r.next_run_at,''),r.id LIMIT 20`).bind(now.toISOString()).all<{id:string}>();
+ const results:Array<{ruleId:string;status:string;runId?:string;evidenceId?:string|null;errorCode?:string|null}>=[];
+ for(const item of due.results){
+  try{results.push(await executeRule(env,item.id,actor,'scheduler',options));}
+  catch(error){results.push({ruleId:item.id,status:'not-recorded',errorCode:error instanceof EvidenceExecutionConflict?'EXECUTION_CONFLICT':'EXECUTION_UNAVAILABLE'});}
+ }
+ return {results,attempted:results.length,recorded:results.filter(r=>!!r.runId).length,unrecorded:results.filter(r=>r.status==='not-recorded').length,skipped:results.filter(r=>r.status==='skipped').length};
+}
+
+// One transaction stores the run, evidence, rule state, finding and mirrored risk. The
+// partial unique index arbitrates repeat/concurrent findings; no read-then-insert race.
+function findingStatements(db:D1Database,rule:RuleRow,evidenceId:string|null,detail:string,actor:string,now:Date,runId:string,status:string,errorCode:string|null){
+ const id=`CCM-${crypto.randomUUID()}`,stamp=now.toISOString(),owner=rule.remediation_owner||actor,dueDate=remediationDueDate(rule.remediation_due_days,now),severity=rule.consecutive_failures+1>=Math.max(3,rule.failure_threshold)?"critical":"high",title=`Sürekli kontrol başarısız: ${rule.name}`;
+ const risk={category:"Compliance",status:"Açık",asset:"Continuous Control Monitoring",description:detail,treatment:`${rule.control_refs} kontrolleri için kaynağı ve doğrulama eşiğini düzeltin.`,source:"Continuous Control Monitoring",sourceRef:rule.id,inherentLikelihood:"4"};
+ const monitoring={runId,status,errorCode,detail,lastObservedAt:stamp},receipt=executionReceipt(rule.id,runId);
+ return [
+  db.prepare(`INSERT INTO evidence_automation_findings(id,rule_id,evidence_id,title,severity,owner,due_date,status,detail,occurrence_count,created_at,updated_at) SELECT ?,?,?,?,?,?,?,'open',?,1,?,? WHERE ${receipt.sql} ON CONFLICT(rule_id) WHERE status!='closed' DO UPDATE SET evidence_id=excluded.evidence_id,detail=excluded.detail,occurrence_count=evidence_automation_findings.occurrence_count+1,updated_at=excluded.updated_at`)
+   .bind(id,rule.id,evidenceId,title,severity,owner,dueDate,detail,stamp,stamp,...receipt.values),
+  db.prepare(`INSERT INTO simple_grc_records(id,module,data_json,created_at,updated_at)
+   SELECT id,'Risk Assessment',json_set(?,'$.title',title,'$.owner',owner,'$.nextReview',due_date,
+    '$.riskLevel',CASE severity WHEN 'critical' THEN 'Kritik' ELSE 'Yüksek' END,
+    '$.inherentImpact',CASE severity WHEN 'critical' THEN '5' ELSE '4' END,
+    '$.calculatedImpact',CASE severity WHEN 'critical' THEN '20' ELSE '16' END,
+    '$.evidenceRef',coalesce(evidence_id,''),'$.monitoring',json_set(?,'$.occurrenceCount',occurrence_count)),created_at,?
+   FROM evidence_automation_findings WHERE rule_id=? AND status!='closed' AND ${receipt.sql}
+   ON CONFLICT(id) DO UPDATE SET data_json=json_set(simple_grc_records.data_json,
+    '$.evidenceRef',json_extract(excluded.data_json,'$.evidenceRef'),
+    '$.monitoring',json_extract(excluded.data_json,'$.monitoring')),updated_at=excluded.updated_at
+   WHERE simple_grc_records.module='Risk Assessment'`)
+   .bind(JSON.stringify(risk),JSON.stringify(monitoring),stamp,rule.id,...receipt.values),
+ ];
+}
+
+export async function requestSource(source:Pick<SourceRow,'config_json'|'driver'|'secret_ciphertext'>,env:Env,keepPayload:boolean,fetcher?:ExecutionOptions["fetcher"]){const cfg=JSON.parse(source.config_json||"{}") as Record<string,string>,url=safeHttpUrl(cfg.baseUrl,privateAllowed(env));if(!url)throw new Error("Kaynak adresi güvenlik politikasına uygun değil.");let secret="";if(source.secret_ciphertext){const key=envText(env,"FORNOST_SETTINGS_ENCRYPTION_KEY");if(!key)throw new Error("Entegrasyon şifreleme anahtarı eksik.");secret=await decryptSecret(source.secret_ciphertext,key)}if(source.driver==="provider-v1"){const payload=await collectProvider(cfg,secret,{allowPrivate:privateAllowed(env),fetcher});return keepPayload?payload:{ok:true,collection:payload.fornostCollection}}const headers:Record<string,string>={accept:"application/json","user-agent":"Fornost-GRC-Evidence-Collector/1.0"};if(cfg.authType==="bearer"&&secret)headers.authorization=`Bearer ${secret}`;else if(cfg.authType==="api-key"&&secret)headers[cfg.headerName||"x-api-key"]=secret;else if(cfg.authType==="basic"&&secret)headers.authorization=`Basic ${btoa(secret)}`;const response=await (fetcher||fetch)(url,{method:"GET",headers,redirect:"error",signal:AbortSignal.timeout(12_000)});if(!response.ok)throw new Error(`Kaynak API yanıt vermedi (${response.status}).`);const type=response.headers.get("content-type")||"";if(!type.includes("json"))throw new Error("Kaynak JSON yanıtı döndürmedi.");const text=await response.text();if(text.length>1_000_000)throw new Error("API yanıtı 1 MB sınırını aşıyor.");const payload=JSON.parse(text);return keepPayload?payload:{ok:true}}

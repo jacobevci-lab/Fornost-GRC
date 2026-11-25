@@ -1,0 +1,236 @@
+/* Dashboard v8 — focus-first executive canvas.
+   This layer changes hierarchy and density only. Existing Fornost tokens, palette, dark mode and data sources remain intact. */
+
+.workspace-dashboard.fornost-dashboard-v8 .ed4-shell{
+  max-width:1480px;
+  gap:14px;
+}
+
+/* Remove duplicate narrative/telemetry surfaces from the first view. */
+.workspace-dashboard.fornost-dashboard-v8 .ed4-ai-brief,
+.workspace-dashboard.fornost-dashboard-v8 .ed4-action-center,
+.workspace-dashboard.fornost-dashboard-v8 .ed4-metrics{
+  display:none!important;
+}
+
+/* Executive posture becomes a single calm status bar. */
+.workspace-dashboard.fornost-dashboard-v8 .ed6-summary-mount{order:1;width:100%}
+.workspace-dashboard.fornost-dashboard-v8 .ed6-summary{
+  grid-template-columns:minmax(420px,1.75fr) repeat(3,minmax(160px,.72fr));
+  border-radius:13px;
+  box-shadow:none;
+}
+.workspace-dashboard.fornost-dashboard-v8 .ed6-posture,
+.workspace-dashboard.fornost-dashboard-v8 .ed6-summary-item{min-height:74px}
+.workspace-dashboard.fornost-dashboard-v8 .ed6-posture{padding:10px 15px;gap:13px}
+.workspace-dashboard.fornost-dashboard-v8 .ed6-posture-score{
+  width:58px;
+  height:58px;
+  flex:none;
+  white-space:nowrap;
+  gap:2px;
+}
+.workspace-dashboard.fornost-dashboard-v8 .ed6-posture-score b{font-size:17px;white-space:nowrap}
+.workspace-dashboard.fornost-dashboard-v8 .ed6-posture-score small{font-size:7px;white-space:nowrap}
+.workspace-dashboard.fornost-dashboard-v8 .ed6-posture>span:nth-child(2)>small{font-size:7px}
+.workspace-dashboard.fornost-dashboard-v8 .ed6-posture>span:nth-child(2)>strong{font-size:12px}
+.workspace-dashboard.fornost-dashboard-v8 .ed6-posture>span:nth-child(2)>em{font-size:7px}
+.workspace-dashboard.fornost-dashboard-v8 .ed6-summary-item{padding:10px 13px}
+.workspace-dashboard.fornost-dashboard-v8 .ed6-summary-item>span small{font-size:6.8px}
+.workspace-dashboard.fornost-dashboard-v8 .ed6-summary-item>span strong{font-size:18px}
+.workspace-dashboard.fornost-dashboard-v8 .ed6-summary-item p{font-size:6.7px}
+
+/* One primary surface: decision board owns prioritisation. */
+.workspace-dashboard.fornost-dashboard-v8 .ed4-grid{
+  order:2;
+  display:grid;
+  grid-template-columns:repeat(12,minmax(0,1fr));
+  gap:14px;
+  align-items:start;
+}
+.workspace-dashboard.fornost-dashboard-v8 .ed7-decisions-mount{
+  order:0;
+  grid-column:1/-1!important;
+  min-width:0;
+}
+.workspace-dashboard.fornost-dashboard-v8 .ed7-decision-board{
+  border-radius:14px;
+  box-shadow:none;
+}
+.workspace-dashboard.fornost-dashboard-v8 .ed7-decision-head{
+  min-height:66px;
+  padding:10px 15px;
+}
+.workspace-dashboard.fornost-dashboard-v8 .ed7-decision-head h3{font-size:14px}
+.workspace-dashboard.fornost-dashboard-v8 .ed7-decision-head p{font-size:7px}
+.workspace-dashboard.fornost-dashboard-v8 .ed7-decision-stats{
+  background:transparent;
+  border:0;
+  gap:8px;
+  overflow:visible;
+}
+.workspace-dashboard.fornost-dashboard-v8 .ed7-decision-stats span{
+  min-width:58px;
+  padding:4px 7px;
+  border:1px solid var(--cp-line)!important;
+  border-radius:8px;
+  background:var(--cp-panel-2);
+}
+.workspace-dashboard.fornost-dashboard-v8 .ed7-decision-stats b{font-size:12px}
+.workspace-dashboard.fornost-dashboard-v8 .ed7-decision-stats small{font-size:5.7px}
+.workspace-dashboard.fornost-dashboard-v8 .ed7-decision-row{
+  grid-template-columns:100px minmax(0,2.5fr) minmax(130px,.9fr) 76px 86px;
+  gap:12px;
+  padding-inline:15px;
+}
+.workspace-dashboard.fornost-dashboard-v8 .ed7-decision-labels{min-height:31px;font-size:6px}
+.workspace-dashboard.fornost-dashboard-v8 button.ed7-decision-row{min-height:50px}
+.workspace-dashboard.fornost-dashboard-v8 button.ed7-decision-row>span{font-size:7px}
+.workspace-dashboard.fornost-dashboard-v8 button.ed7-decision-row>span:nth-child(2) b{font-size:7.8px}
+.workspace-dashboard.fornost-dashboard-v8 button.ed7-decision-row>span:nth-child(2) small{font-size:6.2px}
+.workspace-dashboard.fornost-dashboard-v8 button.ed7-decision-row>span:nth-child(4) strong{min-width:32px;height:24px;font-size:7.5px}
+
+/* Balanced 2x2 management layer — no tall three-column card wall. */
+.workspace-dashboard.fornost-dashboard-v8 .ed4-frameworks{
+  order:1!important;
+  grid-column:span 6!important;
+  min-width:0;
+  min-height:178px;
+}
+.workspace-dashboard.fornost-dashboard-v8 .ed6-watch-mount{
+  order:2;
+  grid-column:span 6!important;
+  min-width:0;
+}
+.workspace-dashboard.fornost-dashboard-v8 .ed4-assurance{
+  order:3!important;
+  grid-column:span 6!important;
+  min-width:0;
+}
+.workspace-dashboard.fornost-dashboard-v8 .ed4-audit{
+  order:4!important;
+  grid-column:span 6!important;
+  min-width:0;
+}
+.workspace-dashboard.fornost-dashboard-v8 .ed4-frameworks,
+.workspace-dashboard.fornost-dashboard-v8 .ed6-watch,
+.workspace-dashboard.fornost-dashboard-v8 .ed4-assurance,
+.workspace-dashboard.fornost-dashboard-v8 .ed4-audit{
+  border-radius:13px;
+  box-shadow:none;
+}
+
+/* KPI/KRI is a compact 3x2 threshold matrix, not a long rail. */
+.workspace-dashboard.fornost-dashboard-v8 .ed6-watch-list{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+}
+.workspace-dashboard.fornost-dashboard-v8 .ed6-watch-list>button{
+  min-height:64px;
+  border-right:1px solid var(--cp-line)!important;
+  border-bottom:1px solid var(--cp-line)!important;
+  padding:9px 10px;
+}
+.workspace-dashboard.fornost-dashboard-v8 .ed6-watch-list>button:nth-child(3n){border-right:0!important}
+.workspace-dashboard.fornost-dashboard-v8 .ed6-watch-list>button:nth-last-child(-n+3){border-bottom:0!important}
+.workspace-dashboard.fornost-dashboard-v8 .ed6-watch-list>button b{font-size:6.8px}
+.workspace-dashboard.fornost-dashboard-v8 .ed6-watch-list>button small{font-size:5.9px;white-space:normal;line-height:1.3}
+.workspace-dashboard.fornost-dashboard-v8 .ed6-watch-list>button>strong{font-size:10px}
+
+/* Compliance and audit should remain readable even with sparse demo data. */
+.workspace-dashboard.fornost-dashboard-v8 .ed4-frameworks .ed4-panel-head,
+.workspace-dashboard.fornost-dashboard-v8 .ed4-audit .ed4-panel-head,
+.workspace-dashboard.fornost-dashboard-v8 .ed4-assurance .ed4-panel-head,
+.workspace-dashboard.fornost-dashboard-v8 .ed6-watch .ed4-panel-head{min-height:52px}
+.workspace-dashboard.fornost-dashboard-v8 .ed4-framework-list{padding-bottom:8px}
+.workspace-dashboard.fornost-dashboard-v8 .ed4-audit{align-self:stretch}
+.workspace-dashboard.fornost-dashboard-v8 .ed4-assurance{align-self:stretch}
+
+/* Deep analysis is progressive disclosure. Default dashboard ends after the management layer. */
+.workspace-dashboard.fornost-dashboard-v8 .ed4-changes,
+.workspace-dashboard.fornost-dashboard-v8 .ed4-risk-map{
+  display:none!important;
+}
+.workspace-dashboard.fornost-dashboard-v8.ed8-analysis-open .ed4-changes{
+  display:block!important;
+  order:5!important;
+  grid-column:span 4!important;
+}
+.workspace-dashboard.fornost-dashboard-v8.ed8-analysis-open .ed4-risk-map{
+  display:block!important;
+  order:6!important;
+  grid-column:span 8!important;
+}
+.workspace-dashboard.fornost-dashboard-v8.ed8-analysis-open .ed4-change-list{
+  grid-template-columns:1fr!important;
+}
+.workspace-dashboard.fornost-dashboard-v8.ed8-analysis-open .ed4-change-list button{
+  min-height:38px!important;
+  border-right:0!important;
+  border-bottom:1px solid var(--cp-line)!important;
+  padding:7px 10px!important;
+}
+.workspace-dashboard.fornost-dashboard-v8.ed8-analysis-open .ed4-change-list button:last-child{border-bottom:0!important}
+.workspace-dashboard.fornost-dashboard-v8.ed8-analysis-open .ed4-risk-map .ed4-heatmap-row button{min-height:25px}
+.workspace-dashboard.fornost-dashboard-v8.ed8-analysis-open .ed4-risk-map .ed6-top-risks{display:none!important}
+
+/* Analysis toggle lives with period/customize controls and uses existing theme tokens. */
+.ed8-analysis-toggle{
+  min-height:30px;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:0 10px;
+  border:1px solid var(--cp-line);
+  border-radius:8px;
+  background:var(--cp-panel-2);
+  color:var(--cp-muted);
+  font:inherit;
+  font-size:7px;
+  font-weight:800;
+  cursor:pointer;
+}
+.ed8-analysis-toggle:hover,.ed8-analysis-toggle.active{color:var(--cp-ink);border-color:color-mix(in srgb,var(--cp-mint) 45%,var(--cp-line));background:color-mix(in srgb,var(--cp-mint) 6%,var(--cp-panel-2))}
+.ed8-analysis-toggle span{color:var(--cp-mint);font-size:12px;line-height:1}
+.ed8-analysis-toggle:focus-visible{outline:2px solid var(--cp-mint);outline-offset:2px}
+
+/* Reduce dead space around the end of the executive view. */
+.workspace-dashboard.fornost-dashboard-v8 .ed4-footer{margin-top:2px}
+
+@media(max-width:1180px){
+  .workspace-dashboard.fornost-dashboard-v8 .ed6-summary{grid-template-columns:minmax(330px,1.4fr) repeat(3,minmax(125px,.72fr))}
+  .workspace-dashboard.fornost-dashboard-v8 .ed7-decision-row{grid-template-columns:82px minmax(0,2fr) minmax(100px,.8fr) 62px 74px}
+  .workspace-dashboard.fornost-dashboard-v8 .ed6-watch-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .workspace-dashboard.fornost-dashboard-v8 .ed6-watch-list>button:nth-child(n){border-right:1px solid var(--cp-line)!important;border-bottom:1px solid var(--cp-line)!important}
+  .workspace-dashboard.fornost-dashboard-v8 .ed6-watch-list>button:nth-child(2n){border-right:0!important}
+  .workspace-dashboard.fornost-dashboard-v8 .ed6-watch-list>button:nth-last-child(-n+2){border-bottom:0!important}
+}
+
+@media(max-width:920px){
+  .workspace-dashboard.fornost-dashboard-v8 .ed6-summary{grid-template-columns:1fr 1fr}
+  .workspace-dashboard.fornost-dashboard-v8 .ed6-posture{grid-column:1/-1}
+  .workspace-dashboard.fornost-dashboard-v8 .ed4-frameworks,
+  .workspace-dashboard.fornost-dashboard-v8 .ed6-watch-mount,
+  .workspace-dashboard.fornost-dashboard-v8 .ed4-assurance,
+  .workspace-dashboard.fornost-dashboard-v8 .ed4-audit,
+  .workspace-dashboard.fornost-dashboard-v8.ed8-analysis-open .ed4-changes,
+  .workspace-dashboard.fornost-dashboard-v8.ed8-analysis-open .ed4-risk-map{grid-column:1/-1!important}
+  .workspace-dashboard.fornost-dashboard-v8 .ed7-decision-head{align-items:flex-start;flex-direction:column}
+  .workspace-dashboard.fornost-dashboard-v8 .ed7-decision-stats{width:100%}
+  .workspace-dashboard.fornost-dashboard-v8 .ed7-decision-stats span{flex:1}
+}
+
+@media(max-width:680px){
+  .workspace-dashboard.fornost-dashboard-v8 .ed6-summary{grid-template-columns:1fr}
+  .workspace-dashboard.fornost-dashboard-v8 .ed6-posture-score{width:54px;height:54px}
+  .workspace-dashboard.fornost-dashboard-v8 .ed7-decision-row{grid-template-columns:70px minmax(0,1fr) 54px}
+  .workspace-dashboard.fornost-dashboard-v8 .ed7-decision-row>span:nth-child(3),
+  .workspace-dashboard.fornost-dashboard-v8 .ed7-decision-row>span:nth-child(5){display:none}
+  .workspace-dashboard.fornost-dashboard-v8 .ed7-decision-stats{display:grid;grid-template-columns:1fr 1fr}
+  .workspace-dashboard.fornost-dashboard-v8 .ed6-watch-list{grid-template-columns:1fr}
+  .workspace-dashboard.fornost-dashboard-v8 .ed6-watch-list>button:nth-child(n){border-right:0!important;border-bottom:1px solid var(--cp-line)!important}
+  .workspace-dashboard.fornost-dashboard-v8 .ed6-watch-list>button:last-child{border-bottom:0!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .workspace-dashboard.fornost-dashboard-v8 *, .ed8-analysis-toggle{transition:none!important;animation:none!important;scroll-behavior:auto!important}
+}

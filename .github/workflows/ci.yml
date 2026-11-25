@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run db:validate
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+      - name: Unit and regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_log="$(mktemp)"
+          trap 'rm -f "${test_log}"' EXIT
+          for test_file in tests/*.test.*; do
+            : > "${test_log}"
+            if ! node --import tsx --test "${test_file}" >"${test_log}" 2>&1; then
+              echo "Regression test failed: ${test_file}" >&2
+              cat "${test_log}" >&2
+              exit 1
+            fi
+          done
+          echo "All regression test files passed."
+      - name: On-prem installer smoke test
+        run: bash tests/onprem-install-smoke.sh
+      - name: Run dependency audit
+        shell: bash
+        run: bash scripts/audit-dependencies.sh
+      - run: npm run validate:artifact
+
+  onprem-container-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [docker, podman]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Podman
+        if: matrix.engine == 'podman'
+        run: sudo apt-get update && sudo apt-get install -y podman
+      - name: Run full on-prem integration
+        run: >-
+          sudo env
+          FORNOST_INTEGRATION_TEST=1
+          FORNOST_CONTAINER_ENGINE=${{ matrix.engine }}
+          FORNOST_INTEGRATION_PORT=18443
+          FORNOST_BUILD_LOCAL=true
+          bash tests/onprem-container-integration.sh
+      - name: Verify final runtime libraries
+        run: sudo ${{ matrix.engine }} run --rm localhost/fornost-grc-app:latest scripts/linux/runtime-library-smoke.mjs
+      - name: Scan final application image before merge
+        if: matrix.engine == 'docker'
+        run: |
+          mkdir -p security-artifacts
+          docker save localhost/fornost-grc-app:latest -o /tmp/ci-runtime-image.tar
+          docker run --rm -v /tmp/ci-runtime-image.tar:/scan/image.tar:ro \
+            -v "$PWD/security-artifacts:/out" aquasec/trivy:latest image \
+            --input /scan/image.tar --scanners vuln --severity HIGH,CRITICAL \
+            --exit-code 1 --format json --output /out/runtime-image.json
+      - name: Preserve runtime security evidence
+        if: always() && matrix.engine == 'docker'
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-image-security
+          path: security-artifacts/runtime-image.json
+          if-no-files-found: warn
+
+  rhel-family-shell-compatibility:
+    name: rhel-family-shell-compatibility (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - rockylinux:8
+          - rockylinux:9
+          - almalinux:8
+          - almalinux:9
+          - quay.io/centos/centos:stream9
+          - quay.io/centos/centos:stream10
+        # Vendor-published registries avoid Docker Hub's anonymous pull limits.
+        # https://wiki.almalinux.org/containers/docker-images
+        # https://github.com/rocky-linux/community.rocky.page/blob/main/Containerfile
+        include:
+          - image: rockylinux:8
+            registry: quay.io/rockylinux/rockylinux:8
+          - image: rockylinux:9
+            registry: quay.io/rockylinux/rockylinux:9
+          - image: almalinux:8
+            registry: quay.io/almalinuxorg/almalinux:8
+          - image: almalinux:9
+            registry: quay.io/almalinuxorg/almalinux:9
+    steps:
+      - uses: actions/checkout@v4
+      # Use the interpreter already shipped by the image; install only when absent.
+      # All installer and restore checks still run, including on CentOS mirror outages.
+      - name: Validate installer on ${{ matrix.image }}
+        run: >-
+          docker run --rm
+          --volume "$PWD:/src:ro"
+          --workdir /src
+          "${{ matrix.registry || matrix.image }}"
+          bash -lc '(command -v python3 >/dev/null 2>&1 || dnf -q -y install python3 >/dev/null) && python3 --version && bash -n scripts/linux/*.sh tests/onprem-install-smoke.sh && bash tests/onprem-install-smoke.sh && python3 tests/onprem-backup-test.py'

@@ -1,0 +1,356 @@
+/* Dashboard v11 — readability and density polish.
+   Overrides only the executive dashboard presentation. Theme tokens, palette,
+   data sources, risk methodology and navigation remain unchanged. */
+
+/* Use more of wide enterprise displays without stretching the page edge-to-edge. */
+.workspace-dashboard.fornost-dashboard-v9 .ed4-shell{
+  width:min(100%,1680px);
+  max-width:1680px;
+  gap:18px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-toolbar h2{
+  font-size:24px;
+  line-height:1.1;
+  letter-spacing:-.035em;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-toolbar p{
+  font-size:11px;
+  line-height:1.45;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-toolbar-controls button,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-toolbar-controls span{
+  font-size:10px;
+}
+
+/* Executive health strip: readable at 1440p/4K without looking oversized. */
+.workspace-dashboard.fornost-dashboard-v9 .ed9-health-item{
+  min-height:104px;
+  padding:14px 16px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-health-item small{
+  font-size:10px;
+  line-height:1.2;
+  letter-spacing:.11em;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-health-item strong{
+  margin-top:7px;
+  font-size:23px;
+  line-height:1;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-health-item span{
+  margin-top:7px;
+  font-size:10.5px;
+  line-height:1.35;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-health-item em{
+  margin-top:9px;
+  padding:4px 8px;
+  font-size:9.5px;
+  line-height:1.1;
+}
+
+/* Shared panel heading rhythm. */
+.workspace-dashboard.fornost-dashboard-v9 .ed4-panel-head{
+  min-height:64px;
+  padding:12px 16px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-panel-head small{
+  font-size:9.5px;
+  line-height:1.2;
+  letter-spacing:.12em;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-panel-head h3{
+  margin-top:4px;
+  font-size:13px;
+  line-height:1.25;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-panel-head button{
+  font-size:10.5px;
+}
+
+/* Decision board should read like a management queue, not a tiny data grid. */
+.workspace-dashboard.fornost-dashboard-v9 .ed7-decision-head{
+  min-height:78px;
+  padding:14px 18px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed7-decision-head small{
+  font-size:10px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed7-decision-head h3{
+  font-size:17px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed7-decision-head p{
+  max-width:700px;
+  font-size:10.5px;
+  line-height:1.45;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed7-decision-row{
+  grid-template-columns:96px minmax(0,2.35fr) minmax(130px,.8fr) 80px 92px;
+  gap:12px;
+  padding-inline:18px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed7-decision-labels{
+  min-height:34px;
+  font-size:9px;
+  letter-spacing:.08em;
+}
+.workspace-dashboard.fornost-dashboard-v9 button.ed7-decision-row{
+  min-height:62px;
+}
+.workspace-dashboard.fornost-dashboard-v9 button.ed7-decision-row>span{
+  font-size:10.5px;
+}
+.workspace-dashboard.fornost-dashboard-v9 button.ed7-decision-row>span:nth-child(2) b{
+  font-size:12px;
+}
+.workspace-dashboard.fornost-dashboard-v9 button.ed7-decision-row>span:nth-child(2) small{
+  margin-top:2px;
+  font-size:10px;
+}
+.workspace-dashboard.fornost-dashboard-v9 button.ed7-decision-row>span:nth-child(4) strong{
+  min-width:34px;
+  height:25px;
+  font-size:10.5px;
+}
+
+/* Management outlook: forward-looking, compact, but legible. */
+.workspace-dashboard.fornost-dashboard-v9 .ed10-outlook .ed4-panel-head{
+  min-height:78px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed10-outlook .ed4-panel-head>b{
+  min-width:30px;
+  height:30px;
+  font-size:10px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed10-outlook-list button{
+  min-height:92px!important;
+  grid-template-columns:34px minmax(0,1fr)!important;
+  gap:10px!important;
+  padding:12px!important;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed10-outlook-list i{
+  width:30px!important;
+  height:30px!important;
+  font-size:10px!important;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed10-outlook-list span b{
+  font-size:10.5px!important;
+  line-height:1.3;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed10-outlook-list span small{
+  margin-top:4px;
+  font-size:9.5px!important;
+  line-height:1.4;
+}
+
+/* 2x2 governance domains: readable information density and less dead space. */
+.workspace-dashboard.fornost-dashboard-v9 .ed9-risk-domain,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-frameworks{
+  min-height:194px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-audit{
+  min-height:226px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-domain-metrics{
+  min-height:128px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-domain-metrics button{
+  padding:15px 16px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-domain-metrics small{
+  font-size:10px;
+  line-height:1.3;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-domain-metrics strong{
+  margin-top:8px;
+  font-size:20px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-domain-metrics span{
+  margin-top:6px;
+  font-size:9.5px;
+  line-height:1.35;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-framework-list{
+  max-height:132px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-framework-list button{
+  min-height:72px;
+  padding:14px 16px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-framework-list button div b{
+  font-size:11.5px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-framework-list button div span{
+  margin-top:4px;
+  font-size:9.5px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-framework-list button>strong{
+  font-size:13px;
+}
+
+/* Continuous assurance: keep all four signals visible and readable. */
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance-score{
+  padding:13px 16px;
+  gap:14px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-score-ring{
+  width:70px;
+  height:70px;
+  flex-basis:70px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance-score b,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance-score strong{
+  font-size:13px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance-score small,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance-score span{
+  font-size:9.5px!important;
+  line-height:1.4;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance-grid button{
+  min-height:62px;
+  padding:10px 13px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance-grid button b,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance-grid button strong{
+  font-size:11.5px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance-grid button small,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-assurance-grid button span{
+  font-size:9.5px;
+  line-height:1.35;
+}
+
+/* Audit/remediation: lift the executive values, keep explanatory copy readable. */
+.workspace-dashboard.fornost-dashboard-v9 .ed4-audit-summary>div{
+  padding:13px 14px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-audit-summary small,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-next-milestone small,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-audit-links button{
+  font-size:9.5px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-audit-summary strong,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-next-milestone strong{
+  font-size:13px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-audit-summary span,
+.workspace-dashboard.fornost-dashboard-v9 .ed4-next-milestone span{
+  font-size:9.5px;
+  line-height:1.35;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed4-audit-links button{
+  min-height:44px;
+}
+
+/* KPI/KRI table: slightly denser rows with substantially larger text. */
+.workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-table .ed4-panel-head{
+  min-height:64px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-head,
+.workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-row{
+  grid-template-columns:minmax(280px,2.6fr) minmax(120px,.65fr) minmax(110px,.6fr) minmax(160px,.85fr);
+  gap:16px;
+  padding-inline:16px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-head{
+  min-height:38px;
+  font-size:9px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-row{
+  min-height:50px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-row>span:first-child{
+  font-size:10.5px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-row>strong{
+  font-size:11.5px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-row>span:nth-child(3){
+  font-size:10px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed10-status{
+  min-width:122px;
+  padding:5px 9px;
+  font-size:9.5px;
+}
+.workspace-dashboard.fornost-dashboard-v9 .ed10-status i{
+  width:7px;
+  height:7px;
+}
+
+/* Footer record counts are operational metadata, not executive content. */
+.workspace-dashboard.fornost-dashboard-v9 .ed4-footer{
+  display:none!important;
+}
+
+/* Keep the floating AI launcher clear of dashboard content and suppress decorative
+   pseudo-elements on the dashboard surface if another AI layer adds them. */
+.workspace-dashboard.fornost-dashboard-v9~.fornost-ai-launcher,
+body:has(.workspace-dashboard.fornost-dashboard-v9) .fornost-ai-launcher{
+  right:22px;
+  bottom:20px;
+}
+body:has(.workspace-dashboard.fornost-dashboard-v9) .fornost-ai-launcher::before,
+body:has(.workspace-dashboard.fornost-dashboard-v9) .fornost-ai-launcher::after{
+  display:none!important;
+  content:none!important;
+}
+
+@media(max-width:1500px){
+  .workspace-dashboard.fornost-dashboard-v9 .ed4-shell{
+    width:100%;
+    padding-inline:16px;
+  }
+  .workspace-dashboard.fornost-dashboard-v9 .ed7-decision-row{
+    grid-template-columns:88px minmax(0,2fr) minmax(115px,.8fr) 72px 84px;
+  }
+}
+
+@media(max-width:1100px){
+  .workspace-dashboard.fornost-dashboard-v9 .ed9-health-strip{
+    grid-template-columns:repeat(3,1fr);
+  }
+  .workspace-dashboard.fornost-dashboard-v9 .ed7-decisions-mount,
+  .workspace-dashboard.fornost-dashboard-v9 .ed9-signals-mount{
+    grid-column:1/-1!important;
+  }
+  .workspace-dashboard.fornost-dashboard-v9 .ed10-outlook-list{
+    grid-template-columns:repeat(4,1fr);
+  }
+  .workspace-dashboard.fornost-dashboard-v9 .ed10-outlook-list button{
+    border-right:1px solid var(--cp-line)!important;
+  }
+  .workspace-dashboard.fornost-dashboard-v9 .ed10-outlook-list button:last-child{
+    border-right:0!important;
+  }
+}
+
+@media(max-width:760px){
+  .workspace-dashboard.fornost-dashboard-v9 .ed9-health-item small{font-size:9px}
+  .workspace-dashboard.fornost-dashboard-v9 .ed9-health-item strong{font-size:19px}
+  .workspace-dashboard.fornost-dashboard-v9 .ed9-health-item span{font-size:9px}
+  .workspace-dashboard.fornost-dashboard-v9 .ed10-outlook-list{grid-template-columns:1fr 1fr}
+  .workspace-dashboard.fornost-dashboard-v9 .ed7-decision-labels{display:none}
+  .workspace-dashboard.fornost-dashboard-v9 .ed7-decision-row{
+    grid-template-columns:76px minmax(0,1fr) 58px;
+  }
+  .workspace-dashboard.fornost-dashboard-v9 .ed7-decision-row>span:nth-child(3),
+  .workspace-dashboard.fornost-dashboard-v9 .ed7-decision-row>span:nth-child(5){display:none}
+  .workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-head{display:none}
+  .workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-row{
+    grid-template-columns:1fr auto;
+    grid-template-areas:"metric current" "target status";
+    padding:10px 12px;
+    gap:7px 12px;
+  }
+  .workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-row>span:first-child{grid-area:metric}
+  .workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-row>strong{grid-area:current}
+  .workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-row>span:nth-child(3){grid-area:target}
+  .workspace-dashboard.fornost-dashboard-v9 .ed10-status{grid-area:status;justify-self:end}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .workspace-dashboard.fornost-dashboard-v9 *{transition:none!important;animation:none!important}
+}

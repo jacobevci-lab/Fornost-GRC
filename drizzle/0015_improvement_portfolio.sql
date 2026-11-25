@@ -1,0 +1,4 @@
+CREATE TABLE `security_improvement_portfolio` (`id` text PRIMARY KEY NOT NULL,`improvement_id` text NOT NULL,`tenant_id` text NOT NULL,`theme` text NOT NULL,`risk_reduction` integer NOT NULL,`effort` integer NOT NULL,`estimated_cost` text NOT NULL,`dependencies` text NOT NULL,`priority_score` integer NOT NULL,`status` text NOT NULL,`proposed_by` text NOT NULL,`proposed_at` text NOT NULL,`decided_by` text,`decided_at` text,`decision_note` text,`funding_owner` text);
+CREATE UNIQUE INDEX `security_improvement_portfolio_improvement_id_unique` ON `security_improvement_portfolio` (`improvement_id`);
+CREATE INDEX `security_improvement_portfolio_tenant_status_idx` ON `security_improvement_portfolio` (`tenant_id`,`status`);
+CREATE INDEX `security_improvement_portfolio_priority_idx` ON `security_improvement_portfolio` (`tenant_id`,`priority_score`);

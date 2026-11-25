@@ -1,0 +1,119 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+
+const producer = readFileSync("app/navigation-focus.ts", "utf8");
+const bridge = readFileSync("app/navigation-focus-bridge.tsx", "utf8");
+const platformExperience = readFileSync("app/platform-experience.tsx", "utf8");
+
+test("navigation producer persists record context before changing modules", () => {
+  assert.match(producer, /rememberFocus\(target\)/);
+  assert.match(producer, /button\?\.click\(\)/);
+  assert.match(producer, /dispatchFocus\(target\)/);
+  assert.match(producer, /window\.setTimeout\(\(\) => dispatchFocus\(target\), 0\)/);
+});
+
+test("focus bridge applies pending context to the active register", () => {
+  assert.match(bridge, /sameDomainModule/);
+  assert.match(bridge, /main \.table-card \.register-search input/);
+  assert.match(bridge, /HTMLInputElement\.prototype/);
+  assert.match(bridge, /new Event\("input", \{ bubbles: true \}\)/);
+  assert.match(bridge, /consumePendingFornostFocus\(current\.module\)/);
+  assert.match(bridge, /fornost-focus-row/);
+  assert.match(bridge, /scrollIntoView/);
+});
+
+test("deep-link row matching prefers exact visible or hidden record references before fuzzy text", () => {
+  assert.match(bridge, /function exactMatchingRow\(rows: HTMLTableRowElement\[], value: string\)/);
+  assert.match(bridge, /Array\.from\(row\.cells\)\.some\(\(cell\) => normalize\(cell\.textContent\) === needle\)/);
+  assert.match(bridge, /row\.querySelectorAll<HTMLElement>\("\[title\]"\)/);
+  assert.match(bridge, /normalize\(node\.getAttribute\("title"\)\) === needle/);
+  assert.match(bridge, /const exact = exactMatchingRow\(rows, value\)/);
+  assert.match(bridge, /return exact \|\| rows\.find\(\(row\) => normalize\(row\.textContent\)\.includes\(needle\)\) \|\| null/);
+});
+
+test("generic register resolves hidden governed ids before applying a lossy local search filter", () => {
+  const start = bridge.indexOf("function applyFocus");
+  const end = bridge.indexOf("export default function NavigationFocusBridge");
+  const adapter = bridge.slice(start, end);
+  assert.match(adapter, /if \(highlightMatchingRow\(value, true\)\) \{/);
+  assert.match(adapter, /search\.focus\(\{ preventScroll: true \}\);[\s\S]*return true;/);
+  assert.match(adapter, /if \(search\.value !== value\) \{[\s\S]*setControlledInputValue\(search, value\);[\s\S]*return false;/);
+  assert.match(adapter, /return highlightMatchingRow\(value\);/);
+  assert.doesNotMatch(adapter, /setTimeout\(\(\) => highlightMatchingRow/);
+  assert.match(bridge, /retryTimer = window\.setTimeout\(tryApply, 90\)/);
+});
+
+test("finding focus resets local filters and opens the native finding detail", () => {
+  assert.match(bridge, /sameDomainModule\(request\.module, "Bulgular ve CAPA"\)/);
+  assert.match(bridge, /function applyFindingFocus/);
+  assert.match(bridge, /\.finding-toolbar input/);
+  assert.match(bridge, /\.finding-toolbar select/);
+  assert.match(bridge, /setControlledSelectValue\(status, "all"\)/);
+  assert.match(bridge, /\.finding-table tbody tr/);
+  assert.match(bridge, /matchingRow\(rows, value\)/);
+  assert.match(bridge, /match\.click\(\)/);
+});
+
+test("evidence automation focus resolves semantic bilingual tabs before index fallback", () => {
+  assert.match(bridge, /sameDomainModule\(request\.module, "Kanıt Otomasyonu"\)/);
+  assert.match(bridge, /type AutomationTabKind = "finding" \| "rule" \| "source" \| "evidence"/);
+  assert.match(bridge, /function evidenceAutomationTabKind/);
+  assert.match(bridge, /filter\?\.findingRef/);
+  assert.match(bridge, /filter\?\.ruleRef/);
+  assert.match(bridge, /filter\?\.sourceRef/);
+  assert.match(bridge, /filter\?\.evidenceRef/);
+  assert.match(bridge, /evidenceAutomationTabAliases/);
+  assert.match(bridge, /"sürekli kontroller"/);
+  assert.match(bridge, /"continuous controls"/);
+  assert.match(bridge, /"kanıt akışı"/);
+  assert.match(bridge, /"çalıştırma geçmişi"/);
+  assert.match(bridge, /"run history"/);
+  assert.match(bridge, /semantic \|\| tabs\[evidenceAutomationTabFallback\[kind\]\]/);
+  assert.match(bridge, /\.ea-tabs button\[data-ea-tab\]/);
+  assert.match(bridge, /targetTab\.click\(\)/);
+  assert.match(bridge, /\.ea-table tbody tr/);
+  assert.match(bridge, /highlightRows\(rows, match\)/);
+});
+
+test("automation source, rule, evidence and finding ids resolve to exact API row positions", () => {
+  assert.match(bridge, /const automationRowIndexes = new Map<string, number>\(\)/);
+  assert.match(bridge, /function cacheAutomationRowIndexes\(body: AutomationIndexPayload\)/);
+  assert.match(bridge, /automationRowKey\("source", source\.id\)/);
+  assert.match(bridge, /automationRowKey\("rule", rule\.id\)/);
+  assert.match(bridge, /automationRowKey\("evidence", run\.evidenceId\)/);
+  assert.match(bridge, /automationRowKey\("finding", finding\.id\)/);
+  assert.match(bridge, /const index = automationRowIndexes\.get\(automationRowKey\(kind, value\)\)/);
+  assert.match(bridge, /if \(index !== undefined && rows\[index\]\) return rows\[index\]/);
+  assert.match(bridge, /const exact = evidenceAutomationExactRow\(request, value, rows\)/);
+  assert.match(bridge, /if \(exact\) \{[\s\S]*highlightRows\(rows, exact\);[\s\S]*return true;/);
+});
+
+test("automation exact-record lookup shares the existing throttled API refresh", () => {
+  assert.match(bridge, /fetch\(withBasePath\("\/api\/evidence-automation"\)/);
+  assert.match(bridge, /cacheAutomationRowIndexes\(body\)/);
+  assert.match(bridge, /let automationFindingLookupAt = 0/);
+  assert.match(bridge, /now - automationFindingLookupAt < 5_000/);
+  assert.match(bridge, /automationFindingLookupAt = now/);
+  assert.match(bridge, /attempts >= 30/);
+});
+
+test("automation finding ids retain title fallback without exposing hidden raw data", () => {
+  assert.match(bridge, /automationFindingTitles = new Map<string, string>\(\)/);
+  assert.match(bridge, /automationFindingTitles\.set\(id, title\)/);
+  assert.match(bridge, /evidenceAutomationFocusValue\(request, value\)/);
+});
+
+test("finding focus remains pending until the matching row is available", () => {
+  const start = bridge.indexOf("function applyFindingFocus");
+  const end = bridge.indexOf("type AutomationTabKind");
+  const adapter = bridge.slice(start, end);
+  assert.match(adapter, /if \(!match\) return false/);
+  assert.match(adapter, /return true/);
+  assert.match(bridge, /if \(applyFocus\(current\)\) \{/);
+});
+
+test("PlatformExperience owns the single navigation focus consumer", () => {
+  assert.match(platformExperience, /import NavigationFocusBridge from "\.\/navigation-focus-bridge"/);
+  assert.match(platformExperience, /<NavigationFocusBridge \/>/);
+});

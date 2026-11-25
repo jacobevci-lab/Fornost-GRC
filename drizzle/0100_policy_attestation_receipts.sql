@@ -1,0 +1,3 @@
+CREATE TABLE IF NOT EXISTS policy_attestation_receipts(id TEXT PRIMARY KEY NOT NULL,attestation_id TEXT NOT NULL UNIQUE,source_revision TEXT NOT NULL,decision TEXT NOT NULL,note TEXT NOT NULL,content_sha256 TEXT NOT NULL,snapshot_json TEXT NOT NULL,actor_id TEXT NOT NULL,actor TEXT NOT NULL,responded_at TEXT NOT NULL);
+CREATE TRIGGER IF NOT EXISTS policy_attestation_receipt_no_update BEFORE UPDATE ON policy_attestation_receipts BEGIN SELECT RAISE(ABORT,'immutable-attestation-receipt'); END;
+CREATE TRIGGER IF NOT EXISTS policy_attestation_receipt_no_delete BEFORE DELETE ON policy_attestation_receipts BEGIN SELECT RAISE(ABORT,'immutable-attestation-receipt'); END;

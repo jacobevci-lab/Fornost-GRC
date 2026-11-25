@@ -1,0 +1,29 @@
+.matrix-card {
+  padding: 28px 36px;
+  grid-template-columns: minmax(240px, 320px) 1fr;
+  min-height: 410px;
+}
+
+.matrix-card h3 { font-size: 20px; }
+.matrix { padding-left: 58px; padding-bottom: 38px; justify-self: center; }
+.matrix-row { grid-template-columns: 32px repeat(5, 68px); gap: 7px; margin-bottom: 7px; }
+.matrix-row em, .xlabels em { font-size: 12px; }
+.matrix-row span { height: 62px; border-radius: 7px; font-size: 16px; }
+.xlabels { grid-template-columns: 32px repeat(5, 68px); gap: 7px; }
+.axis { font-size: 10px; letter-spacing: 1.5px; }
+.axis.y { top: 160px; }
+.axis.x { left: 230px; }
+
+@media (max-width: 900px) {
+  .matrix-card { grid-template-columns: 1fr; gap: 24px; min-height: auto; }
+}
+
+@media (max-width: 560px) {
+  .matrix-card { padding: 22px 12px; }
+  .matrix { padding-left: 38px; padding-bottom: 30px; max-width: 100%; }
+  .matrix-row { grid-template-columns: 24px repeat(5, minmax(42px, 1fr)); gap: 4px; margin-bottom: 4px; }
+  .matrix-row span { height: 45px; font-size: 13px; }
+  .xlabels { grid-template-columns: 24px repeat(5, minmax(42px, 1fr)); gap: 4px; }
+  .axis.y { top: 112px; }
+  .axis.x { left: 155px; }
+}

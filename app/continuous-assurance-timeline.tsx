@@ -1,0 +1,47 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { withBasePath } from "./base-path";
+import { navigateToFornost } from "./navigation-focus";
+import "./continuous-assurance-timeline.css";
+
+type Lang="tr"|"en";
+type Category="control"|"review"|"capa"|"finding"|"risk"|"escalation"|"delivery";
+type FilterKey="ruleRef"|"findingRef"|"riskRef"|"controlRef";
+type TimelineEvent={id:string;type:string;category:Category;title:string;detail:string;actor:string;status:string;reference:string;evidenceId?:string;findingId?:string;ruleId?:string;module?:string;recordRef?:string;filterKey?:FilterKey;createdAt:string};
+const categories:Category[]=["control","review","capa","finding","risk","escalation","delivery"];
+
+function openTimelineRecord(event:TimelineEvent){
+ const targetModule=String(event.module||"").trim(),ref=String(event.recordRef||"").trim(),key=event.filterKey;
+ if(!targetModule||!ref||!key)return false;
+ return navigateToFornost({module:targetModule,ref,source:"continuous-assurance-timeline",filter:{[key]:ref}});
+}
+
+function openTimelineEvidence(event:TimelineEvent){
+ const ref=String(event.evidenceId||"").trim();
+ if(!ref)return false;
+ return navigateToFornost({module:"Kanıtlar",ref,source:"continuous-assurance-timeline",filter:{evidenceRef:ref}});
+}
+
+function recordActionLabel(event:TimelineEvent,tr:boolean){
+ const targetModule=String(event.module||"");
+ if(targetModule==="Bulgular ve CAPA")return tr?"CAPA'yı Aç":"Open CAPA";
+ if(targetModule==="Kanıt Otomasyonu")return tr?"Kuralı Aç":"Open Rule";
+ if(targetModule==="Risk Assessment")return tr?"Riski Aç":"Open Risk";
+ if(targetModule==="Kontroller")return tr?"Kontrolü Aç":"Open Control";
+ return tr?"Kayda Git":"Open Record";
+}
+
+export default function ContinuousAssuranceTimeline({lang}:{lang:Lang}){
+ const tr=lang==="tr",[events,setEvents]=useState<TimelineEvent[]>([]),[loading,setLoading]=useState(true),[category,setCategory]=useState<"all"|Category>("all"),[expanded,setExpanded]=useState(false);
+ useEffect(()=>{let live=true;fetch(withBasePath("/api/continuous-assurance/timeline"),{cache:"no-store",headers:{accept:"application/json"}}).then(r=>r.ok?r.json():null).then(data=>{if(live&&data)setEvents(Array.isArray(data.events)?data.events:[])}).catch(()=>{}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[]);
+ const visible=useMemo(()=>events.filter(event=>category==="all"||event.category===category).slice(0,expanded?100:12),[events,category,expanded]);
+ const label=(value:Category)=>tr?({control:"Kontrol",review:"İnceleme",capa:"CAPA",finding:"Bulgu",risk:"Risk",escalation:"Escalation",delivery:"Teslimat"} as Record<Category,string>)[value]:({control:"Control",review:"Review",capa:"CAPA",finding:"Finding",risk:"Risk",escalation:"Escalation",delivery:"Delivery"} as Record<Category,string>)[value];
+ const fmt=(value:string)=>{const date=new Date(value);return Number.isNaN(date.getTime())?value:new Intl.DateTimeFormat(tr?"tr-TR":"en-GB",{dateStyle:"short",timeStyle:"short"}).format(date)};
+ return <section className="assurance-timeline">
+  <header><div><small>ASSURANCE TIMELINE</small><h4>{tr?"Uçtan uca güvence geçmişi":"End-to-end assurance history"}</h4><p>{tr?"Kontrol, kanıt, inceleme, CAPA, bulgu, risk, escalation ve gerçek notification delivery yaşam döngüsünü tek kronolojide izleyin.":"Trace control, evidence, review, CAPA, finding, risk, escalation and real notification delivery lifecycles in one chronology."}</p></div><span>{events.length}</span></header>
+  <div className="assurance-timeline-filters"><button className={category==="all"?"active":""} onClick={()=>setCategory("all")}>{tr?"Tümü":"All"}</button>{categories.map(value=><button key={value} className={category===value?"active":""} onClick={()=>setCategory(value)}>{label(value)}</button>)}</div>
+  {visible.length?<div className="assurance-timeline-list">{visible.map(event=>{const actionLabel=recordActionLabel(event,tr),evidenceLabel=tr?"Kanıtı Aç":"Open Evidence";return <article key={event.id}><i className={event.category}/><div><div className="timeline-title"><span>{label(event.category)}</span><b>{event.title}</b><em>{fmt(event.createdAt)}</em></div><p>{event.detail||"—"}</p><footer><small>{event.actor||"system"}</small>{event.status&&<span>{event.status}</span>}{event.reference&&<code>{event.reference}</code>}{event.module&&event.recordRef&&event.filterKey&&<button type="button" aria-label={actionLabel} onClick={()=>openTimelineRecord(event)}>{actionLabel} →</button>}{event.evidenceId&&<button type="button" aria-label={evidenceLabel} onClick={()=>openTimelineEvidence(event)}>{evidenceLabel} →</button>}</footer></div></article>})}</div>:<div className="assurance-timeline-empty">{loading?(tr?"Güvence geçmişi yükleniyor…":"Loading assurance history…"):(tr?"Bu filtrede olay yok.":"No events in this filter.")}</div>}
+  {events.length>12&&<button className="assurance-timeline-more" type="button" onClick={()=>setExpanded(value=>!value)}>{expanded?(tr?"Daralt":"Show less"):(tr?"Daha Fazla Göster":"Show more")}</button>}
+ </section>;
+}

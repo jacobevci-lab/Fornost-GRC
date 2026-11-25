@@ -1,0 +1,15 @@
+.modal.register-import-modal{width:min(1100px,calc(100vw - 40px));max-height:92dvh;display:flex;flex-direction:column;overflow:hidden}
+.register-import-modal .import-body{min-height:0;overflow:auto}
+.register-import-modal .modal-head,.register-import-modal .modal-foot{flex-shrink:0}
+.register-import-file{width:100%;color:var(--ws-ink);font:inherit;cursor:pointer}
+.register-import-file b{overflow-wrap:anywhere}.register-import-file:focus-visible,.register-import-table:focus-visible{outline:2px solid var(--ws-brand);outline-offset:2px}
+.register-import-modal .mapping{grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))}
+.register-import-modal .mapping label{min-width:0;overflow-wrap:anywhere}.register-import-modal select{max-width:100%;min-width:0}
+.register-import-modal h3{font-size:15px;margin:18px 0 10px}
+.register-import-issues{padding:12px;border:1px solid var(--ws-line-strong);border-radius:8px;color:var(--ws-ink);background:var(--ws-surface-2)}
+.register-import-issues ul{padding-inline-start:20px;max-height:220px;overflow:auto}.register-import-issues li{margin-bottom:6px;overflow-wrap:anywhere}
+.register-import-table{max-width:100%;overflow:auto;max-height:360px;border:1px solid var(--ws-line);border-radius:8px}
+.register-import-table table{min-width:100%;width:max-content}.register-import-table caption{text-align:start;padding:8px;font-weight:650}
+.register-import-table td,.register-import-table th{min-width:120px;max-width:280px;white-space:pre-wrap;overflow-wrap:anywhere}
+.register-import-pages{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:8px}
+@media(max-width:600px){.register-import-modal{max-height:94dvh}.register-import-modal .modal-foot{flex-wrap:wrap}.register-import-modal .modal-foot button{flex:1 1 140px}.register-import-modal .import-body{padding:14px}.register-import-modal .mapping{grid-template-columns:1fr}}

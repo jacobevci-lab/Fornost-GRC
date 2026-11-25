@@ -1,0 +1,63 @@
+/** Optional, installation-local access boundaries. Roles remain the upper limit. */
+export const ACCESS_MODULES = ["Risk Assessment", "BIA", "Varlık Envanteri", "Uyum", "Tedarikçiler", "Kontroller", "Kanıtlar", "Denetim Yönetimi"] as const;
+export type AccessModule = typeof ACCESS_MODULES[number];
+export type ModuleGrant = "read" | "write";
+export type ModuleAccess = { mode: "full" } | { mode: "scoped"; modules: Partial<Record<AccessModule, ModuleGrant>> };
+export type AccessSubject = { role: string; moduleAccess?: ModuleAccess };
+export const FULL_ACCESS: ModuleAccess = { mode: "full" };
+export const NO_ACCESS: ModuleAccess = { mode: "scoped", modules: {} };
+
+export function validateModuleAccess(value: unknown): ModuleAccess | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const input = value as Record<string, unknown>;
+  if (input.mode === "full" && Object.keys(input).every(key => key === "mode")) return { mode: "full" };
+  if (input.mode !== "scoped" || Object.keys(input).some(key => !["mode", "modules"].includes(key)) || !input.modules || typeof input.modules !== "object" || Array.isArray(input.modules)) return null;
+  const modules: Partial<Record<AccessModule, ModuleGrant>> = {};
+  for (const [key, grant] of Object.entries(input.modules)) {
+    if (!ACCESS_MODULES.includes(key as AccessModule) || (typeof grant !== "string" || !["read", "write"].includes(grant))) return null;
+    modules[key as AccessModule] = grant as ModuleGrant;
+  }
+  return { mode: "scoped", modules };
+}
+
+// A missing row preserves existing installations; corrupt persisted policy fails closed.
+export function parseModuleAccess(raw: string | null | undefined): ModuleAccess {
+  if (raw === undefined || raw === null) return FULL_ACCESS;
+  try { return validateModuleAccess(JSON.parse(raw)) || NO_ACCESS; } catch { return NO_ACCESS; }
+}
+export function isScoped(subject: AccessSubject) { return subject.role !== "Admin" && subject.moduleAccess?.mode === "scoped"; }
+export function canReadModule(subject: AccessSubject, module: string) {
+  return !isScoped(subject) || (ACCESS_MODULES.includes(module as AccessModule) && !!(subject.moduleAccess as Extract<ModuleAccess, { mode: "scoped" }>).modules[module as AccessModule]);
+}
+export function canReadPosture(subject: AccessSubject) { return ["Uyum","Kontroller","Kanıtlar"].every(module => canReadModule(subject,module)); }
+export function canWriteModule(subject: AccessSubject, module: string) {
+  return ["Admin", "Editor"].includes(subject.role) && (!isScoped(subject) || (subject.moduleAccess as Extract<ModuleAccess, { mode: "scoped" }>).modules[module as AccessModule] === "write");
+}
+export function readableModules(subject: AccessSubject) { return ACCESS_MODULES.filter(module => canReadModule(subject, module)); }
+export function canOpenModule(subject: AccessSubject, module: string) {
+  if (!isScoped(subject)) return true;
+  return module === "Ana Sayfa" || module === "Ask Fornost" || (ACCESS_MODULES.includes(module as AccessModule) && canReadModule(subject, module));
+}
+
+/** Closed allowlist: shared enterprise reports/workflows are not scoped datasets. */
+export function scopedApiAllowed(subject: AccessSubject, pathname: string, method: string) {
+  if (!isScoped(subject)) return true;
+  const path = pathname.replace(/\/+$/, ""), read = method === "GET" || method === "HEAD";
+  if (path === "/api/appearance") return read || method === "PUT"; // The route uses the signed-in account as its only storage key.
+  if (path === "/api/framework-posture") return canReadPosture(subject) && (read || method === "POST" && canWriteModule(subject,"Uyum"));
+  if (path === "/api/evidence/followups") return canReadModule(subject,"Kanıtlar") && (read ? canReadModule(subject,"Denetim Yönetimi") : method === "POST" && canWriteModule(subject,"Denetim Yönetimi"));
+  if (path === "/api/evidence/usage") return read && canReadModule(subject, "Kanıtlar"); // Each usage source is authorized in the handler.
+  if (path === "/api/record-links") return read; // Handler checks both module access and exact target.
+  if (path === "/api/search") return read; // Handler scopes rows before search and pagination.
+  if (path === "/api/grc/bia-context") return read && canReadModule(subject,"BIA");
+  if (path === "/api/grc/risk-owners") return read && (canWriteModule(subject,"Risk Assessment") || canWriteModule(subject,"Varlık Envanteri") || canWriteModule(subject,"BIA") || canWriteModule(subject,"Kontroller") || canWriteModule(subject,"Kanıtlar") || canWriteModule(subject,"Denetim Yönetimi")); // The route checks the requested module.
+  if (path === "/api/grc") return true; // Row/module authorization is inside the handler.
+  if (path === "/api/views") return read || method === "POST"; // Handler enforces live module, personal ownership and Admin-only team publication.
+  if (path === "/api/catalogs") return read; // Shared field choices, no business records.
+  if (path === "/api/audits/templates") return read && canReadModule(subject, "Denetim Yönetimi"); // Library administration is Admin-only.
+  if (path === "/api/ai/status" || path === "/api/ai/source-target") return read;
+  if (path === "/api/ai/agentic") return read || method === "POST"; // Each registry tool checks module and entity access.
+  if (path === "/api/ai/chat") return method === "POST";
+  const moduleName = ["/api/audits", "/api/audits/plan", "/api/audits/requests", "/api/audits/requests/closure", "/api/audits/workpapers", "/api/audits/milestones"].includes(path) ? "Denetim Yönetimi" : ["/api/evidence", "/api/evidence/history", "/api/evidence/review"].includes(path) ? "Kanıtlar" : null;
+  return !!moduleName && (read ? canReadModule(subject, moduleName) : canWriteModule(subject, moduleName));
+}

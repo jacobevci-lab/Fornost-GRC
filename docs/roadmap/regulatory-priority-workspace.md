@@ -1,0 +1,7 @@
+# Regulatory priority workspace
+
+Implement the selected priority-desk concept for compliance operators. Preserve the existing source → change → impact → independent evidence verification lifecycle and theme. Deliver a compact personal/team worklist with server-side search, filters and pagination, exact global counts, a contextual detail panel, honest manual-source freshness, source editing/archive/restore and deletion only when unused. Link canonical policy documents and existing core records without copying them. Retain decisions and enforce stale-write and authorization checks server-side.
+
+Acceptance: users can find work beyond the previous bounded first page, distinguish workflow state from deadline attention, open all impacts of a selected change, create/edit/archive/restore/delete an unused source, and receive explicit blocked deletion for a linked source. Read errors must not look like healthy zero counts. Existing lifecycle/evidence selectors and deep links continue to work in TR/EN and desktop/mobile. Automated source ingestion and legal-text diff require source document ingestion and are not presented as available in this delivery.
+
+Validation: SQLite route tests for filtering, counts, exact detail, canonical policy and concurrent source lifecycle; actual Chromium UI tests in the existing isolated CI runtime, screenshots for both themes/languages and narrow width, existing regulatory lifecycle regressions, quality/security and deployment smoke checks. Rollback by reverting this release; no destructive schema migration.

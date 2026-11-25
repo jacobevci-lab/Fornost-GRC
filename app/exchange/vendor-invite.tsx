@@ -1,0 +1,13 @@
+'use client';
+import {useState} from 'react';
+import {api,Field,State,t,useAction,useLoad,type Locale} from './ui';
+import {defaultVendorScope} from './vendor-questionnaire';
+type Invitation={id:string;expiresAt:string;receipt:string|null;scope:string;revokedAt:string|null};
+export function VendorInvitation({id,lang}:{id:string;lang:Locale}){
+ const a=useAction(lang),{v,err,reload}=useLoad<{invitations:Invitation[]}>(`exchange?area=vendor&id=${encodeURIComponent(id)}`),[days,setDays]=useState(14),[scope,setScope]=useState(defaultVendorScope),[url,setUrl]=useState('');
+ const l=(tr:string,en:string)=>t(lang,tr,en);
+ return <section className="exchange ex-card"><h3>{l('Dış tedarikçi değerlendirmesi','External supplier assessment')}</h3><div className="ex-grid"><Field label={l('Bağlantı geçerliliği','Link validity')}><select value={days} onChange={e=>setDays(Number(e.target.value))}>{[7,14,30].map(n=><option value={n} key={n}>{n} {l('gün','days')}</option>)}</select></Field><Field label={l('İstenen değerlendirme kapsamı','Requested assessment scope')}><textarea maxLength={2000} required value={scope} onChange={e=>setScope(e.target.value)}/></Field></div>
+ <button type="button" disabled={a.busy||!scope.trim()} onClick={()=>a.act(async()=>{const r=await api<{url:string}>('exchange',{action:'invite',id,days,scope});setUrl(new URL(r.url,location.origin).href);reload();a.say(l('Bağlantı oluşturuldu. Yeni bağlantı önceki açık daveti geçersiz kılar.','Link created. The new link invalidates the previous open invitation.'));})}>{l('Güvenlik Değerlendirmesi Bağlantısı Oluştur','Create security assessment link')}</button>
+ {url&&<div className="ex-actions"><input aria-label={l('Paylaşım bağlantısı','Share link')} value={url} readOnly/><button type="button" onClick={()=>a.act(async()=>{await navigator.clipboard.writeText(url);a.say(l('Bağlantı kopyalandı.','Link copied.'));})}>{l('Bağlantıyı kopyala','Copy link')}</button></div>}
+ {!v?<State lang={lang} error={err}/>:v.invitations.map(i=>{const active=!i.receipt&&!i.revokedAt&&i.expiresAt>new Date().toISOString();return <div className="ex-head" key={i.id}><small>{i.receipt?l('Gönderildi','Submitted'):active?l('Aktif','Active'):i.revokedAt?l('İptal edildi','Revoked'):l('Süresi doldu / yenilendi','Expired / replaced')} · {new Date(i.expiresAt).toLocaleDateString(lang==='tr'?'tr-TR':'en-GB')}</small>{active&&<button type="button" disabled={a.busy} onClick={()=>a.act(async()=>{await api('exchange',{action:'revoke-invite',id,invitation:i.id});setUrl('');reload();a.say(l('Davet iptal edildi.','Invitation revoked.'));})}>{l('Bağlantıyı iptal et','Revoke link')}</button>}</div>})}<p role="status">{a.note}</p></section>;
+}

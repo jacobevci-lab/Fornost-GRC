@@ -1,0 +1,8 @@
+import {incidentLabel} from './labels';
+import type {IncidentDecisionContext} from './decisions';
+export function IncidentContextDetails({record:r,tr}:{record:IncidentDecisionContext['record'];tr:boolean}) {
+  const lang=tr?'tr':'en';
+  const fields=[['status','Durum','Status'],['severity','Önem','Severity'],['category','Kategori','Category'],['detected_date','Tespit tarihi','Detected'],['owner','Olay sahibi','Incident owner'],['commander','Olay yöneticisi','Incident commander'],['reviewer','Bağımsız inceleyen','Independent reviewer'],['asset_refs','Varlıklar','Assets'],['risk_ref','Risk bağlantısı','Risk link'],['bia_ref','BIA bağlantısı','BIA link'],['data_classification','Veri sınıfı','Data classification'],['notification_decision','Bildirim kararı','Notification decision']];
+  const narrative=[['description','Olay açıklaması','Incident description'],['business_impact','İş etkisi','Business impact'],['root_cause','Kök neden','Root cause'],['lessons_learned','Çıkarılan dersler','Lessons learned'],['notification_rationale','Bildirim kararı gerekçesi','Notification rationale']];
+  return <div className="incident-context-details"><dl>{fields.map(([key,t,e])=><div key={key}><dt>{tr?t:e}</dt><dd>{incidentLabel(String(r[key]||'—'),lang)}</dd></div>)}<div><dt>{tr?'Kişisel veri':'Personal data'}</dt><dd>{Number(r.personal_data)?(tr?'Etkilenmiş olabilir':'May be affected'):(tr?'İşaretlenmedi':'Not marked')}</dd></div></dl><details><summary>{tr?'Olayı, etkiyi ve müdahale bilgilerini incele':'Review incident, impact and response details'}</summary>{narrative.map(([key,t,e])=><div key={key}><h4>{tr?t:e}</h4><p>{String(r[key]||'—')}</p></div>)}</details></div>;
+}

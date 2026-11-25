@@ -1,0 +1,168 @@
+/* Dashboard release polish
+   Layout/readability guardrails only. No product palette or theme variables are redefined. */
+
+/* The v4 executive surface owns the dashboard viewport; legacy dashboard actions must never leak through. */
+.workspace-dashboard.fornost-dashboard-v4 .dashboard-hero-actions,
+.workspace-dashboard.fornost-dashboard-v4 .dashboard-shortcuts,
+.workspace-dashboard.fornost-dashboard-v4 .dashboard-footnote{
+  display:none!important;
+}
+
+/* Keep the global AI launcher clear of dashboard content and remove decorative pseudo effects on this surface. */
+body:has(.workspace-dashboard.fornost-dashboard-v4) .fornost-ai-launcher{
+  right:20px;
+  bottom:18px;
+}
+body:has(.workspace-dashboard.fornost-dashboard-v4) .fornost-ai-launcher::before,
+body:has(.workspace-dashboard.fornost-dashboard-v4) .fornost-ai-launcher::after{
+  content:none!important;
+  display:none!important;
+  animation:none!important;
+}
+
+/* Overall density: more of the decision surface should fit in the first viewport. */
+.ed4-shell{
+  gap:10px;
+  padding-top:16px;
+  padding-bottom:4px;
+}
+.ed4-toolbar{
+  min-height:68px;
+  gap:20px;
+  padding-bottom:5px;
+}
+.ed4-toolbar small{font-size:8px}
+.ed4-toolbar h2{margin:6px 0 4px;font-size:22px}
+.ed4-toolbar p{font-size:10px}
+.ed4-scope,
+.ed4-period button,
+.ed4-refresh,
+.ed4-customize{font-size:8px}
+
+/* Executive brief stays readable without growing taller. */
+.ed4-ai-brief>button{padding:10px 13px}
+.ed4-ai-brief>button small{font-size:7.3px}
+.ed4-ai-brief>button b{font-size:10px}
+.ed4-ai-brief>button em{font-size:8px}
+.ed4-ai-brief>div>span{min-width:118px;padding:7px 11px;font-size:7.4px}
+.ed4-ai-brief>div>span b{font-size:14px}
+
+/* KPI strip: stronger labels/details, slightly less vertical weight. */
+.ed4-metric{
+  min-height:96px;
+  padding:11px 13px 9px;
+}
+.ed4-metric>div:first-child small{font-size:7.5px;letter-spacing:.065em}
+.ed4-metric>strong{margin-top:9px;font-size:22px}
+.ed4-metric>p{margin-top:5px;font-size:8.2px;line-height:1.35}
+.ed4-spark{height:37px}
+
+/* Panel hierarchy. */
+.ed4-panel-head{
+  min-height:52px;
+  padding:10px 14px;
+}
+.ed4-panel-head small{font-size:7.3px}
+.ed4-panel-head h3{font-size:11.5px}
+.ed4-panel-head button{font-size:8.3px}
+.ed4-panel-head>b{min-width:26px;height:26px;font-size:8.5px}
+
+/* Heatmap: same 5×5 information, ~18% less height. */
+.ed4-risk-map-tools{
+  min-height:38px;
+  padding:5px 14px;
+}
+.ed4-risk-mode button{height:23px;font-size:7.7px}
+.ed4-risk-map-tools>span{font-size:7.7px}
+.ed4-risk-map-tools>span b{height:23px;min-width:23px}
+.ed4-heatmap-wrap{
+  grid-template-columns:15px minmax(0,1fr);
+  grid-template-rows:auto 14px;
+  gap:4px 7px;
+  padding:9px 14px 7px;
+}
+.ed4-heatmap{gap:3px}
+.ed4-heatmap-row{
+  grid-template-columns:18px repeat(5,minmax(0,1fr));
+  gap:3px;
+}
+.ed4-heatmap-row button{
+  min-height:33px;
+  border-radius:6px;
+}
+.ed4-heatmap-row>b,
+.ed4-heatmap-axis>b{font-size:7.2px}
+.ed4-heatmap-row button strong{font-size:11.5px}
+.ed4-heatmap-row button small{right:4px;bottom:2px;font-size:5.8px}
+.ed4-heatmap-axis{
+  gap:3px;
+  height:10px;
+}
+.ed4-impact-label,
+.ed4-likelihood-label{font-size:6.6px}
+.ed4-risk-map-foot>div{padding:7px 10px}
+.ed4-risk-map-foot b{font-size:9.5px}
+.ed4-risk-map-foot small{font-size:7.2px}
+
+/* Action Center: preserve density, improve scanability. */
+.ed4-action-counters button{
+  min-height:52px;
+  padding:8px 11px;
+}
+.ed4-action-counters small{font-size:7.2px}
+.ed4-action-counters strong{font-size:11px}
+.ed4-action-list{padding-top:4px;padding-bottom:5px}
+.ed4-action-list button{min-height:44px}
+.ed4-action-list i{width:27px;height:27px;font-size:8.5px}
+.ed4-action-list span b{font-size:8.4px}
+.ed4-action-list span small{font-size:7px}
+
+/* Lower dashboard panels: raise readability without adding bulk. */
+.ed4-change-list button{min-height:40px}
+.ed4-change-list strong{font-size:14px}
+.ed4-change-list span{font-size:7.8px}
+.ed4-framework-list button div b{font-size:8.6px}
+.ed4-framework-list button div span{font-size:7px}
+.ed4-framework-list button>strong{font-size:9.5px}
+
+.ed4-assurance-score>div:last-child small{font-size:6.8px}
+.ed4-assurance-score>div:last-child>b{font-size:10.5px}
+.ed4-assurance-score>div:last-child>span{font-size:7px}
+.ed4-assurance-grid button{min-height:73px}
+.ed4-assurance-grid small{font-size:7px}
+.ed4-assurance-grid span{font-size:7px}
+
+.ed4-audit-summary small{font-size:7px}
+.ed4-audit-summary span{font-size:7px}
+.ed4-next-milestone small{font-size:6.8px}
+.ed4-next-milestone span{font-size:7.2px}
+.ed4-audit-links button{font-size:7.8px}
+
+/* Footer is metadata only now; no action collision with the floating copilot. */
+.ed4-footer{
+  min-height:28px;
+  justify-content:flex-start;
+  padding:2px 148px 0 2px;
+  font-size:7.5px;
+}
+.ed4-footer>div{display:none!important}
+
+/* Compact mode remains meaningfully denser than the polished default. */
+.ed4-shell.compact .ed4-heatmap-row button{min-height:29px}
+.ed4-shell.compact .ed4-panel-head{min-height:47px}
+
+@media(max-width:1120px){
+  body:has(.workspace-dashboard.fornost-dashboard-v4) .fornost-ai-launcher{
+    right:14px;
+    bottom:14px;
+  }
+  .ed4-footer{padding-right:132px}
+}
+
+@media(max-width:760px){
+  .ed4-toolbar small{font-size:7.5px}
+  .ed4-toolbar p{font-size:9px}
+  .ed4-metric>div:first-child small{font-size:7.2px}
+  .ed4-metric>p{font-size:7.8px}
+  .ed4-footer{padding-right:2px;padding-bottom:58px}
+}

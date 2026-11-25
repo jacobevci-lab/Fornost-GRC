@@ -1,0 +1,38 @@
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  {
+    files: [
+      "app/page.tsx",
+      "app/settings.tsx",
+      "app/executive-dashboard.tsx",
+      "app/control-impact-lens.tsx",
+      "app/my-work-v2.tsx",
+      "app/progressive-form-experience.tsx",
+      "app/audit-readiness-gate.tsx",
+      "app/evidence-quality-lens.tsx",
+    ],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+      "react-hooks/globals": "off",
+      "react-hooks/purity": "off",
+      "react-hooks/set-state-in-effect": "off",
+    },
+  },
+  // Override default ignores of eslint-config-next.
+  globalIgnores([
+    // Default ignores of eslint-config-next:
+    ".next/**",
+    "out/**",
+    "build/**",
+    "public/fornost-ocr/**",
+    "next-env.d.ts",
+  ]),
+]);
+
+export default eslintConfig;

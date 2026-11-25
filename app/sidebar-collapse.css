@@ -1,0 +1,118 @@
+/* Desktop navigation rail — loaded after the visual theme as final layout authority. */
+.sidebar-toggle{
+  width:30px;
+  height:30px;
+  flex:0 0 30px;
+  display:grid;
+  place-items:center;
+  margin-left:auto;
+  padding:0;
+  border:1px solid var(--at-sidebar-line);
+  border-radius:6px;
+  background:var(--at-sidebar-raised);
+  color:#a7a8a4;
+  cursor:pointer;
+}
+.sidebar-toggle:hover{
+  border-color:#454649;
+  background:#242527;
+  color:#fff;
+}
+.sidebar-toggle:focus-visible{
+  outline:2px solid var(--at-accent);
+  outline-offset:2px;
+}
+.sidebar-toggle svg{
+  width:16px;
+  height:16px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+
+@media(min-width:901px){
+  .shell{
+    transition:grid-template-columns .2s ease;
+  }
+  .shell>aside{
+    overflow-x:hidden;
+    transition:padding .2s ease;
+  }
+  .shell.sidebar-collapsed{
+    grid-template-columns:68px minmax(0,1fr)!important;
+  }
+  .sidebar-collapsed>aside{
+    padding:18px 7px!important;
+    scrollbar-width:none;
+  }
+  .sidebar-collapsed>aside::-webkit-scrollbar{
+    display:none;
+  }
+  .sidebar-collapsed .brand{
+    min-height:96px!important;
+    flex-direction:column;
+    justify-content:flex-start;
+    gap:10px;
+    margin:0 0 12px!important;
+    padding:0 0 14px!important;
+  }
+  .sidebar-collapsed .brand>div{
+    display:none;
+  }
+  .sidebar-collapsed .brand>span{
+    width:36px!important;
+    height:36px!important;
+    flex:0 0 36px;
+  }
+  .sidebar-collapsed .sidebar-toggle{
+    margin:0;
+  }
+  .sidebar-collapsed nav{
+    gap:10px!important;
+  }
+  .sidebar-collapsed .nav-group{
+    display:grid!important;
+    gap:4px!important;
+  }
+  .sidebar-collapsed .nav-group>small,
+  .sidebar-collapsed .nav-section>small,
+  .sidebar-collapsed .nav-group button>span,
+  .sidebar-collapsed .nav-section button>span{
+    display:none!important;
+  }
+  .sidebar-collapsed .nav-group button,
+  .sidebar-collapsed .nav-section button{
+    width:44px!important;
+    min-width:44px!important;
+    height:42px!important;
+    min-height:42px!important;
+    justify-content:center!important;
+    margin:0 auto!important;
+    padding:7px!important;
+  }
+  .sidebar-collapsed .nav-group button i,
+  .sidebar-collapsed .nav-section button i{
+    width:27px!important;
+    height:27px!important;
+    flex:0 0 27px;
+    margin:0!important;
+  }
+  .sidebar-collapsed .aside-note{
+    display:none!important;
+  }
+}
+
+@media(max-width:900px){
+  .sidebar-toggle{
+    display:none!important;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  .shell,
+  .shell>aside{
+    transition:none!important;
+  }
+}

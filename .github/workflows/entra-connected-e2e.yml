@@ -1,0 +1,104 @@
+name: Entra Connected GRC E2E
+on:
+  pull_request:
+    paths:
+      - 'scripts/entra-connected-e2e.mjs'
+      - 'scripts/entra-qa/**'
+      - '.github/workflows/entra-connected-e2e.yml'
+  workflow_call:
+    inputs:
+      target:
+        required: true
+        type: string
+      clean:
+        default: false
+        type: boolean
+      resume_only:
+        default: true
+        type: boolean
+    secrets:
+      FORNOST_SMOKE_EMAIL:
+        required: true
+      FORNOST_SMOKE_PASSWORD:
+        required: true
+      CF_ACCESS_CLIENT_ID:
+        required: false
+      CF_ACCESS_CLIENT_SECRET:
+        required: false
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Scenario target
+        type: choice
+        options: [isolated, production-resume, production]
+        default: isolated
+      clean:
+        description: Remove identifiable QA-CLOUD register fixtures using normal deletion guards
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  browser:
+    if: ${{ (inputs.target != 'production' && inputs.target != 'production-resume') || github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    concurrency:
+      group: entra-e2e-${{ inputs.target == 'production-resume' && 'production' || inputs.target || github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --ignore-scripts @playwright/test@1.55.0 @axe-core/playwright@4.10.1
+      - name: Use hosted Chrome or install Playwright Chromium
+        run: |
+          if command -v google-chrome >/dev/null; then
+            echo "QA_CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
+      - name: Prepare isolated QA identities
+        if: inputs.target != 'production' && inputs.target != 'production-resume'
+        run: node scripts/prepare-local-qa.mjs
+      - name: Run headed journey on a fresh local D1
+        env:
+          ENTRA_VERIFY_REPLAY: 'true'
+        if: inputs.target != 'production' && inputs.target != 'production-resume'
+        run: |
+          set -euo pipefail
+          npx wrangler d1 migrations apply fornost-grc-prod --local --config wrangler.d1.jsonc
+          npm run dev -- --host 127.0.0.1 --port 4173 --strictPort >/tmp/entra-app.log 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          for i in {1..90}; do if curl -fsS http://127.0.0.1:4173/api/health >/dev/null 2>&1; then break; fi; sleep 1; done
+          curl -fsS -o /dev/null -H "Origin: http://127.0.0.1:4173" -H "Content-Type: application/json" --data-binary @/tmp/fornost-qa-bootstrap.json http://127.0.0.1:4173/api/auth
+          xvfb-run -a -s "-screen 0 1440x900x24" node scripts/entra-connected-e2e.mjs
+      - name: Prepare temporary production QA account
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.target == 'production' || inputs.target == 'production-resume')
+        uses: ./.github/actions/production-qa-account
+        with:
+          token: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          account: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Run authorized scenario on the live application
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.target == 'production' || inputs.target == 'production-resume')
+        env:
+          ENTRA_BASE_URL: https://app.fornostsecurity.com
+          FORNOST_EXPECTED_REVISION: ${{ github.sha }}
+          ENTRA_WRITE: 'true'
+          ENTRA_RESUME_ONLY: ${{ inputs.target == 'production-resume' || inputs.resume_only || 'false' }}
+          ENTRA_CLEAN: ${{ inputs.target != 'production-resume' && inputs.clean }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          ENTRA_REVIEWER_EMAIL: ${{ vars.ENTRA_REVIEWER_EMAIL }}
+          ENTRA_LEAD_EMAIL: ${{ vars.ENTRA_LEAD_EMAIL }}
+        run: xvfb-run -a -s "-screen 0 1440x900x24" node scripts/entra-connected-e2e.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: entra-e2e-report
+          path: entra-qa-artifacts/report.json
+          retention-days: 7

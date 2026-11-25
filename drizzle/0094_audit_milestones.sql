@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS audit_milestones(id TEXT PRIMARY KEY,audit_id TEXT NOT NULL,revision TEXT NOT NULL,data_json TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS audit_milestones_parent_idx ON audit_milestones(audit_id,updated_at,id);
+CREATE TABLE IF NOT EXISTS audit_milestone_events(id TEXT PRIMARY KEY,audit_id TEXT NOT NULL,milestone_id TEXT NOT NULL,actor TEXT NOT NULL,action TEXT NOT NULL,note TEXT NOT NULL,snapshot_json TEXT NOT NULL,created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS audit_milestone_events_parent_idx ON audit_milestone_events(audit_id,milestone_id,created_at,id);
+CREATE TRIGGER IF NOT EXISTS audit_report_audit_milestones_insert AFTER INSERT ON audit_milestones BEGIN UPDATE audit_report_source_revision SET revision=lower(hex(randomblob(16))) WHERE id=1; END;
+CREATE TRIGGER IF NOT EXISTS audit_report_audit_milestones_update AFTER UPDATE ON audit_milestones BEGIN UPDATE audit_report_source_revision SET revision=lower(hex(randomblob(16))) WHERE id=1; END;
+CREATE TRIGGER IF NOT EXISTS audit_report_audit_milestones_delete AFTER DELETE ON audit_milestones BEGIN UPDATE audit_report_source_revision SET revision=lower(hex(randomblob(16))) WHERE id=1; END;
+CREATE TRIGGER IF NOT EXISTS audit_closure_audit_milestones_insert BEFORE INSERT ON audit_milestones WHEN EXISTS(SELECT 1 FROM audit_closure_state WHERE audit_id=NEW.audit_id AND state='closed') BEGIN SELECT RAISE(ABORT,'audit-closed'); END;
+CREATE TRIGGER IF NOT EXISTS audit_closure_audit_milestones_update BEFORE UPDATE ON audit_milestones WHEN EXISTS(SELECT 1 FROM audit_closure_state WHERE audit_id=OLD.audit_id AND state='closed') OR EXISTS(SELECT 1 FROM audit_closure_state WHERE audit_id=NEW.audit_id AND state='closed') BEGIN SELECT RAISE(ABORT,'audit-closed'); END;
+CREATE TRIGGER IF NOT EXISTS audit_closure_audit_milestones_delete BEFORE DELETE ON audit_milestones WHEN EXISTS(SELECT 1 FROM audit_closure_state WHERE audit_id=OLD.audit_id AND state='closed') BEGIN SELECT RAISE(ABORT,'audit-closed'); END;

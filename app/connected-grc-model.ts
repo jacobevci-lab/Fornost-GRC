@@ -1,0 +1,445 @@
+export type ConnectedGrcRow = {
+  id: string;
+  code?: string;
+  module: string;
+  data: Record<string, unknown>;
+  updatedAt?: string;
+};
+
+export type ConnectedGrcLink = {
+  source: ConnectedGrcRow;
+  target: ConnectedGrcRow;
+  matched: string;
+  field: string;
+  relation: string;
+};
+
+export type UnresolvedGrcReference = {
+  source: ConnectedGrcRow;
+  field: string;
+  value: string;
+  relation: string;
+  reason: "missing" | "ambiguous";
+  candidates: ConnectedGrcRow[];
+};
+
+export type ConnectedGrcCoverageGap = {
+  row: ConnectedGrcRow;
+  rule:
+    | "risk-context"
+    | "control-assurance"
+    | "evidence-control"
+    | "audit-traceability"
+    | "finding-traceability"
+    | "remediation-traceability"
+    | "incident-context"
+    | "continuity-bia"
+    | "continuity-execution"
+    | "policy-mapping"
+    | "regulatory-impact"
+    | "kri-lineage"
+    | "vendor-lineage"
+    | "continuous-assurance";
+  severity: "high" | "medium";
+  expectedRelations: string[];
+  missingRelations: string[];
+  matchedRelations: string[];
+  percent: number;
+};
+
+export type ConnectedGrcDomainPosture = {
+  module: string;
+  eligible: number;
+  covered: number;
+  partial: number;
+  gaps: number;
+  percent: number;
+};
+
+type RelationDefinition = { relation: string; modules: string[]; sources?: string[]; targetKind?: string; canonicalOnly?: boolean; optionalControlReference?: boolean; frameworkTag?: boolean };
+
+export const relationFields: Record<string, RelationDefinition> = {
+  system_incident: {relation:"system-incident",modules:["Güvenlik Olayları"],sources:["AI Yönetişimi"],targetKind:"incident",canonicalOnly:true},
+  system_asset: {relation:"system-asset",modules:["Varlık Envanteri"],sources:["AI Yönetişimi"],canonicalOnly:true},
+  system_vendor: {relation:"system-vendor",modules:["Tedarikçiler"],sources:["AI Yönetişimi"],canonicalOnly:true},
+  system_risk: {relation:"system-risk",modules:["Risk Assessment"],sources:["AI Yönetişimi"],canonicalOnly:true},
+  system_control: {relation:"system-control",modules:["Kontroller"],sources:["AI Yönetişimi"],canonicalOnly:true},
+  system_evidence: {relation:"system-evidence",modules:["Kanıtlar"],sources:["AI Yönetişimi"],canonicalOnly:true},
+  aiModelRef: { relation: "ai-model", modules: ["AI Yönetişimi"], sources: ["AI Yönetişimi","Bulgular ve CAPA"], targetKind: "ai-model", canonicalOnly: true },
+  aiFindingRef: { relation: "ai-finding", modules: ["AI Yönetişimi"], sources: ["AI Yönetişimi","Bulgular ve CAPA"], targetKind: "ai-finding", canonicalOnly: true },
+  sourceAssetRef: {relation:"evidence-source",modules:["Varlık Envanteri"],sources:["Kanıtlar"]},
+  sourceVendorRef: {relation:"evidence-source",modules:["Tedarikçiler"],sources:["Kanıtlar"]},
+  controlVendorRef: {relation:"vendor-control",modules:["Tedarikçiler"],sources:["Kontroller"],canonicalOnly:true},
+  controlRiskRefs: {relation:"risk-control",modules:["Risk Assessment"],sources:["Kontroller"]},
+  supportingEvidenceRefs: {relation:"control-evidence",modules:["Kanıtlar"],sources:["Kontroller"]},
+  existingControls: { relation: "risk-control", modules: ["Kontroller"], sources: ["Risk Assessment"], optionalControlReference: true },
+  asset: { relation: "risk-asset", modules: ["Varlık Envanteri"], sources: ["Risk Assessment", "BIA"] },
+  processLink: { relation: "risk-process", modules: ["BIA"], sources: ["Risk Assessment", "Kontroller", "Varlık Envanteri"] },
+  biaRef: { relation: "continuity-process", modules: ["BIA"] },
+  controlRef: { relation: "control-evidence", modules: ["Kontroller", "Uyum"], sources: ["Kanıtlar", "Uyum", "Denetim Yönetimi"] },
+  controlRefs: { relation: "control-evidence", modules: ["Kontroller"], sources: ["Kanıtlar"] },
+  auditControlRefs: {relation:"audit-control",modules:["Kontroller"],sources:["Denetim Yönetimi"],canonicalOnly:true},
+  auditEvidenceRefs: {relation:"audit-evidence",modules:["Kanıtlar"],sources:["Denetim Yönetimi"],canonicalOnly:true},
+  requirementRef: { relation: "audit-control", modules: ["Kontroller", "Uyum"], sources: ["Denetim Yönetimi"] },
+  riskRef: { relation: "audit-risk", modules: ["Risk Assessment"], sources: ["Denetim Yönetimi"] },
+  evidenceRef: { relation: "audit-evidence", modules: ["Kanıtlar"], sources: ["Denetim Yönetimi"] },
+  technologyRefs: { relation: "bia-technology", modules: ["Varlık Envanteri"], sources:["BIA"] },
+  vendorEvidenceRefs: { relation: "vendor-evidence", modules:["Kanıtlar"], sources:["Tedarikçiler"] },
+  supplierRefs: { relation: "bia-supplier", modules:["Tedarikçiler"], sources:["BIA"] },
+  dependencyRefs: { relation: "asset-dependency", modules: ["Varlık Envanteri","BIA"], sources: ["Varlık Envanteri"] },
+  vendor: { relation: "asset-vendor", modules: ["Tedarikçiler"], sources: ["Varlık Envanteri"] },
+  frameworks: { relation: "control-framework", modules: ["Uyum"], sources: ["Kontroller", "Kanıtlar"], frameworkTag: true },
+  framework: { relation: "control-framework", modules: ["Uyum"], sources: ["Kontroller", "Kanıtlar"], frameworkTag: true },
+
+  appetiteRiskRefs: { relation: "appetite-risk", modules: ["Risk Assessment"], sources:["Risk İştahı ve KRI"] },
+  kriEvidenceRef: { relation: "kri-evidence", modules: ["Kanıtlar"], sources:["Risk İştahı ve KRI"] },
+  findingRiskRef: { relation: "finding-risk", modules: ["Risk Assessment"], sources: ["Bulgular ve CAPA"] },
+  findingControlRef: { relation: "finding-control", modules: ["Kontroller", "Uyum"], sources: ["Bulgular ve CAPA"] },
+  findingAuditRef: { relation: "finding-audit", modules: ["Denetim Yönetimi"], sources: ["Bulgular ve CAPA"] },
+  findingVendorRef: { relation: "finding-vendor", modules: ["Tedarikçiler"], sources: ["Bulgular ve CAPA"] },
+  findingRegulatoryRef: { relation: "finding-regulatory", modules: ["Regülasyon Merkezi"], sources: ["Bulgular ve CAPA"] },
+  findingPolicyRef: { relation: "finding-policy", modules: ["Politika Merkezi"], sources: ["Bulgular ve CAPA"] },
+  findingIncidentRef: { relation: "finding-incident", modules: ["Güvenlik Olayları"], sources: ["Bulgular ve CAPA"] },
+  findingAutomationRuleRef: { relation: "finding-automation-rule", modules: ["Kanıt Otomasyonu"], sources: ["Bulgular ve CAPA"] },
+  remediationFindingRef: { relation: "finding-remediation", modules: ["Bulgular ve CAPA"], sources: ["Bulgular ve CAPA"] },
+  remediationRiskRef: { relation: "remediation-risk", modules: ["Risk Assessment"], sources: ["Bulgular ve CAPA"] },
+  remediationControlRef: { relation: "remediation-control", modules: ["Kontroller", "Uyum"], sources: ["Bulgular ve CAPA"] },
+  remediationAutomationRuleRef: { relation: "remediation-automation-rule", modules: ["Kanıt Otomasyonu"], sources: ["Bulgular ve CAPA"] },
+
+  incidentAssetRefs: { relation: "incident-asset", modules: ["Varlık Envanteri"], sources: ["Güvenlik Olayları"] },
+  incidentRiskRef: { relation: "incident-risk", modules: ["Risk Assessment"], sources: ["Güvenlik Olayları"] },
+  incidentBiaRef: { relation: "incident-bia", modules: ["BIA"], sources: ["Güvenlik Olayları"] },
+
+  continuityAssets: { relation: "continuity-asset", modules:["Varlık Envanteri"], sources:["İş Sürekliliği"] },
+  continuitySuppliers: { relation: "continuity-supplier", modules:["Tedarikçiler"], sources:["İş Sürekliliği"] },
+  continuityBiaRef: { relation: "continuity-bia", modules: ["BIA"], sources: ["İş Sürekliliği"] },
+  continuityPlanRef: { relation: "continuity-plan", modules: ["İş Sürekliliği"], sources: ["İş Sürekliliği"] },
+
+  policyScopeAsset:{relation:"policy-scope-asset",modules:["Varlık Envanteri"],sources:["Politika Merkezi"]},
+  policyScopeVendor:{relation:"policy-scope-vendor",modules:["Tedarikçiler"],sources:["Politika Merkezi"]},
+  policyRef: { relation: "policy-version", modules: ["Politika Merkezi"], sources: ["Politika Merkezi"] },
+  policyControlRefs: { relation: "policy-control", modules: ["Kontroller", "Uyum"], sources: ["Politika Merkezi"] },
+  policyRiskRefs: { relation: "policy-risk", modules: ["Risk Assessment"], sources: ["Politika Merkezi"] },
+  policyRegulationRefs: { relation: "policy-regulation", modules: ["Regülasyon Merkezi"], sources: ["Politika Merkezi"] },
+
+  regulatorySourceRef: { relation: "regulatory-source", modules: ["Regülasyon Merkezi"], sources: ["Regülasyon Merkezi"] },
+  regulatoryChangeRef: { relation: "regulatory-impact", modules: ["Regülasyon Merkezi"], sources: ["Regülasyon Merkezi"] },
+  regulatoryControlRef: { relation: "regulatory-control", modules: ["Kontroller", "Uyum"], sources: ["Regülasyon Merkezi"] },
+  regulatoryPolicyRef: { relation: "regulatory-policy", modules: ["Politika Merkezi"], sources: ["Regülasyon Merkezi"] },
+  regulatoryRiskRef: { relation: "regulatory-risk", modules: ["Risk Assessment"], sources: ["Regülasyon Merkezi"] },
+  regulatoryAssetRef: { relation: "regulatory-asset", modules: ["Varlık Envanteri"], sources: ["Regülasyon Merkezi"] },
+  regulatoryVendorRef: { relation: "regulatory-vendor", modules: ["Tedarikçiler"], sources: ["Regülasyon Merkezi"] },
+  regulatoryProcessRef: { relation: "regulatory-process", modules: ["BIA"], sources: ["Regülasyon Merkezi"] },
+  regulatoryAuditRef: { relation: "regulatory-audit", modules: ["Denetim Yönetimi"], sources: ["Regülasyon Merkezi"] },
+  regulatoryEvidenceRef: { relation: "regulatory-evidence", modules: ["Kanıtlar"], sources: ["Regülasyon Merkezi"] },
+
+  appetiteRef: { relation: "kri-appetite", modules: ["Risk İştahı ve KRI"], sources: ["Risk İştahı ve KRI"] },
+  measurementRef: { relation: "kri-measurement", modules: ["Risk İştahı ve KRI"], sources: ["Risk İştahı ve KRI"] },
+
+  vendorRef: { relation: "vendor-assessment", modules: ["Tedarikçiler"], sources: ["Tedarikçiler"] },
+  vendorAssessmentRef: { relation: "assessment-finding", modules: ["Tedarikçiler"], sources: ["Tedarikçiler"] },
+
+  automationSourceRef: { relation: "automation-source", modules: ["Kanıt Otomasyonu"], sources: ["Kanıt Otomasyonu"] },
+  automationControlRefs: { relation: "automation-control", modules: ["Kontroller", "Uyum"], sources: ["Kanıt Otomasyonu"] },
+  automationRuleRef: { relation: "automation-rule", modules: ["Kanıt Otomasyonu"], sources: ["Kanıt Otomasyonu"] },
+  automationEvidenceRef: { relation: "automation-evidence", modules: ["Kanıtlar"], sources: ["Kanıt Otomasyonu"] },
+  automationAssuranceRef: { relation: "control-assurance", modules: ["Kanıt Otomasyonu"], sources: ["Kanıt Otomasyonu"] },
+  automationFindingRefs: { relation: "assurance-finding", modules: ["Kanıt Otomasyonu"], sources: ["Kanıt Otomasyonu"], targetKind: "automation-finding" },
+  automationRemediationRef: { relation: "finding-remediation", modules: ["Kanıt Otomasyonu"], sources: ["Kanıt Otomasyonu"], targetKind: "automation-remediation" },
+  automationRiskRef: { relation: "remediation-risk", modules: ["Risk Assessment"], sources: ["Kanıt Otomasyonu"] },
+};
+
+const titleFields = [
+  "title", "name", "process", "statement", "kriName", "evidenceTitle", "requirementTitle", "controlTitle",
+  "auditName", "controlId", "controlRef", "framework", "code",
+];
+const aliasFields = [
+  ...titleFields.filter(field => field !== "requirementTitle"), "aliasRefs", "vendorId", "sourceId", "externalRef", "policyId", "appetiteId", "measurementId",
+  "planId", "assessmentId", "requirementRef",
+];
+
+export const connectedTitle = (row: ConnectedGrcRow) =>
+  String(titleFields.map((field) => row.data[field]).find(Boolean) || row.code || row.id);
+
+const normalize = (value: unknown) => String(value ?? "").normalize("NFKC").trim().toLocaleLowerCase("tr-TR").replace(/\s+/g, " ");
+const values = (value: unknown): string[] => Array.isArray(value)
+  ? value.flatMap(values)
+  : String(value ?? "").split(/[;,|\n]+/).map((item) => item.trim()).filter((item) => item.length >= 2);
+const aliases = (row: ConnectedGrcRow) => new Set(
+  [row.id, row.code, ...(row.module === "Varlık Envanteri" ? [row.data.assetId] : []), ...aliasFields.map((field) => row.data[field])].flatMap(values).map(normalize).filter(Boolean),
+);
+
+export function buildConnectedGrcGraph(rows: ConnectedGrcRow[]) {
+  // Resolve explicit identities before legacy labels. Never fan out an ambiguous reference.
+  const tiers = [new Map<string, ConnectedGrcRow[]>(), new Map<string, ConnectedGrcRow[]>(), new Map<string, ConnectedGrcRow[]>()];
+  for (const row of rows) {
+    const keys = [
+      new Set([row.id, ...values(row.data.canonicalRefs)].map(normalize).filter(Boolean)),
+      new Set([normalize(row.code)].filter(Boolean)),
+      aliases(row),
+    ];
+    keys.forEach((entries, tier) => {
+      for (const key of entries) {
+        const bucket = tiers[tier].get(key) || [];
+        bucket.push(row);
+        tiers[tier].set(key, bucket);
+      }
+    });
+  }
+  const links: ConnectedGrcLink[] = [], unresolved: UnresolvedGrcReference[] = [], seen = new Set<string>(), unresolvedSeen = new Set<string>();
+  for (const source of rows) {
+    for (const [field, definition] of Object.entries(relationFields)) {
+      if (definition.sources && !definition.sources.includes(source.module)) continue;
+      const relation=field==='controlRef'&&source.module==='Uyum'?'control-framework':
+        field==='controlRef'&&source.module==='Denetim Yönetimi'?'audit-control':definition.relation;
+      for (const reference of values(source.data[field])) {
+        const key = normalize(reference);
+        let matches: ConnectedGrcRow[] = [];
+        for (const tier of definition.canonicalOnly ? tiers.slice(0, 1) : tiers) {
+          matches = (tier.get(key) || []).filter(candidate => candidate.id !== source.id && definition.modules.includes(candidate.module) && (!definition.targetKind || candidate.data.kind === definition.targetKind));
+          if (matches.length) break;
+        }
+        // Risk forms also allow a prose description. Only a control identifier establishes a link here.
+        if (definition.optionalControlReference) {
+          matches = matches.filter(row => [row.id, row.code, row.data.controlRef].some(value => value && normalize(value) === key));
+          if (!matches.length) continue;
+        }
+        // A framework label is classification, not an identity for each requirement
+        // carrying that label. Only explicit requirement IDs/codes create this edge.
+        if (definition.frameworkTag) {
+          matches=matches.filter(row=>[row.id,row.code].some(value=>value&&normalize(value)===key)||((row.data.kind==="framework"||!["requirementRef","requirementTitle","controlRef","title","statement"].some(field=>row.data[field]))&&normalize(row.data.framework)===key));
+          if(!matches.length&&!/^CMP-/i.test(reference)) continue;
+        }
+        if (matches.length !== 1) {
+          const unresolvedKey = `${source.id}|${field}|${relation}|${key}`;
+          if (!unresolvedSeen.has(unresolvedKey)) {
+            unresolvedSeen.add(unresolvedKey);
+            unresolved.push({ source, field, value: reference, relation, reason: matches.length ? "ambiguous" : "missing", candidates: matches });
+          }
+          continue;
+        }
+        for (const target of matches) {
+          // Evidence uploads keep both the primary control and the complete control list.
+          const identityField = field === "controlRefs" ? "controlRef" : field;
+          const edgeKey = `${source.id}|${target.id}|${relation}|${identityField}`;
+          if (seen.has(edgeKey)) continue;
+          seen.add(edgeKey);
+          links.push({ source, target, matched: reference, field, relation });
+        }
+      }
+    }
+  }
+  return { links, unresolved };
+}
+
+type CoverageRule = {
+  module: string;
+  kind?: string;
+  rule: ConnectedGrcCoverageGap["rule"];
+  severity: ConnectedGrcCoverageGap["severity"];
+  relationGroups: string[][];
+};
+
+const coverageRules: CoverageRule[] = [
+  { module: "Risk Assessment", rule: "risk-context", severity: "high", relationGroups: [["risk-asset", "risk-process"]] },
+  { module: "Kontroller", rule: "control-assurance", severity: "high", relationGroups: [["control-evidence", "automation-control"], ["control-framework"]] },
+  { module: "Kanıtlar", rule: "evidence-control", severity: "medium", relationGroups: [["control-evidence"]] },
+  { module: "Denetim Yönetimi", rule: "audit-traceability", severity: "high", relationGroups: [["audit-control"], ["audit-evidence"]] },
+  { module: "Bulgular ve CAPA", kind: "finding", rule: "finding-traceability", severity: "high", relationGroups: [["finding-risk", "finding-control", "finding-audit", "finding-vendor", "finding-regulatory", "finding-policy", "finding-incident", "finding-automation-rule"], ["finding-remediation"]] },
+  { module: "Bulgular ve CAPA", kind: "remediation", rule: "remediation-traceability", severity: "high", relationGroups: [["finding-remediation"], ["remediation-risk"]] },
+  { module: "Güvenlik Olayları", kind: "incident", rule: "incident-context", severity: "high", relationGroups: [["incident-asset", "incident-risk", "incident-bia"]] },
+  { module: "İş Sürekliliği", kind: "continuity-plan", rule: "continuity-bia", severity: "high", relationGroups: [["continuity-bia"]] },
+  { module: "İş Sürekliliği", kind: "continuity-exercise", rule: "continuity-execution", severity: "medium", relationGroups: [["continuity-plan"]] },
+  { module: "İş Sürekliliği", kind: "continuity-gap", rule: "continuity-execution", severity: "medium", relationGroups: [["continuity-plan"]] },
+  { module: "Politika Merkezi", kind: "policy-version", rule: "policy-mapping", severity: "medium", relationGroups: [["policy-version"], ["policy-control", "policy-risk", "policy-regulation"]] },
+  { module: "Regülasyon Merkezi", kind: "regulatory-impact", rule: "regulatory-impact", severity: "high", relationGroups: [["regulatory-impact"], ["regulatory-control", "regulatory-policy", "regulatory-risk", "regulatory-asset", "regulatory-vendor", "regulatory-process", "regulatory-audit", "regulatory-evidence"]] },
+  { module: "Risk İştahı ve KRI", kind: "kri-measurement", rule: "kri-lineage", severity: "medium", relationGroups: [["kri-appetite"]] },
+  { module: "Risk İştahı ve KRI", kind: "kri-breach", rule: "kri-lineage", severity: "high", relationGroups: [["kri-appetite"], ["kri-measurement"]] },
+  { module: "Risk İştahı ve KRI", kind: "risk-scenario", rule: "kri-lineage", severity: "medium", relationGroups: [["kri-appetite"]] },
+  { module: "Tedarikçiler", kind: "vendor-assessment", rule: "vendor-lineage", severity: "medium", relationGroups: [["vendor-assessment"]] },
+  { module: "Tedarikçiler", kind: "vendor-finding", rule: "vendor-lineage", severity: "high", relationGroups: [["vendor-assessment"], ["assessment-finding"]] },
+  { module: "Kanıt Otomasyonu", kind: "automation-rule", rule: "continuous-assurance", severity: "high", relationGroups: [["automation-source"], ["automation-control"], ["control-assurance"]] },
+  { module: "Kanıt Otomasyonu", kind: "automation-assurance", rule: "continuous-assurance", severity: "high", relationGroups: [["automation-rule"], ["automation-control"]] },
+  { module: "Kanıt Otomasyonu", kind: "automation-finding", rule: "continuous-assurance", severity: "high", relationGroups: [["assurance-finding"], ["finding-remediation"]] },
+  { module: "Kanıt Otomasyonu", kind: "automation-remediation", rule: "continuous-assurance", severity: "high", relationGroups: [["finding-remediation"], ["remediation-risk"]] },
+];
+
+const ruleForRow = (row: ConnectedGrcRow) => row.data.kind==="audit"?undefined:coverageRules.find((rule) =>
+  rule.module === row.module && (!rule.kind || String(row.data.kind || "") === rule.kind),
+);
+
+export function assessConnectedGrcCoverage(rows: ConnectedGrcRow[], links: ConnectedGrcLink[]) {
+  const eligible = rows.filter((row) => Boolean(ruleForRow(row)));
+  const gaps: ConnectedGrcCoverageGap[] = [];
+  const rowScores = new Map<string, number>();
+  const indexed=new Map<string,Set<string>>();
+  for(const {source,target,relation} of links)for(const id of [source.id,target.id]){
+    const relations=indexed.get(id)||new Set<string>();
+    relations.add(relation);
+    indexed.set(id,relations);
+  }
+  for (const row of eligible) {
+    const rule = ruleForRow(row)!;
+    const rowRelations = indexed.get(row.id)||new Set<string>();
+    const matchedGroups = rule.relationGroups.filter((group) => group.some((relation) => rowRelations.has(relation)));
+    const missingGroups = rule.relationGroups.filter((group) => !group.some((relation) => rowRelations.has(relation)));
+    const percent = Math.round((matchedGroups.length / rule.relationGroups.length) * 100);
+    rowScores.set(row.id, percent);
+    if (missingGroups.length) gaps.push({
+      row,
+      rule: rule.rule,
+      severity: rule.severity,
+      expectedRelations: rule.relationGroups.flat(),
+      missingRelations: missingGroups.map((group) => group[0]),
+      matchedRelations: matchedGroups.flatMap((group) => group.filter((relation) => rowRelations.has(relation))),
+      percent,
+    });
+  }
+  gaps.sort((a, b) => a.percent - b.percent || Number(b.severity === "high") - Number(a.severity === "high") || a.row.module.localeCompare(b.row.module, "tr"));
+  const covered = eligible.length - gaps.length;
+  const partial = gaps.filter((gap) => gap.percent > 0).length;
+  const percent = eligible.length ? Math.round(Array.from(rowScores.values()).reduce((sum, score) => sum + score, 0) / eligible.length) : 100;
+  const domainNames = Array.from(new Set(eligible.map((row) => row.module)));
+  const domains: ConnectedGrcDomainPosture[] = domainNames.map((module) => {
+    const domainRows = eligible.filter((row) => row.module === module);
+    const domainGaps = gaps.filter((gap) => gap.row.module === module);
+    const scores = domainRows.map((row) => rowScores.get(row.id) ?? 0);
+    return {
+      module,
+      eligible: domainRows.length,
+      covered: domainRows.length - domainGaps.length,
+      partial: domainGaps.filter((gap) => gap.percent > 0).length,
+      gaps: domainGaps.length,
+      percent: domainRows.length ? Math.round(scores.reduce((sum, score) => sum + score, 0) / domainRows.length) : 100,
+    };
+  });
+  return { eligible: eligible.length, covered, partial, percent, gaps, domains };
+}
+
+export const connectedRemediationModule: Record<string, string> = {
+  "risk-control": "Kontroller",
+  "risk-asset": "Varlık Envanteri",
+  "risk-process": "BIA",
+  "control-evidence": "Kanıtlar",
+  "control-framework": "Uyum",
+  "audit-control": "Kontroller",
+  "audit-evidence": "Kanıtlar",
+  "finding-risk": "Risk Assessment",
+  "finding-control": "Kontroller",
+  "finding-audit": "Denetim Yönetimi",
+  "finding-vendor": "Tedarikçiler",
+  "finding-regulatory": "Regülasyon Merkezi",
+  "finding-policy": "Politika Merkezi",
+  "finding-incident": "Güvenlik Olayları",
+  "finding-automation-rule": "Kanıt Otomasyonu",
+  "finding-remediation": "Bulgular ve CAPA",
+  "remediation-risk": "Risk Assessment",
+  "remediation-control": "Kontroller",
+  "remediation-automation-rule": "Kanıt Otomasyonu",
+  "incident-asset": "Varlık Envanteri",
+  "incident-risk": "Risk Assessment",
+  "incident-bia": "BIA",
+  "continuity-bia": "BIA",
+  "continuity-plan": "İş Sürekliliği",
+  "policy-scope-asset":"Varlık Envanteri",
+  "policy-scope-vendor":"Tedarikçiler",
+  "policy-version": "Politika Merkezi",
+  "policy-control": "Kontroller",
+  "policy-risk": "Risk Assessment",
+  "policy-regulation": "Regülasyon Merkezi",
+  "regulatory-impact": "Regülasyon Merkezi",
+  "regulatory-control": "Kontroller",
+  "regulatory-policy": "Politika Merkezi",
+  "regulatory-risk": "Risk Assessment",
+  "regulatory-asset": "Varlık Envanteri",
+  "regulatory-vendor": "Tedarikçiler",
+  "regulatory-process": "BIA",
+  "regulatory-audit": "Denetim Yönetimi",
+  "regulatory-evidence": "Kanıtlar",
+  "appetite-risk": "Risk Assessment",
+  "kri-evidence": "Kanıtlar",
+  "kri-appetite": "Risk İştahı ve KRI",
+  "kri-measurement": "Risk İştahı ve KRI",
+  "vendor-assessment": "Tedarikçiler",
+  "assessment-finding": "Tedarikçiler",
+  "automation-source": "Kanıt Otomasyonu",
+  "automation-control": "Kontroller",
+  "automation-rule": "Kanıt Otomasyonu",
+  "automation-evidence": "Kanıtlar",
+  "control-assurance": "Kanıt Otomasyonu",
+  "assurance-finding": "Kanıt Otomasyonu",
+};
+
+export const connectedRelationLabels: Record<string, { tr: string; en: string }> = {
+  "system-incident":{tr:"sapmadan açılan olay",en:"incident from monitoring"},
+  "system-asset":{tr:"ilgili varlık",en:"related asset"},
+  "system-vendor":{tr:"model sağlayıcısı",en:"model provider"},
+  "system-risk":{tr:"bağlı AI riski",en:"linked AI risk"},
+  "system-control":{tr:"bağlı AI kontrolü",en:"linked AI control"},
+  "system-evidence":{tr:"karar kanıtı",en:"decision evidence"},
+  "ai-model": { tr: "AI modeline bağlı", en: "linked to AI model" },
+  "ai-finding": { tr: "AI bulgusuna aktarılmış", en: "escalated to AI finding" },
+  "evidence-source": {tr:"kaynağından toplandı",en:"collected from"},
+  "risk-control": { tr: "kontrol ile yönetilir", en: "is managed by control" },
+  "risk-asset": { tr: "varlığı etkiler", en: "affects asset" },
+  "risk-process": { tr: "süreci etkiler", en: "affects process" },
+  "continuity-process": { tr: "BIA’ya dayanır", en: "depends on BIA" },
+  "control-evidence": { tr: "kontrolü kanıtlar", en: "evidences control" },
+  "audit-control": { tr: "kontrolü denetler", en: "audits control" },
+  "audit-risk": { tr: "riski doğrular", en: "validates risk" },
+  "audit-evidence": { tr: "kanıtı kullanır", en: "uses evidence" },
+  "bia-technology": { tr:"teknoloji bağımlılığı", en:"technology dependency" },
+  "bia-supplier": { tr:"tedarikçi bağımlılığı", en:"supplier dependency" },
+  "asset-dependency": { tr:"kritik bağımlılık", en:"critical dependency" },
+  "vendor-control": {tr:"tedarikçi güvencesinden türeyen kontrol",en:"control derived from vendor assurance"},
+  "vendor-evidence": { tr:"tedarikçiyi destekleyen kanıt", en:"supporting supplier evidence" },
+  "asset-vendor": { tr: "tedarikçiye bağlı", en: "depends on vendor" },
+  "control-framework": { tr: "çerçeveyi karşılar", en: "maps to framework" },
+  "finding-risk": { tr: "riske bağlı bulgu", en: "finding linked to risk" },
+  "finding-control": { tr: "kontrole bağlı bulgu", en: "finding linked to control" },
+  "finding-audit": { tr: "denetimden doğar", en: "originates from audit" },
+  "finding-vendor": { tr: "tedarikçiden doğar", en: "originates from vendor" },
+  "finding-regulatory": { tr: "regülasyondan doğar", en: "originates from regulation" },
+  "finding-policy": { tr: "politikaya bağlı", en: "linked to policy" },
+  "finding-incident": { tr: "olaya bağlı", en: "linked to incident" },
+  "finding-automation-rule": { tr: "sürekli kontrolden doğar", en: "originates from continuous control" },
+  "finding-remediation": { tr: "bulguyu giderir", en: "remediates finding" },
+  "remediation-risk": { tr: "riski tedavi eder", en: "treats risk" },
+  "remediation-control": { tr: "kontrolü iyileştirir", en: "improves control" },
+  "remediation-automation-rule": { tr: "sürekli kontrolü iyileştirir", en: "remediates continuous control" },
+  "incident-asset": { tr: "varlığı etkiler", en: "impacts asset" },
+  "incident-risk": { tr: "riski tetikler", en: "triggers risk" },
+  "incident-bia": { tr: "kritik süreci etkiler", en: "impacts critical process" },
+  "continuity-bia": { tr: "BIA kapsamını uygular", en: "implements BIA scope" },
+  "continuity-asset": {tr:"bağımlı olduğu varlık",en:"depends on asset"},
+  "continuity-supplier": {tr:"bağımlı olduğu tedarikçi",en:"depends on supplier"},
+  "continuity-plan": { tr: "plana bağlı", en: "linked to plan" },
+  "policy-scope-asset":{tr:"istisna kapsamındaki varlık",en:"asset in exception scope"},
+  "policy-scope-vendor":{tr:"istisna kapsamındaki tedarikçi",en:"vendor in exception scope"},
+  "policy-version": { tr: "politika sürümü", en: "policy version" },
+  "policy-control": { tr: "kontrolü yönetir", en: "governs control" },
+  "policy-risk": { tr: "riski yönetir", en: "governs risk" },
+  "policy-regulation": { tr: "regülasyonu karşılar", en: "addresses regulation" },
+  "regulatory-source": { tr: "düzenleyici kaynağa bağlı", en: "linked to regulatory source" },
+  "regulatory-impact": { tr: "değişiklik etkisi", en: "change impact" },
+  "regulatory-control": { tr: "kontrolü etkiler", en: "impacts control" },
+  "regulatory-policy": { tr: "politikayı etkiler", en: "impacts policy" },
+  "regulatory-risk": { tr: "riski etkiler", en: "impacts risk" },
+  "regulatory-asset": { tr: "varlığı etkiler", en: "impacts asset" },
+  "regulatory-vendor": { tr: "tedarikçiyi etkiler", en: "impacts vendor" },
+  "regulatory-process": { tr: "süreci etkiler", en: "impacts process" },
+  "regulatory-audit": { tr: "denetimi etkiler", en: "impacts audit" },
+  "regulatory-evidence": { tr: "kanıtı etkiler", en: "impacts evidence" },
+  "appetite-risk": {tr:"iştah beyanının izlediği risk",en:"risk monitored by the appetite statement"},
+  "kri-evidence": {tr:"ölçüm kanıtı",en:"measurement evidence"},
+  "kri-appetite": { tr: "risk iştahına bağlı", en: "linked to risk appetite" },
+  "kri-measurement": { tr: "ölçüme bağlı", en: "linked to measurement" },
+  "vendor-assessment": { tr: "tedarikçi değerlendirmesi", en: "vendor assessment" },
+  "assessment-finding": { tr: "değerlendirme bulgusu", en: "assessment finding" },
+  "automation-source": { tr: "otomasyon kaynağına bağlı", en: "linked to automation source" },
+  "automation-control": { tr: "kontrolü sürekli doğrular", en: "continuously validates control" },
+  "automation-rule": { tr: "otomasyon kuralından doğar", en: "originates from automation rule" },
+  "automation-evidence": { tr: "otomatik kanıta bağlı", en: "linked to automated evidence" },
+  "control-assurance": { tr: "kontrol güvencesini üretir", en: "produces control assurance" },
+  "assurance-finding": { tr: "güvence düşüşü bulgu üretir", en: "assurance degradation creates finding" },
+};

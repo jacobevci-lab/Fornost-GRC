@@ -1,0 +1,48 @@
+# Regulatory Change Intelligence
+
+Fornost Regülasyon Merkezi, düzenleyici değişiklikleri kaynak kaydından kanıtlı kapanışa kadar izleyen ana GRC iş akışıdır. Modül harici bir web tarayıcısı olduğunu iddia etmez; yetkili kaynak sicili, gözden geçirme takvimi ve kontrollü değişiklik alımı sağlar. Gelecekteki feed bağlantıları aynı alım ve doğrulama sınırlarına bağlanabilir.
+
+## Yaşam döngüsü
+
+1. Admin; HTTPS adresi, otorite, yetki alanı, sahip ve 1–365 günlük gözden geçirme periyoduyla kaynağı tanımlar.
+2. Admin veya Editor, kaynağa ait değişikliği dış referans, yayın/yürürlük tarihi, önem, sahip ve bağımsız reviewer ile triaj kuyruğuna alır. İçerik özeti sunucuda SHA-256 ile mühürlenir.
+3. Değişiklik; kontrol, politika, risk, varlık, tedarikçi, süreç, denetim veya kanıt kaydına etki olarak bağlanır. Her etki için aksiyon sahibi ve yürürlük tarihini aşmayan termin belirlenir.
+4. Aksiyon sahibi çalışmayı başlatır, kütüphaneden kanıt ve dosya sürümünü seçerek doğrulamaya gönderir. Dosya bütünlüğü sunucuda kontrol edilir; hash elle girilmez.
+5. Atanmış Admin reviewer, oluşturucu/gönderenden farklıysa kanıtı doğrular veya yeniden açar.
+6. Değişiklik, en az bir etki kaydı bulunmadan ya da tüm etkiler doğrulanmadan kapatılamaz. Kapanış yalnız atanmış bağımsız reviewer tarafından yapılır.
+
+## Roller ve karar kontrolleri
+
+| İşlem | Admin | Editor | Viewer |
+|---|---:|---:|---:|
+| Kaynak tanımlama ve CSV dışa aktarma | Evet | Hayır | Hayır |
+| Kaynak inceleme, değişiklik ve etki oluşturma | Evet | Evet | Hayır |
+| Aksiyon başlatma ve doğrulamaya gönderme | Evet | Evet | Hayır |
+| Etki doğrulama, yeniden açma ve değişiklik kapatma | Evet, maker-checker koşuluyla | Hayır | Hayır |
+| Kayıtları görüntüleme | Evet | Evet | Evet |
+
+Yüksek etkili kararlar tam onay ifadeleri ister. Kapsam dışı bırakma, değişiklik kapatma/yeniden açma ve etki geçişleri değişmez olay günlüğüne aktör, zaman ve ayrıntı ile yazılır.
+
+## Güvenlik ve bütünlük
+
+- Kaynak adresleri yalnız güvenli HTTPS URL olarak kabul edilir; private/on-prem adresler açık yönetici politikası olmadan engellenir.
+- İstek boyutu 128 KiB ile, sorgu sonuçları sabit üst sınırlarla kısıtlanır.
+- Değişiklik içeriği ve aksiyon/doğrulama kanıtları SHA-256 değerleriyle izlenir.
+- CSV yalnız Admin içindir, cache dışıdır ve formül enjeksiyonuna karşı hücreleri güvenli hale getirir.
+- Durum geçişleri sunucu tarafında doğrulanır; arayüzde düğmeyi gizlemek tek yetkilendirme katmanı değildir.
+- Kaynak gözden geçirme işlemi otomatik veri toplama yerine sorumlu kişinin kontrollü attestation kaydıdır.
+
+## Operasyonel göstergeler
+
+Öncelik kuyruğu; inceleme zamanı gelen kaynakları, triaj bekleyen değişiklikleri, yüksek/kritik açık değişiklikleri, yürürlük tarihi geçmiş kayıtları, açık aksiyonları ve doğrulama kuyruğunu gösterir. Admin CSV çıktısı değişiklik sicilinin sınırlandırılmış anlık görünümüdür.
+
+Yeni atamalarda etkin, tam erişimli hesaplar seçilir; bağımsız inceleyen Admin olmalıdır. Gönderim ve bağımsız doğrulama ayrı, değişmez kanıt sürümü kayıtları tutar. Yeni dosya yüklemek eski kararı değiştirmez. Eski referans/hash API girdileri korunur fakat doğrulanmış kütüphane bağlantısı sayılmaz. [Kullanıcı Rehberi](USER-GUIDE.md#süreklilik-ve-regülasyon-kararlarında-kanıt-seçimi) ve [Admin Guide](ADMIN-GUIDE.md#connected-evidence-selections-continuity-and-regulatory-workflows) seçim, erişim ve sınırları açıklar.
+
+
+## Priority workspace (November 2026)
+
+The Worklist now exposes personal/team scope, literal search, open/completed/high/critical/verification/overdue filters and server-side pages. Organization-wide counters are calculated across the full register. Workflow stage is separate from overdue action dates. The contextual change file includes the source URL, publication/effective dates, exact paged impacts, retained evidence and the latest 30 decision events. Read failures show an explicit retry state rather than zero work.
+
+Source management supports Admin editing, archiving, restoration and deletion of unused sources. Linked sources must be archived. Each mutation checks the displayed revision and retains its audit event. Source review is a human attestation, not an automated feed fetch. Existing changes remain actionable when their source is archived.
+
+Policy targets can be searched and selected from the canonical Policy Center. The server checks that a selected policy still exists and is not retired inside the impact transaction. Core controls, assets, risks, BIA processes, vendors, audits and evidence retain their existing reference checks. Automatic source ingestion, original regulatory document storage and legal-text comparison are not enabled by this release. The action due date and legal effective date remain distinct.

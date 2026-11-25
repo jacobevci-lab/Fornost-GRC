@@ -1,0 +1,97 @@
+name: Publish on-prem bundle
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: onprem-bundle-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  build-test-publish:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+      - name: Build immutable application image
+        run: >-
+          docker build
+          --build-arg NEXT_PUBLIC_BASE_PATH=/fornost-grc
+          --build-arg FORNOST_SOURCE_COMMIT=${SOURCE_SHA}
+          --tag localhost/fornost-grc-app:${SOURCE_SHA}
+          .
+      - name: Verify final runtime libraries
+        run: docker run --rm "localhost/fornost-grc-app:${SOURCE_SHA}" scripts/linux/runtime-library-smoke.mjs
+      - name: Block publication of vulnerable images
+        run: |
+          mkdir -p security-artifacts
+          docker save "localhost/fornost-grc-app:${SOURCE_SHA}" -o /tmp/release-image.tar
+          docker run --rm -v /tmp/release-image.tar:/scan/image.tar:ro \
+            -v "$PWD/security-artifacts:/out" aquasec/trivy:latest image \
+            --input /scan/image.tar --scanners vuln --severity HIGH,CRITICAL \
+            --exit-code 1 --format json --output /out/release-image.json
+      - name: Preserve release security evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-image-security
+          path: security-artifacts/
+          if-no-files-found: warn
+      - name: Create and verify image bundle
+        run: |
+          docker save "localhost/fornost-grc-app:${SOURCE_SHA}" | gzip -1 > fornost-grc-amd64.tar.gz
+          sha256sum fornost-grc-amd64.tar.gz > fornost-grc-amd64.tar.gz.sha256
+          sha256sum --check fornost-grc-amd64.tar.gz.sha256
+          docker image rm "localhost/fornost-grc-app:${SOURCE_SHA}"
+          docker load --input fornost-grc-amd64.tar.gz
+          docker image inspect "localhost/fornost-grc-app:${SOURCE_SHA}" >/dev/null
+      - name: Test installer using only the prebuilt bundle
+        run: >-
+          sudo env
+          FORNOST_INTEGRATION_TEST=1
+          FORNOST_CONTAINER_ENGINE=docker
+          FORNOST_INTEGRATION_PORT=18443
+          FORNOST_RELEASE_COMMIT=${SOURCE_SHA}
+          FORNOST_APP_BUNDLE_FILE=${{ github.workspace }}/fornost-grc-amd64.tar.gz
+          bash tests/onprem-container-integration.sh
+      - name: Install Podman for bundle compatibility test
+        run: sudo apt-get update && sudo apt-get install -y podman
+      - name: Test the same prebuilt bundle with Podman
+        run: >-
+          sudo env
+          FORNOST_INTEGRATION_TEST=1
+          FORNOST_CONTAINER_ENGINE=podman
+          FORNOST_INTEGRATION_PORT=19443
+          FORNOST_RELEASE_COMMIT=${SOURCE_SHA}
+          FORNOST_APP_BUNDLE_FILE=${{ github.workspace }}/fornost-grc-amd64.tar.gz
+          bash tests/onprem-container-integration.sh
+      - name: Publish commit-pinned bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="onprem-${SOURCE_SHA}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists; refreshing bundle assets idempotently."
+            gh release upload "$tag" \
+              fornost-grc-amd64.tar.gz \
+              fornost-grc-amd64.tar.gz.sha256 \
+              --clobber
+          else
+            gh release create "$tag" \
+              --target "${SOURCE_SHA}" \
+              --title "Fornost GRC on-prem ${SOURCE_SHA::12}" \
+              --notes "Tested x86_64 on-prem image for source commit ${SOURCE_SHA}." \
+              fornost-grc-amd64.tar.gz \
+              fornost-grc-amd64.tar.gz.sha256
+          fi

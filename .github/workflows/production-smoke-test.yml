@@ -1,0 +1,66 @@
+name: Production Smoke Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "17 */6 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fornost-production-smoke-test-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
+jobs:
+  smoke:
+    name: Verify production runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FORNOST_EXPECTED_REVISION: ${{ github.sha }}
+      FORNOST_PROD_URL: ${{ vars.FORNOST_PROD_URL }}
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+
+      - name: Prepare temporary production QA account
+        uses: ./.github/actions/production-qa-account
+        with:
+          token: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+          account: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Verify the expected production revision
+        run: node scripts/wait-for-production-revision.mjs
+
+      - name: Run production smoke tests
+        shell: bash
+        run: |
+          set +e
+          for attempt in 1 2 3; do
+            echo "Production smoke attempt ${attempt}/3"
+            node scripts/production-smoke-test.mjs
+            status=$?
+            if [ "$status" -eq 0 ]; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Smoke test failed with exit ${status}; allowing production deployment/runtime to settle for 30s before retry."
+              sleep 30
+            fi
+          done
+          exit "$status"
+
+      - name: Confirm production revision after smoke tests
+        run: node scripts/wait-for-production-revision.mjs --once

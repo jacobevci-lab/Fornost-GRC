@@ -1,0 +1,7 @@
+# AI decision workspace — 2026-11-11
+
+GRC operators need to identify a system requiring attention, inspect its specific gaps, and reach its canonical record without scanning a 13-column matrix. Implement the selected Decision Desk home and Portfolio inventory using existing APIs and governance decisions. Preserve the cream/teal theme, TR/EN, role boundaries, versioned edits and independent approval rules. No new AI calls, fabricated monitoring signals, schema migration, or lifecycle board.
+
+Acceptance: visible worklist/inventory/assessment/monitoring navigation; searchable, owner-filtered attention queue with risk ordering and explicitly labelled system review dates; exact-system dossier navigation; expandable inventory rows preserving edit/delete/decision/history; empty, failed and filtered-empty states are distinct; audit matrix/package tools remain available through Reports, loaded on demand. Inventory approval must never imply production approval. Review counts are calculated from the loaded portfolio, not the capped API action preview.
+
+Validate targeted unit contracts, typecheck, lint and browser flows including TR/EN, light/dark, desktop/mobile, keyboard, filtering, exact-record navigation, creation/edit/delete, report failures and retry. Release through the existing GitHub/Cloudflare pipeline only after checks. Roll back the change commit; no data migration. Customer UAT remains separate.

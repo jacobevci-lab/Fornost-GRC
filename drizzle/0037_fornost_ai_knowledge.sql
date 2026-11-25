@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS ai_knowledge_sources (id TEXT PRIMARY KEY,name TEXT NOT NULL,source_type TEXT NOT NULL,classification TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'draft',current_version INTEGER NOT NULL DEFAULT 1,content_hash TEXT NOT NULL,character_count INTEGER NOT NULL,chunk_count INTEGER NOT NULL,created_by TEXT NOT NULL,created_at TEXT NOT NULL,updated_by TEXT NOT NULL,updated_at TEXT NOT NULL,approved_by TEXT,approved_at TEXT,decision_note TEXT);
+CREATE INDEX IF NOT EXISTS ai_knowledge_sources_status_updated_idx ON ai_knowledge_sources(status,updated_at);
+CREATE TABLE IF NOT EXISTS ai_knowledge_versions (id TEXT PRIMARY KEY,source_id TEXT NOT NULL,version INTEGER NOT NULL,content_hash TEXT NOT NULL,normalized_content TEXT NOT NULL,character_count INTEGER NOT NULL,chunk_count INTEGER NOT NULL,created_by TEXT NOT NULL,created_at TEXT NOT NULL,UNIQUE(source_id,version));
+CREATE INDEX IF NOT EXISTS ai_knowledge_versions_source_idx ON ai_knowledge_versions(source_id,version);
+CREATE TABLE IF NOT EXISTS ai_knowledge_chunks (id TEXT PRIMARY KEY,source_id TEXT NOT NULL,version INTEGER NOT NULL,ordinal INTEGER NOT NULL,content_text TEXT NOT NULL,content_hash TEXT NOT NULL,created_at TEXT NOT NULL,UNIQUE(source_id,version,ordinal));
+CREATE INDEX IF NOT EXISTS ai_knowledge_chunks_source_idx ON ai_knowledge_chunks(source_id,version,ordinal);

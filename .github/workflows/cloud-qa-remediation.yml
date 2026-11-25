@@ -1,0 +1,37 @@
+name: Cloud QA remediation regression
+on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'scripts/cloud-qa-remediation-browser.mjs'
+      - 'tests/fixtures/policy-import-python-docx.docx'
+      - '.github/workflows/cloud-qa-remediation.yml'
+permissions:
+  contents: read
+jobs:
+  isolated-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # All application traffic and D1/R2 bindings stay inside this CI runner.
+      CLOUDFLARE_CF_FETCH_ENABLED: 'false'
+      QA_OUTPUT_DIR: /tmp/fornost-qa-browser
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --ignore-scripts @playwright/test@1.55.0
+      - run: echo "QA_CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+      - run: node scripts/prepare-local-qa.mjs
+      - name: Isolated browser regressions
+        run: |
+          node -e 'require("fs").writeFileSync(".dev.vars", "FORNOST_SETTINGS_ENCRYPTION_KEY=" + require("crypto").randomBytes(32).toString("hex") + "\n", {mode:0o600})'
+          node scripts/cloud-qa-remediation-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cloud-qa-remediation
+          path: /tmp/fornost-qa-browser/

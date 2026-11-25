@@ -1,0 +1,154 @@
+"use client";
+
+import { useContext, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { buildConnectedGrcGraph, connectedTitle, type ConnectedGrcRow } from "./connected-grc-model";
+import { FrameworkImpact } from "./framework-posture/audit";
+import Telemetry from './exchange/telemetry';
+import {FairDetail} from './enterprise/fair-panel';
+import NavIcon from "./nav-icon";
+import { ModuleTrailContext, RecordTrail } from "./module-record-trail-view";
+import { AssuranceChain, hasAssuranceChain } from "./assurance-chain-view";
+import { assessedRiskScore, assessedResidualRiskScore } from "./risk-methodology";
+import { navigateToFornost } from "./navigation-focus";
+import {evidenceState} from "./evidence/intake";
+import { displayRecordCode } from "./record-codes";
+
+import { hasBusinessContext } from "./business-context";
+import { BusinessContextView, useContinuityContext } from "./business-context-view";
+
+type Inspect = (row: ConnectedGrcRow, button: HTMLButtonElement) => void;
+type Props = {
+  rows: ConnectedGrcRow[];
+  visible: ConnectedGrcRow[];
+  lang: "tr" | "en";
+  moduleNames: Record<string, string>;
+  formatValue: (value: string, lang: "tr" | "en") => string;
+  evidenceReview?:(row:ConnectedGrcRow)=>ReactNode;
+  allowPosture?:boolean;
+  initialRecordId?:string;
+  preview: (id: string) => void;
+  children: (inspect: Inspect, open: boolean) => ReactNode;
+};
+
+export default function RecordWorkspace({ rows, visible, lang, moduleNames, formatValue, preview, evidenceReview, allowPosture, initialRecordId, children }: Props) {
+  const tr = lang === "tr";
+  const [path, setPath] = useState<string[]>(() => initialRecordId ? [initialRecordId] : []);
+  const [origin, setOrigin] = useState<{ rowId: string; button: HTMLButtonElement; x: number; y: number; tableLeft: number } | null>(null);
+  const title = useRef<HTMLHeadingElement>(null);
+  const root = visible.find(row => row.id === path[0]);
+  const selectedId = path.at(-1);
+  const context = useContext(ModuleTrailContext);
+  const needsContinuity = !!root && rows.some(row=>path.includes(row.id) && (hasBusinessContext(row) || hasAssuranceChain(row)));
+  const continuity = useContinuityContext(needsContinuity && !!context && !context.scoped, rows);
+  const records = useMemo(() => continuity.rows ? [...rows,...continuity.rows] : rows,[rows,continuity.rows]);
+  const selected = root && records.find(row => row.id === selectedId);
+  const open = !!selected;
+  const graph = useMemo(() => open ? buildConnectedGrcGraph(records) : null, [open, records]);
+
+  if (path.length && !selected) setPath([]);
+  useLayoutEffect(() => {
+    if (!open) return;
+    title.current?.focus({ preventScroll: true });
+    if (window.matchMedia("(max-width: 740px)").matches) {
+      title.current?.closest(".record-workspace")?.scrollIntoView({ block: "start" });
+    } else {
+      title.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [open, selectedId]);
+
+  function inspect(row: ConnectedGrcRow, button: HTMLButtonElement) {
+    setOrigin({ button, rowId: row.id, x: window.scrollX, y: window.scrollY, tableLeft: button.closest(".table-wrap")?.scrollLeft || 0 });
+    setPath([row.id]);
+  }
+  function close() {
+    setPath([]);
+    const previous = origin;
+    requestAnimationFrame(() => {
+      if (!previous?.button.isConnected) return;
+      const destination = root && root.id !== previous.rowId
+        ? previous.button.closest("table")?.querySelector<HTMLButtonElement>(`button.record-open[data-record-id="${CSS.escape(root.id)}"]`)
+        : previous.button;
+      destination?.focus({ preventScroll: true });
+      const table = previous.button.closest(".table-wrap");
+      if (table) table.scrollLeft = previous.tableLeft;
+      if (!destination || destination === previous.button) window.scrollTo(previous.x, previous.y);
+      else destination.scrollIntoView({ block: "nearest" });
+    });
+  }
+  function follow(id: string) {
+    setPath(current => {
+      const index = current.indexOf(id);
+      return index < 0 ? [...current, id] : current.slice(0, index + 1);
+    });
+  }
+  const linked = new Map<string, ConnectedGrcRow>();
+  if (selected && graph) {
+    for (const link of graph.links) {
+      const target = link.source.id === selected.id ? link.target : link.target.id === selected.id ? link.source : null;
+      if (target) linked.set(target.id, target);
+    }
+  }
+  const showChain = !!selected && hasAssuranceChain(selected);
+  const business = !!selected && hasBusinessContext(selected);
+  const dependencyFields=selected?.module==="BIA"?["technologyRefs","supplierRefs"]:["dependencyRefs"];
+  const assetDependencies=graph?.links.filter(link=>link.source.id===selected?.id && dependencyFields.includes(link.field)).map(link=>link.target)||[];
+  const otherLinks = Array.from(linked.values()).filter(row => (!showChain || !hasAssuranceChain(row)) && !(business && hasBusinessContext(row)));
+  const data = selected?.data || {};
+  const riskScore = selected?.module === "Risk Assessment" ? assessedRiskScore(data) : null;
+  const facts = [
+    [tr ? "Doğal risk puanı" : "Inherent risk score", riskScore === null ? null : String(riskScore)],
+    ...(selected?.module === "Risk Assessment" ? [[tr ? "Artık risk puanı" : "Residual risk score", String(assessedResidualRiskScore(data) ?? "—")]] : []),
+    [tr ? "Sorumlu" : "Owner", data.owner || data.auditOwner],
+    [selected?.module==="Varlık Envanteri" ? (tr?"Yaşam Döngüsü":"Lifecycle") : (tr?"Durum":"Status"), selected?.module==="Kanıtlar"?evidenceState(data,tr):data.status],
+    [tr?"Üretici":"Manufacturer",selected?.module==="Varlık Envanteri" && data.externalVendor],
+    [tr ? "İş birimi" : "Business unit", data.businessUnit],
+    [tr ? "Sonraki inceleme" : "Next review", data.nextReview],
+    [tr ? "Sürüm" : "Version", selected?.module === "Kanıtlar" && (Number(data.versionNo) > 0 ? 'v' + data.versionNo : (tr ? "Sürüm kaydı yok" : "No version recorded"))],
+    [tr ? "Dönem" : "Period", data.period],
+    ["RTO", (data.rtoHours ?? data.rto) != null && (data.rtoHours ?? data.rto)!=="" ? String(data.rtoHours ?? data.rto)+(tr?" saat":" h") : null],
+    ["RPO", (data.rpoHours ?? data.rpo) != null && (data.rpoHours ?? data.rpo)!=="" ? String(data.rpoHours ?? data.rpo)+(tr?" saat":" h") : null],
+  ].filter(([, value]) => typeof value === "string" && value.trim());
+
+  return <>
+    {children(inspect, open)}
+    {selected && <section className="record-workspace" aria-label={tr ? "Kayıt inceleme" : "Record inspection"}
+      onKeyDown={event => {
+        if (event.key === "Escape" && !event.defaultPrevented) { event.stopPropagation(); event.preventDefault(); close(); }
+      }}>
+      <div className="record-master">
+        <h3>{tr ? "Kayıtlar" : "Records"} <small>{visible.length}</small></h3>
+        <div>{visible.map(row => <button type="button" key={row.id} aria-current={root.id === row.id ? "true" : undefined}
+          onClick={() => setPath([row.id])}>
+          <NavIcon module={row.module}/><span className="record-master-identity"><small>{displayRecordCode(row)}</small><b>{connectedTitle(row)}</b></span><i aria-hidden="true">›</i>
+        </button>)}</div>
+      </div>
+      <div className="record-inspector">
+        <div className="record-trail" role="group" aria-label={tr ? "Kayıt gezinmesi" : "Record navigation"}>
+          <button type="button" onClick={close}>{tr ? "Listeye dön" : "Back to list"}</button>
+          {path.length > 1 && <button type="button" onClick={() => setPath(current => current.slice(0,-1))}>{tr ? "Önceki kayıt" : "Previous record"}</button>}
+        </div>
+        <small>{moduleNames[selected.module] || selected.module} · {displayRecordCode(selected)}</small>
+        <h3 ref={title} tabIndex={-1}>{connectedTitle(selected)}</h3>
+        <Telemetry data={selected.data} tr={tr}/>
+        {selected.module==="Risk Assessment"&&<FairDetail tr={tr} value={selected.data.fairLite}/>}
+        {selected.module==="Kanıtlar"&&evidenceReview?.(selected)}
+        {allowPosture && selected.module==="Kontroller" && <FrameworkImpact controlId={selected.id} tr={tr}/>}
+        {business && graph && <BusinessContextView anchor={selected} links={graph.links} tr={tr} openRecord={row=>follow(row.id)}
+          loading={continuity.loading} partial={continuity.partial} scoped={context?.scoped} retry={continuity.retry}/>}
+        {showChain && graph && <AssuranceChain key={selected.id} inspector anchor={selected} links={graph.links} lang={lang} trail={path} openRecord={row => follow(row.id)}/>}
+        {!showChain && !business && graph && <RecordTrail key={selected.id} root={selected} links={graph.links} lang={lang}
+          label={module => moduleNames[module] || module} openRecord={row => follow(row.id)}/>}
+        {assetDependencies.length>0 && <section><h4>{tr?"Kritik bağımlılıklar":"Critical dependencies"}</h4><div className="asset-link-counts">
+          {assetDependencies.map(row=><button key={row.id} type="button" onClick={()=>follow(row.id)}>{connectedTitle(row)}{row.code && row.code!==row.id ? " · "+row.code : ""}</button>)}</div></section>}
+        <dl>{facts.map(([label, value]) => <div key={String(label)}><dt>{String(label)}</dt><dd>{formatValue(String(value), lang)}</dd></div>)}</dl>
+        {selected.data.kind === "continuity-plan" && Array.isArray(data.canonicalRefs) && typeof data.canonicalRefs[0] === "string" &&
+          <button type="button" className="secondary" onClick={()=>navigateToFornost({module:"İş Sürekliliği",kind:"continuity-plan",ref:String((data.canonicalRefs as string[])[0])})}>{tr?"Süreklilik planını aç":"Open continuity plan"} →</button>}
+        {selected.module === "Kanıtlar" && <button className="primary" type="button" onClick={() => preview(selected.id)}>{tr ? "Kanıtı önizle" : "Preview evidence"}</button>}
+        {((!showChain && !business) || otherLinks.length > 0) && <h4>{showChain ? (tr ? "Diğer bağlı kayıtlar" : "Other linked records") : (tr ? "Bağlı kayıtlar" : "Linked records")}</h4>}
+        {otherLinks.length ? <ul>{otherLinks.map(row => <li key={row.id}><button type="button" onClick={() => follow(row.id)}>
+          <b>{connectedTitle(row)}</b><span>{moduleNames[row.module] || row.module} · {displayRecordCode(row)}</span>
+        </button></li>)}</ul> : !showChain && !business && <p>{tr ? "Bu kayda bağlı, görüntüleyebileceğin bir kayıt bulunamadı." : "No linked records are visible for this record."}</p>}
+      </div>
+    </section>}
+  </>;
+}

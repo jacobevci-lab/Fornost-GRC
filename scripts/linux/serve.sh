@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "${project_root}"
+
+[[ -f dist/server/wrangler.json ]] || {
+  echo "Build output is missing. Run npm run build first." >&2
+  exit 69
+}
+
+host="${HOST:-0.0.0.0}"
+port="${PORT:-3000}"
+
+scheduler_token="${FORNOST_SCHEDULER_TOKEN:-}"
+if (( ${#scheduler_token} >= 32 )); then
+  bash scripts/linux/evidence-scheduler.sh &
+fi
+
+exec bash scripts/sites-env.sh -- \
+  node_modules/.bin/wrangler dev \
+  --config dist/server/wrangler.json \
+  --ip "${host}" \
+  --port "${port}" \
+  --inspector-port 0 \
+  --local \
+  --persist-to .sites-runtime/data \
+  --var "FORNOST_DEMO_MODE:${FORNOST_DEMO_MODE:-false}" \
+  --var "FORNOST_SETTINGS_ENCRYPTION_KEY:${FORNOST_SETTINGS_ENCRYPTION_KEY:-development-only-integration-key-change-me}" \
+  --var "FORNOST_DOSSIER_SIGNING_KEY:${FORNOST_DOSSIER_SIGNING_KEY:-development-only-dossier-signing-key-change-me}" \
+  --var "FORNOST_SCHEDULER_TOKEN:${FORNOST_SCHEDULER_TOKEN:-}" \
+  --var "FORNOST_ALLOW_PRIVATE_CONNECTORS:${FORNOST_ALLOW_PRIVATE_CONNECTORS:-false}" \
+  --var "FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS:${FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS:-false}" \
+  --var "FORNOST_AI_ALLOW_LOOPBACK:${FORNOST_AI_ALLOW_LOOPBACK:-false}" \
+  --var "FORNOST_TRUST_PLATFORM_IDENTITY:${FORNOST_TRUST_PLATFORM_IDENTITY:-false}" \
+  --show-interactive-dev-session=false

@@ -1,0 +1,70 @@
+/* Executive metric history + dashboard QA contrast hardening.
+   This layer does not change the Fornost theme palette or dashboard information architecture. */
+
+.ed13-trend-mount{width:100%}
+.ed13-trend-strip{
+  display:grid;
+  grid-template-columns:1.18fr repeat(5,1fr);
+  margin-top:-1px;
+  border:1px solid var(--cp-line);
+  border-top:0;
+  border-radius:0 0 12px 12px;
+  overflow:hidden;
+  background:var(--cp-panel);
+}
+.ed13-trend{
+  min-width:0;
+  min-height:28px;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:6px 12px;
+  border-right:1px solid var(--cp-line);
+  color:var(--cp-muted);
+  font-size:9px;
+  font-weight:750;
+  white-space:nowrap;
+}
+.ed13-trend:last-child{border-right:0}
+.ed13-trend i{width:6px;height:6px;flex:0 0 6px;border-radius:50%;background:var(--cp-faint)}
+.ed13-trend.improved{color:color-mix(in srgb,var(--cp-mint) 74%,var(--cp-ink))}
+.ed13-trend.improved i{background:var(--cp-mint)}
+.ed13-trend.worse{color:color-mix(in srgb,var(--cp-red) 80%,var(--cp-ink))}
+.ed13-trend.worse i{background:var(--cp-red)}
+
+/* Production QA #60 found light-mode contrast regressions introduced by lowered opacity.
+   Keep the same visual hierarchy while ensuring executive text remains WCAG AA readable. */
+html:not([data-theme="dark"]) .workspace-dashboard.fornost-dashboard-v9 .ed10-outlook-list button.quiet{
+  opacity:1;
+}
+html:not([data-theme="dark"]) .workspace-dashboard.fornost-dashboard-v9 .ed10-outlook-list button.quiet span small,
+html:not([data-theme="dark"]) .workspace-dashboard.fornost-dashboard-v9 .ed10-outlook-list button.quiet span b{
+  color:#596475!important;
+}
+html:not([data-theme="dark"]) .workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-row.not-configured{
+  opacity:1;
+}
+html:not([data-theme="dark"]) .workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-row.not-configured>span:first-child,
+html:not([data-theme="dark"]) .workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-row.not-configured>strong,
+html:not([data-theme="dark"]) .workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-row.not-configured>span:nth-child(3),
+html:not([data-theme="dark"]) .workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-row.not-configured .ed10-status,
+html:not([data-theme="dark"]) .workspace-dashboard.fornost-dashboard-v9 .ed9-kpi-row.not-configured .ed10-status b{
+  color:#596475!important;
+}
+html:not([data-theme="dark"]) .workspace-dashboard.fornost-dashboard-v9 .ed10-status.watch,
+html:not([data-theme="dark"]) .workspace-dashboard.fornost-dashboard-v9 .ed10-status.watch b{
+  color:#745500!important;
+}
+
+@media(max-width:1280px){
+  .ed13-trend-strip{grid-template-columns:repeat(3,1fr)}
+  .ed13-trend:nth-child(3n){border-right:0}
+  .ed13-trend:nth-child(-n+3){border-bottom:1px solid var(--cp-line)}
+}
+@media(max-width:680px){
+  .ed13-trend-strip{grid-template-columns:1fr 1fr}
+  .ed13-trend:nth-child(n){border-right:1px solid var(--cp-line);border-bottom:1px solid var(--cp-line)}
+  .ed13-trend:nth-child(2n){border-right:0}
+  .ed13-trend:nth-last-child(-n+2){border-bottom:0}
+  .ed13-trend{font-size:8.5px;padding-inline:10px}
+}

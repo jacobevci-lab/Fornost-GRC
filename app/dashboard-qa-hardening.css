@@ -1,0 +1,70 @@
+/* Dashboard QA hardening
+   Accessibility, keyboard and responsive guardrails only. Existing Fornost palette/theme tokens are reused. */
+
+/* Full Production QA: heatmap cell score labels were below WCAG AA contrast in light mode. */
+.ed4-heatmap-row button small{
+  color:var(--cp-ink)!important;
+  font-weight:750;
+}
+
+/* Keep compact executive percentages readable instead of wrapping 100 and % onto separate lines. */
+.edh-metric>span b,
+.edh-score b,
+.ed4-metric>strong,
+.ed4-assurance-grid strong,
+.ed4-audit-summary strong{
+  white-space:nowrap;
+}
+.edh-metric>span b{flex:0 0 auto}
+
+/* Explicit keyboard focus on every executive decision surface. */
+.ed4-shell button:focus-visible,
+.edh-layer button:focus-visible,
+.ed4-customizer button:focus-visible{
+  outline:2px solid var(--cp-mint)!important;
+  outline-offset:2px;
+  position:relative;
+  z-index:2;
+}
+
+/* Heatmap cells need a visible focus state without changing their risk tone. */
+.ed4-heatmap-row button:focus-visible{
+  outline-offset:1px;
+  filter:brightness(1.03);
+}
+
+/* Improve dense health cards at common 1366-1536 widths. */
+.edh-metric>span{align-items:flex-start}
+.edh-metric>span small{max-width:68%;line-height:1.32}
+.edh-metric p{line-height:1.42}
+
+/* Customizer remains usable on shorter laptop displays and never leaks content below viewport. */
+.ed4-customizer{
+  max-height:min(92vh,900px);
+  overflow:auto;
+  overscroll-behavior:contain;
+}
+
+/* Avoid motion for users who explicitly request reduced motion. */
+@media (prefers-reduced-motion:reduce){
+  .ed4-shell *,
+  .edh-layer *,
+  .ed4-customizer *{
+    scroll-behavior:auto!important;
+    transition:none!important;
+    animation:none!important;
+  }
+}
+
+@media(max-width:1180px){
+  .edh-metric>span small{max-width:74%}
+}
+
+@media(max-width:760px){
+  .ed4-toolbar-controls button,
+  .ed4-period button,
+  .ed4-risk-mode button{
+    min-height:32px;
+  }
+  .edh-metric>span small{max-width:78%}
+}

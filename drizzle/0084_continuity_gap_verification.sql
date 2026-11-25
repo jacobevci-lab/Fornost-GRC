@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS enterprise_continuity_gap_verifications(gap_id TEXT PRIMARY KEY NOT NULL,exercise_id TEXT NOT NULL,evidence_reference TEXT NOT NULL,evidence_sha256 TEXT NOT NULL,verified_by TEXT NOT NULL,verified_at TEXT NOT NULL);

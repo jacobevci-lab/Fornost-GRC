@@ -1,0 +1,250 @@
+import {chromium,expect} from '@playwright/test';
+import assert from 'node:assert/strict';
+import {qaPassword} from './qa-credentials.mjs';
+const base='http://127.0.0.1:4173';
+const browser=await chromium.launch({executablePath:process.env.QA_CHROMIUM_PATH||undefined});
+const context=await browser.newContext({viewport:{width:1536,height:960}});
+const page=await context.newPage();page.setDefaultTimeout(20000);
+const testNow=new Date();await page.clock.install({time:testNow});
+let unavailable=true,writes=0,uncertain=false,coverage,malformed=false,wrongCounters=false,nextCursor,sourceContext="full";
+const items=Array.from({length:35},(_,i)=>({id:`QA-W-${i+1}`,findingId:`QA-F-${i+1}`,ruleId:`QA-R-${i+1}`,action:'control-retest',status:i===34?'retest-error':'pending-review',findingTitle:`QA queue finding ${i+1}`,severity:'high',owner:'owner@fornost.test',dueDate:'2026-12-01',ruleName:`QA rule ${i+1}`,controlRefs:`CTRL-QA-${i+1}`,createdAt:testNow.toISOString(),updatedAt:testNow.toISOString(),actor:i===0?'qa-admin@fornost.test':'creator@fornost.test'}));
+await page.route('**/api/continuous-assurance',async route=>{
+ if(route.request().method()==='POST'){
+  writes++;const body=route.request().postDataJSON();
+  assert.ok(['review-work-item','queue-retest'].includes(body.action));
+  await new Promise(resolve=>setTimeout(resolve,300));
+  if(!uncertain&&body.action==='review-work-item')items.find(item=>item.id===body.workItemId).status='approved-awaiting-retest';
+  return route.fulfill({status:uncertain?503:200,json:uncertain?{error:'fixture outage'}:{message:'Review completed.'}});
+ }
+ if(unavailable)return route.fulfill({status:503,json:{error:'fixture outage'}});
+ return route.fulfill({json:{context:sourceContext,nextCursor,items:malformed?[items[0],...items.slice(0,-1)]:items,coverage,summary:{total:items.length,pendingReview:wrongCounters?0:items.filter(i=>i.status==='pending-review').length,awaitingRetest:items.filter(i=>i.status==='approved-awaiting-retest').length,capaPromotion:0,retest:items.filter(i=>i.status==='pending-review').length,failedRetest:0,retestError:1,completed:items.filter(i=>i.status==='completed').length,rejected:0}}});
+});
+await page.route('**/api/continuous-assurance?filter=attention*',async route=>{
+ const at=new URL(route.request().url()).searchParams.get('at')||new Date(await page.evaluate(()=>Date.now())).toISOString();
+ const matching=items.filter(item=>{
+  if(['failed-retest','retest-error'].includes(item.status))return true;
+  if(!['pending-review','approved-awaiting-retest'].includes(item.status))return false;
+  const age=(new Date(at)-new Date(item.createdAt))/3600000;
+  return !Number.isFinite(age)||age<0||age>=8||(item.sourceState&&item.sourceState!=='linked');
+ });
+ return route.fulfill({json:{filter:'attention',assessmentAt:at,scanned:items.length,context:'full',nextCursor:null,coverage:{loaded:matching.length,complete:true},items:matching,summary:{total:matching.length,pendingReview:matching.filter(i=>i.status==='pending-review').length,awaitingRetest:matching.filter(i=>i.status==='approved-awaiting-retest').length,capaPromotion:0,retest:matching.filter(i=>i.status==='pending-review').length,failedRetest:0,retestError:1,completed:0,rejected:0}}});
+});
+try{
+ const login=await context.request.post(`${base}/api/auth`,{headers:{origin:base},data:{action:'login',email:'qa-admin@fornost.test',password:qaPassword()}});assert.equal(login.status(),200);
+ await page.goto(base);await expect(page.locator('.shell')).toBeVisible();
+ await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
+ const group=page.locator('nav button[aria-controls="nav-group-intelligence"]');if(await group.getAttribute('aria-expanded')!=='true')await group.click();
+ const nav=page.locator('nav button[aria-label="Connected GRC Map"]');await nav.scrollIntoViewIfNeeded();await nav.click();
+ await page.locator('.cg-tabs').getByRole('button',{name:'Assurance',exact:true}).click();
+  await page.getByRole('button',{name:'Open assurance work',exact:true}).click();
+ const panel=page.locator('.assurance-work-queue');
+ await expect(panel.getByRole('alert')).toBeVisible();await expect(panel.locator('.assurance-work-summary b').first()).toHaveText('—');
+ await panel.getByRole('button',{name:'Operations',exact:true}).click();await expect(panel.locator('.assurance-ops b').first()).toHaveText('—');
+ unavailable=false;await panel.getByRole('button',{name:'Refresh',exact:true}).click();await expect(panel.locator('.assurance-work-list>article')).toHaveCount(25);
+ await expect(panel.locator('.assurance-work-list>article').first().getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
+ sourceContext='work-only';await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await expect(panel.locator('.assurance-context-warning')).toContainText('review and retest actions are disabled');
+ await expect(panel.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
+ await expect(panel.getByRole('button',{name:'Request New Test',exact:true})).toHaveCount(0);
+ for(const metric of await panel.locator('.assurance-ops b').all())await expect(metric).toHaveText('—');
+ await expect(panel.locator('.assurance-work-sla').first()).toContainText('finding/rule context unavailable');
+ await expect(panel.locator('.assurance-work-summary b').first()).toHaveText('34');
+ sourceContext='without-capa';await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await expect(panel.locator('.assurance-context-warning')).toContainText('CAPA reference codes are unavailable');
+ await expect(panel.getByRole('button',{name:'Approve',exact:true}).first()).toBeEnabled();
+ sourceContext='full';await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await expect(panel.locator('.assurance-context-warning')).toHaveCount(0);
+ for(const state of ['missing-finding','missing-rule','rule-mismatch','unavailable']){
+  items[1].sourceState=state;
+  await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+  const affected=panel.locator('.assurance-work-list>article').nth(1);
+  await expect(affected.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
+  await affected.getByRole('button',{name:'Reject',exact:true}).click();
+  const rejection=panel.getByRole('dialog',{name:'Review assurance work'});
+  await expect(rejection).toContainText('It does not mark the finding, risk or control as remediated.');
+  await expect(rejection.locator('footer button.reject')).toBeDisabled();
+  await rejection.locator('textarea').fill('too short');
+  await expect(rejection.locator('footer button.reject')).toBeDisabled();
+  await rejection.locator('textarea').fill('The source link is obsolete.');
+  await expect(rejection.locator('footer button.reject')).toBeEnabled();
+  await rejection.getByRole('button',{name:'Cancel',exact:true}).click();
+  assert.equal(writes,0,'opening and cancelling rejection must not submit');
+  await expect(panel.locator('.assurance-work-list>article').first().getByRole('button',{name:'Reject',exact:true})).toHaveCount(0);
+  await expect(affected.locator('.assurance-work-sla.unknown')).toContainText('SLA not assessed');
+  await expect(panel.locator('.assurance-work-list>article').nth(2).getByRole('button',{name:'Approve',exact:true})).toBeEnabled();
+  await expect(panel.locator('.assurance-ops article').nth(4).locator('b')).toHaveText('—');
+  await expect(panel.locator('.assurance-work-summary b').first()).toHaveText('34');
+ }
+ items[1].sourceState='linked';
+ items[34].sourceState='missing-rule';
+ await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await panel.getByRole('searchbox').fill('CTRL-QA-35');
+ await expect(panel.getByRole('button',{name:'Request New Test',exact:true})).toHaveCount(0);
+ items[34].sourceState='linked';
+ await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+
+ await panel.getByRole('searchbox').fill('CTRL-QA-35');await expect(panel.locator('.assurance-work-list>article')).toHaveCount(1);
+ uncertain=true;await panel.getByRole('button',{name:'Request New Test',exact:true}).dispatchEvent('click');await panel.getByRole('button',{name:'Request New Test',exact:true}).dispatchEvent('click');
+ await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();
+ await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
+ await expect(panel.getByRole('status')).toContainText('could not be confirmed');await expect(panel.getByRole('button',{name:'Refresh',exact:true})).toBeEnabled();assert.equal(writes,1);
+ uncertain=false;await panel.getByRole('searchbox').fill('CTRL-QA-2');
+ await panel.locator('.assurance-work-list>article').first().getByRole('button',{name:'Approve',exact:true}).click();
+ const dialog=panel.getByRole('dialog',{name:'Review assurance work'});
+ await dialog.locator('footer button.approve').evaluate(button=>{button.dispatchEvent(new MouseEvent('click',{bubbles:true}));button.dispatchEvent(new MouseEvent('click',{bubbles:true}));});
+ await expect(dialog).toHaveCount(0);assert.equal(writes,2);
+ unavailable=true;await panel.getByRole('button',{name:'Refresh',exact:true}).click();await expect(panel.getByRole('alert')).toBeVisible();await expect(panel.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
+ unavailable=false;await panel.getByRole('searchbox').fill('');
+ items[0].createdAt='';items[1].createdAt='not-a-date';items[2].createdAt='2099-01-01T00:00:00Z';
+ await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await expect(panel.getByRole('status').filter({hasText:'active items have missing or invalid timestamps or source links'})).toContainText('3 active items');
+ await expect(panel.locator('.assurance-ops article').nth(4).locator('b')).toHaveText('—');
+ await panel.getByRole('button',{name:'Attention',exact:true}).click();
+ await expect(panel.locator('.assurance-work-sla.unknown')).toHaveCount(3);
+ for(let i=0;i<3;i++)items[i].createdAt=testNow.toISOString();
+ const clockNow=await page.evaluate(()=>Date.now());
+ items[3].createdAt=new Date(clockNow-8*3600000+15000).toISOString();
+ await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await expect(panel.locator('.assurance-work-sla.unknown')).toHaveCount(0);
+ await expect(panel.locator('.assurance-work-sla.breached')).toHaveCount(0);
+ await expect(panel.locator('.assurance-ops article').nth(4).locator('b')).toHaveText('100%');
+ await page.clock.fastForward(31000);
+ await expect(panel.locator('.assurance-work-sla.breached')).toHaveCount(0);
+ await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await expect(panel.locator('.assurance-work-sla.breached')).toHaveCount(1);
+ await expect(panel.locator('.assurance-ops article').nth(4).locator('b')).not.toHaveText('100%');
+ assert.equal(writes,2);
+ await panel.locator('.assurance-work-filters').getByRole('button',{name:'All',exact:true}).click();
+ await expect(panel.getByRole('button',{name:'Refresh',exact:true})).toBeEnabled();
+ while(items.length<500)items.push({...items[0],id:`QA-BOUND-${items.length}`,status:'completed'});
+ coverage={loaded:500,complete:false};
+ await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await expect(panel.locator('.assurance-queue-coverage')).toContainText('Partial queue: 500 items loaded');
+ for(const metric of await panel.locator('.assurance-work-summary b,.assurance-ops b').all())await expect(metric).toHaveText('—');
+ wrongCounters=true;await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await expect(panel.getByRole('alert')).toBeVisible();await expect(panel.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
+ await expect(panel.locator('.assurance-work-summary b').first()).toHaveText('—');
+ wrongCounters=false;
+ malformed=true;await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await expect(panel.getByRole('alert')).toBeVisible();await expect(panel.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
+ malformed=false;coverage={loaded:500,complete:true};
+ await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await expect(panel.getByRole('alert')).toHaveCount(0);await expect(panel.locator('.assurance-queue-coverage')).toHaveCount(0);
+ await expect(panel.locator('.assurance-work-summary b').first()).not.toHaveText('—');
+ // Continue beyond the old 500-record boundary, preserving search and rendering budget.
+ const cursor=JSON.stringify([4,items.at(-1).updatedAt,items.at(-1).id]);
+ let duplicatePage=false,pageUnavailable=false,wrongSearchEcho=false,changedContext=false;
+ const extra={...items[0],id:'QA-AFTER-500',findingTitle:'Beyond boundary',controlRefs:'CTRL-AFTER-500',actor:'creator@fornost.test',status:'pending-review'};
+ await page.route('**/api/continuous-assurance?*',route=>{
+  const params=new URL(route.request().url()).searchParams;
+  if(params.has('q')){
+   assert.equal(params.get('q'),'CTRL-GLOBAL-ONLY');assert.equal(params.get('lang'),'en');
+   const found={...extra,id:'QA-GLOBAL-ONLY',controlRefs:'CTRL-GLOBAL-ONLY',findingTitle:'Server-wide search result'};
+   return route.fulfill({json:{items:[found],search:{query:wrongSearchEcho?'other':params.get('q'),lang:'en'},nextCursor:null,coverage:{loaded:1,complete:true},summary:{total:1,pendingReview:1,awaitingRetest:0,capaPromotion:0,retest:1,failedRetest:0,retestError:0,completed:0,rejected:0}}});
+  }
+  assert.equal(params.get('cursor'),cursor);
+  if(pageUnavailable)return route.fulfill({status:503,json:{error:'page outage'}});
+  return route.fulfill({json:{context:changedContext?"work-only":"full",items:[duplicatePage?items[0]:extra],nextCursor:null,coverage:{loaded:1,complete:true},summary:{total:1,pendingReview:1,awaitingRetest:0,capaPromotion:0,retest:1,failedRetest:0,retestError:0,completed:0,rejected:0}}});
+ });
+ coverage={loaded:500,complete:false};nextCursor=cursor;
+ await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await panel.locator('.assurance-work-filters').getByRole('button',{name:'All',exact:true}).click();
+ await panel.getByRole('searchbox').fill('CTRL-AFTER-500');
+ await expect(panel.locator('.assurance-work-list>article')).toHaveCount(0);
+ await panel.getByRole('button',{name:'Load next records',exact:true}).click();
+ await expect(panel.locator('.assurance-work-list>article')).toHaveCount(1);
+ await expect(panel.locator('.assurance-work-list')).toContainText('Beyond boundary');
+ await expect(panel.getByRole('button',{name:'Load next records',exact:true})).toHaveCount(0);
+ await expect(panel.locator('.assurance-queue-coverage')).toHaveCount(0);
+ await panel.getByRole('searchbox').fill('');await expect(panel.locator('.assurance-work-list>article')).toHaveCount(25);
+ // A moved/duplicate record or failed continuation must require a fresh read.
+ for(const failure of ['duplicate','unavailable','context']){
+  duplicatePage=failure==='duplicate';pageUnavailable=failure==='unavailable';changedContext=failure==='context';
+  await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+  await panel.getByRole('button',{name:'Load next records',exact:true}).click();
+  await expect(panel.getByRole('alert')).toBeVisible();
+  await expect(panel.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
+  await expect(panel.locator('.assurance-work-summary b').first()).toHaveText('—');
+ }
+ duplicatePage=false;pageUnavailable=false;changedContext=false;
+ await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await expect(panel.getByRole('alert')).toHaveCount(0);
+ assert.equal(writes,2);
+ await panel.getByRole('searchbox').fill('CTRL-GLOBAL-ONLY');
+ await expect(panel.locator('.assurance-work-list>article')).toHaveCount(0);
+ await panel.getByRole('button',{name:'Search all records',exact:true}).click();
+ await expect(panel.locator('.assurance-work-list')).toContainText('Server-wide search result');
+ await expect(panel.getByRole('status').filter({hasText:'Server search:'})).toContainText('CTRL-GLOBAL-ONLY');
+ await expect(panel.locator('.assurance-work-summary b').first()).toHaveText('1');
+ await page.locator('.language-switch:visible').getByRole('button',{name:'TR',exact:true}).click();
+ await panel.getByRole('button',{name:'Yenile',exact:true}).click();
+ await expect(panel.locator('.assurance-work-list')).toContainText('Server-wide search result');
+ await page.locator('.language-switch:visible').getByRole('button',{name:'EN',exact:true}).click();
+ await panel.getByRole('button',{name:'Clear search',exact:true}).click();
+ await expect(panel.getByRole('searchbox')).toHaveValue('');
+ await expect(panel.locator('.assurance-work-list')).not.toContainText('Server-wide search result');
+ wrongSearchEcho=true;await panel.getByRole('searchbox').fill('CTRL-GLOBAL-ONLY');
+ await panel.getByRole('button',{name:'Search all records',exact:true}).click();
+ await expect(panel.getByRole('alert')).toBeVisible();await expect(panel.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
+ assert.equal(writes,2);
+ // Server status filters fetch matching records beyond the previously loaded page.
+ let wrongFilterEcho=false,wrongFilterRow=false,filterUnavailable=false;
+ await page.route('**/api/continuous-assurance?*',route=>{
+  const params=new URL(route.request().url()).searchParams,filter=params.get('filter');
+  assert.ok(['active','review','retest'].includes(filter));
+  assert.equal(params.has('q'),false);
+  if(filterUnavailable)return route.fulfill({status:503,json:{error:'filter outage'}});
+  const status=wrongFilterRow?'completed':filter==='retest'?'approved-awaiting-retest':'pending-review';
+  const row={...items[1],id:'QA-FILTER-BEYOND-500',findingTitle:'Remote status match',status};
+  return route.fulfill({json:{filter:wrongFilterEcho?'all':filter,items:[row],nextCursor:null,coverage:{loaded:1,complete:true},summary:{total:1,pendingReview:status==='pending-review'?1:0,awaitingRetest:status==='approved-awaiting-retest'?1:0,capaPromotion:0,retest:status==='pending-review'?1:0,failedRetest:0,retestError:0,completed:status==='completed'?1:0,rejected:0}}});
+ });
+ await panel.getByRole('searchbox').fill('');
+ for(const name of ['Review','Re-test','Active']){
+  await panel.locator('.assurance-work-filters').getByRole('button',{name,exact:true}).click();
+  await expect(panel.locator('.assurance-work-list')).toContainText('Remote status match');
+  await expect(panel.getByRole('status').filter({hasText:'Status scope:'})).toContainText(name);
+ }
+ for(const failure of ['echo','row','outage']){
+  wrongFilterEcho=failure==='echo';wrongFilterRow=failure==='row';filterUnavailable=failure==='outage';
+  await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+  await expect(panel.getByRole('alert')).toBeVisible();
+  await expect(panel.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
+  await expect(panel.locator('.assurance-work-summary b').first()).toHaveText('—');
+ }
+ wrongFilterEcho=false;wrongFilterRow=false;filterUnavailable=false;
+ await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+ await expect(panel.locator('.assurance-work-list')).toContainText('Remote status match');
+ assert.equal(writes,2,'filtering must not write');
+ // A bounded attention scan may return no matches but must offer a continuation.
+ const attentionAt=new Date(await page.evaluate(()=>Date.now())).toISOString();
+ const attentionCursor=JSON.stringify([0,attentionAt,'HEALTHY-1999']);
+ let attentionFailure='';
+ await page.route('**/api/continuous-assurance?filter=attention*',route=>{
+  const params=new URL(route.request().url()).searchParams;
+  const continuation=params.has('cursor');
+  if(continuation){assert.equal(params.get('cursor'),attentionCursor);assert.equal(params.get('at'),attentionAt);}
+  const row={...items[1],id:'QA-LATE-ATTENTION',findingTitle:'Attention beyond healthy pages',status:'pending-review',createdAt:new Date(new Date(attentionAt).getTime()-9*3600000).toISOString()};
+  const found=continuation&&attentionFailure!=='stalled'?[row]:[];
+  const complete=continuation&&attentionFailure!=='stalled';
+  return route.fulfill({json:{filter:'attention',assessmentAt:continuation&&attentionFailure==='time'?new Date(new Date(attentionAt).getTime()+1).toISOString():attentionAt,scanned:complete?1:2000,items:found,nextCursor:complete?null:attentionCursor,coverage:{loaded:found.length,complete},summary:{total:found.length,pendingReview:found.length,awaitingRetest:0,capaPromotion:0,retest:found.length,failedRetest:0,retestError:0,completed:0,rejected:0}}});
+ });
+ await panel.locator('.assurance-work-filters').getByRole('button',{name:'Attention',exact:true}).click();
+ await expect(panel.locator('.assurance-queue-coverage')).toContainText('2000 active records scanned, 0 attention matches');
+ await expect(panel.locator('.assurance-work-empty')).toContainText('No matching work in the scanned range');
+ await expect(panel.locator('.assurance-work-summary b').first()).toHaveText('—');
+ for(const failure of ['time','stalled']){
+  attentionFailure=failure;
+  await panel.getByRole('button',{name:'Load next records',exact:true}).click();
+  await expect(panel.getByRole('alert')).toBeVisible();
+  await expect(panel.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);
+  await panel.getByRole('button',{name:'Refresh',exact:true}).click();
+  await expect(panel.locator('.assurance-queue-coverage')).toContainText('2000 active records scanned');
+ }
+ attentionFailure='';
+ await panel.getByRole('button',{name:'Load next records',exact:true}).click();
+ await expect(panel.locator('.assurance-work-list')).toContainText('Attention beyond healthy pages');
+ await expect(panel.locator('.assurance-work-summary b').first()).toHaveText('1');
+ await expect(panel.getByRole('button',{name:'Load next records',exact:true})).toHaveCount(0);
+ assert.equal(writes,2);
+ console.log('Assurance queue recovery QA passed: unknown counters, retry, full-list search, independent review, duplicate review/retest guards and ambiguous write recovery without retry.');
+}finally{await browser.close();}

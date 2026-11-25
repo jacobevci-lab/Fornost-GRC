@@ -1,0 +1,54 @@
+name: Compact Typography QA
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ['app/**/*.css', 'app/**/*.tsx', 'scripts/*typography*.mjs', '.github/workflows/compact-typography-qa.yml']
+permissions:
+  contents: read
+concurrency:
+  group: compact-typography-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CLOUDFLARE_CF_FETCH_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --ignore-scripts @playwright/test@1.55.0
+      - name: Browser
+        run: |
+          if command -v google-chrome >/dev/null; then
+            echo "QA_CHROMIUM_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          else
+            npx playwright install chromium
+          fi
+      - run: node scripts/prepare-local-qa.mjs
+      - name: Measure typography in the running application
+        run: |
+          set -euo pipefail
+          npm run dev -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/typography-runtime.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:4173/api/auth > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent -H 'Content-Type: application/json' -H 'Origin: http://127.0.0.1:4173' --data-binary @/tmp/fornost-qa-bootstrap.json http://127.0.0.1:4173/api/auth > /tmp/typography-bootstrap.json
+          node scripts/seed-local-qa.mjs
+          if test -f scripts/compact-typography-qa.mjs; then
+            node scripts/compact-typography-qa.mjs
+          else
+            node scripts/typography-reference-qa.mjs
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: compact-typography-qa
+          path: typography-qa-artifacts/

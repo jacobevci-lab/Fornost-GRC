@@ -1,0 +1,66 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {buildAuditReadinessReportCsv,buildAuditReadinessReportHtml,type AuditReadinessSnapshot} from "../app/audit-readiness-export";
+
+const snapshot:AuditReadinessSnapshot={
+  auditName:"ISO 27001 <Q3>",
+  generatedAt:"2026-09-26T18:00:00.000Z",
+  gateLabel:"NOT READY",
+  readiness:50,
+  coverage:75,
+  total:2,
+  current:1,
+  stale:0,
+  missing:1,
+  requirements:[
+    {reference:"A.5.1",title:"Policies",owner:"CISO",dueDate:"2026-10-01",status:"current",linkedEvidence:2,currentEvidence:2,staleEvidence:0},
+    {reference:"A.8.8",title:"Technical vulnerabilities",owner:"SecOps",dueDate:"2026-09-30",status:"missing",linkedEvidence:0,currentEvidence:0,staleEvidence:0},
+  ],
+  assuranceSignals:[
+    {id:"sig-1",state:"failing",title:"Vulnerability SLA",targetControlRef:"A.8.8",owner:"SecOps",dueDate:"2026-09-30",reason:"control-failing",blocking:true},
+  ],
+};
+
+test("audit readiness HTML snapshot carries evidence and Continuous Assurance context",()=>{
+  const report=buildAuditReadinessReportHtml(snapshot);
+  assert.match(report,/Fornost GRC · Audit Readiness Snapshot/);
+  assert.match(report,/ISO 27001 &lt;Q3&gt;/);
+  assert.doesNotMatch(report,/ISO 27001 <Q3>/);
+  assert.match(report,/Readiness<\/span><b>50%/);
+  assert.match(report,/Coverage<\/span><b>75%/);
+  assert.match(report,/Continuous Assurance blockers<\/span><b>1/);
+  assert.match(report,/A\.8\.8/);
+  assert.match(report,/Vulnerability SLA/);
+  assert.match(report,/BLOCKING/);
+});
+
+test("audit readiness CSV snapshot exports requirements and live assurance signals",()=>{
+  const report=buildAuditReadinessReportCsv(snapshot);
+  assert.match(report,/"section","reference","title"/);
+  assert.match(report,/"requirement","A\.5\.1","Policies"/);
+  assert.match(report,/"continuous-assurance","A\.8\.8","Vulnerability SLA"/);
+  assert.match(report,/"control-failing","true"/);
+});
+
+test("readiness exports retain evaluation time and audit scope, including an empty snapshot",()=>{
+  const csv=buildAuditReadinessReportCsv(snapshot);
+  assert.match(csv,/"audit_name","evaluated_at","gate"/);
+  assert.match(csv,/"ISO 27001 <Q3>","2026-09-26T18:00:00.000Z","NOT READY"/);
+  assert.match(buildAuditReadinessReportCsv({...snapshot,requirements:[],assuranceSignals:[]}),/"snapshot"/);
+});
+
+test("readiness exports localize Turkish report labels and neutralize spreadsheet formula cells",()=>{
+  const html=buildAuditReadinessReportHtml({...snapshot,lang:'tr'});
+  assert.match(html,/<html lang="tr">/); assert.match(html,/Denetim Hazırlık Özeti/); assert.match(html,/Değerlendirme zamanı/);
+  assert.match(html,/@media print/);
+  const csv=buildAuditReadinessReportCsv({...snapshot,auditName:'=DDE()',requirements:[{...snapshot.requirements[0],title:' \t=HYPERLINK("url")',owner:'+formula'}]});
+  assert.match(csv,/"'=DDE\(\)"/); assert.match(csv,/"' \t=HYPERLINK/); assert.match(csv,/"'\+formula"/);
+});
+
+test('readiness exports explain eligibility and distinguish other evidence from the current proof',()=>{
+  const report={...snapshot,requirements:[{...snapshot.requirements[0],eligibilityIssues:['expired','validation-failed'],assessmentIssues:['configuration-changed']}]};
+  const html=buildAuditReadinessReportHtml(report);
+  assert.match(html,/In other linked evidence:/); assert.match(html,/Evidence validation failed/); assert.match(html,/Validity expired/);
+  assert.match(buildAuditReadinessReportHtml({...report,lang:'tr'}),/Kanıt doğrulaması başarısız/);
+  assert.match(buildAuditReadinessReportCsv(report),/expired; validation-failed; configuration-changed/);
+});

@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "fornost-grc-d1-migrations",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "fornost-grc-prod",
+      "database_id": "e5c14f0d-9251-4e4c-91ec-7f8b2a1c77e4",
+      "migrations_dir": "drizzle"
+    }
+  ]
+}

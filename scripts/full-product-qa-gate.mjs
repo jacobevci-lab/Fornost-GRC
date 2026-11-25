@@ -1,0 +1,366 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+import { chromium, expect } from "@playwright/test";
+
+const baseUrl = (process.env.FORNOST_PROD_URL || "https://app.fornostsecurity.com").replace(/\/$/, "");
+const accessClientId = process.env.CF_ACCESS_CLIENT_ID || "";
+const accessClientSecret = process.env.CF_ACCESS_CLIENT_SECRET || "";
+const smokeEmail = process.env.FORNOST_SMOKE_EMAIL || "";
+const smokePassword = process.env.FORNOST_SMOKE_PASSWORD || "";
+const reportPath = path.resolve("qa-artifacts-v2/qa-report-v2.json");
+const gatePath = path.resolve("qa-artifacts-v2/qa-gate.json");
+
+// Local workspace QA invokes this gate directly; production may already have
+// generated the dark-theme scan. Generate missing evidence, never skip it.
+const legacyReportPath = path.resolve("qa-artifacts/qa-report.json");
+try { await fs.access(legacyReportPath); }
+catch (error) {
+  if (error?.code !== "ENOENT") throw error;
+  await import("./full-production-qa.mjs");
+}
+
+// Preserve raw scanner findings. Targeted contracts add coverage; they do not
+// waive failures observed by either scanner.
+process.env.QA_FAIL_ON_HIGH = "0";
+await import("./full-product-qa-v2.mjs");
+
+const report = JSON.parse(await fs.readFile(reportPath, "utf8"));
+const origin = new URL(baseUrl).origin;
+const accessHeaders = accessClientId && accessClientSecret
+  ? { "CF-Access-Client-Id": accessClientId, "CF-Access-Client-Secret": accessClientSecret }
+  : {};
+
+const responsiveViewports = [
+  { name: "tablet", width: 1024, height: 768 },
+  { name: "mobile", width: 390, height: 844 },
+  { name: "mobile-small", width: 360, height: 740 },
+];
+
+function verificationKey(viewport, locale) {
+  return `${viewport}:${locale}`;
+}
+
+async function configureContext(context) {
+  if (!Object.keys(accessHeaders).length) return;
+  await context.route(`${origin}/**`, async (route) => {
+    const request = route.request();
+    await route.continue({ headers: { ...request.headers(), ...accessHeaders } });
+  });
+}
+async function login(context) {
+  const response = await context.request.post(`${baseUrl}/api/auth`, {
+    headers: { ...accessHeaders, origin, "content-type": "application/json" },
+    data: { action: "login", email: smokeEmail, password: smokePassword },
+  });
+  if (response.status() !== 200) throw new Error(`Smoke login failed: HTTP ${response.status()}`);
+}
+async function firstVisible(locator) {
+  const count = await locator.count();
+  for (let i = 0; i < count; i += 1) {
+    const candidate = locator.nth(i);
+    if (await candidate.isVisible().catch(() => false)) return candidate;
+  }
+  return null;
+}
+async function visibleLanguageControl(page, label) {
+  await page.locator(".language-switch").first().waitFor({ state: "attached", timeout: 5_000 }).catch(() => {});
+  const buttons = page.locator(".language-switch button");
+  const count = await buttons.count();
+  for (let i = 0; i < count; i += 1) {
+    const candidate = buttons.nth(i);
+    const text = ((await candidate.textContent().catch(() => "")) || "").trim();
+    if (text === label && await candidate.isVisible().catch(() => false)) return candidate;
+  }
+  return firstVisible(page.getByRole("button", { name: label, exact: true }));
+}
+async function waitForApp(page) {
+  await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
+  await page.locator(".shell").first().waitFor({ state: "visible", timeout: 15_000 });
+  await page.locator("#fornost-navigation").first().waitFor({ state: "attached", timeout: 15_000 });
+  await page.locator("h1").first().waitFor({ state: "visible", timeout: 15_000 });
+}
+async function switchLocale(page, locale) {
+  const expectedLang = locale === "en" ? "en" : "tr";
+  const current = ((await page.locator("html").getAttribute("lang")) || "").toLowerCase();
+  if (current.startsWith(expectedLang)) return { changed: false, control: "already-selected" };
+
+  const targetLabel = locale === "en" ? "EN" : "TR";
+  const control = await visibleLanguageControl(page, targetLabel);
+  if (!control) throw new Error(`${targetLabel} language control is not visible`);
+  await control.click();
+  await page.waitForFunction(
+    (lang) => document.documentElement.lang.toLowerCase().startsWith(lang),
+    expectedLang,
+    { timeout: 5_000 },
+  );
+  return { changed: true, control: targetLabel };
+}
+
+async function verifyRestoreContrast(page, restore) {
+  const measurements = [];
+  const directory = path.resolve("qa-artifacts-v2/screenshots");
+  await fs.mkdir(directory, { recursive: true });
+  for (const theme of ["light", "dark"]) {
+    if (await page.locator("html").getAttribute("data-theme") !== theme) {
+      await page.locator(".theme-toggle:visible").click();
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+    }
+    for (const state of ["rest", "hover", "keyboard-focus"]) {
+      await page.mouse.move(0, 0);
+      if (state === "rest") await page.locator(".theme-toggle:visible").focus();
+      if (state === "hover") await restore.hover();
+      if (state === "keyboard-focus") {
+        await restore.focus();
+        await page.keyboard.press("Tab");
+        await page.keyboard.press("Shift+Tab");
+        await expect(restore).toBeFocused();
+        if (!await restore.evaluate(node => node.matches(":focus-visible"))) {
+          throw new Error(`${theme}: restore button lacks keyboard-visible focus`);
+        }
+      }
+      let measured;
+      await expect.poll(async () => {
+        measured = await restore.evaluate(node => {
+          const rgb = value => {
+            const match = /^rgba?\(\s*([\d.]+)[, ]+([\d.]+)[, ]+([\d.]+)(?:\s*[,/]\s*([\d.]+))?\s*\)$/.exec(value);
+            if (!match || (match[4] !== undefined && Number(match[4]) !== 1)) throw new Error(`Unsupported contrast color: ${value}`);
+            return match.slice(1, 4).map(Number);
+          };
+          const luminance = value => rgb(value).map(channel => {
+            const c = channel / 255;
+            return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+          }).reduce((total, channel, index) => total + channel * [0.2126, 0.7152, 0.0722][index], 0);
+          const contrast = (a, b) => (Math.max(luminance(a), luminance(b)) + 0.05) / (Math.min(luminance(a), luminance(b)) + 0.05);
+          const background = getComputedStyle(node).backgroundColor;
+          const foreground = getComputedStyle(node.querySelector("span")).color;
+          const stroke = getComputedStyle(node.querySelector("svg")).stroke;
+          const style = getComputedStyle(node);
+          return { foreground, background, stroke, textRatio: contrast(foreground, background), iconRatio: contrast(stroke, background), focusRing: style.outlineStyle !== "none" && parseFloat(style.outlineWidth) > 0 };
+        });
+        return measured.textRatio >= 4.5 && measured.iconRatio >= 3 && (state !== "keyboard-focus" || measured.focusRing);
+      }, { message: `${theme}/${state}: readable menu restore label, icon and visible focus`, timeout: 5_000 }).toBe(true);
+      measurements.push({ theme, state, ...measured });
+      await restore.screenshot({ path: path.join(directory, `sidebar-restore-${theme}-${state}.png`) });
+    }
+  }
+  return measurements;
+}
+
+async function verifySidebarContract(browser) {
+  const context = await browser.newContext({ viewport: { width: 1536, height: 960 }, colorScheme: "light" });
+  try {
+    await configureContext(context);
+    await login(context);
+    const page = await context.newPage();
+    await waitForApp(page);
+    await switchLocale(page, "tr");
+
+    const shell = page.locator(".shell").first();
+    const sidebar = page.locator('aside[aria-label="Ana menü"], aside[aria-label="Main navigation"]').first();
+    if (!(await shell.count()) || !(await sidebar.count())) throw new Error("Application sidebar shell was not found");
+
+    const expandedControl = await firstVisible(page.locator('.sidebar-view-controls button[aria-label="Geniş menü"], .sidebar-view-controls button[aria-label="Expanded navigation"]'));
+    const compactControl = await firstVisible(page.locator('.sidebar-view-controls button[aria-label="İkon menüsü"], .sidebar-view-controls button[aria-label="Icon navigation"]'));
+    const hiddenControl = await firstVisible(page.locator('.sidebar-view-controls button[aria-label="Menüyü gizle"], .sidebar-view-controls button[aria-label="Hide navigation"]'));
+    if (!compactControl) throw new Error("Icons navigation control is not visible");
+    if (!hiddenControl) throw new Error("Hide navigation control is not visible");
+
+    if (expandedControl) {
+      await expandedControl.click();
+      await page.waitForTimeout(180);
+    }
+    const expandedWidth = Math.round((await sidebar.boundingBox())?.width || 0);
+
+    await compactControl.click();
+    await page.waitForTimeout(220);
+    if (!(await shell.evaluate((node) => node.classList.contains("sidebar-compact")))) {
+      throw new Error("Sidebar did not enter Icons/compact mode");
+    }
+    const compactWidth = Math.round((await sidebar.boundingBox())?.width || 0);
+    if (expandedWidth > 0 && compactWidth > 0 && compactWidth >= expandedWidth) {
+      throw new Error(`Compact sidebar width did not shrink (${expandedWidth}px -> ${compactWidth}px)`);
+    }
+
+    const navButton = await firstVisible(page.locator("#fornost-navigation button[aria-label]"));
+    if (!navButton) throw new Error("No visible navigation icon was found in Icons mode");
+    const label = (await navButton.getAttribute("aria-label"))?.trim() || "";
+    const title = (await navButton.getAttribute("title"))?.trim() || "";
+    if (!label) throw new Error("Compact navigation icon has no accessible name");
+    if (title !== label) throw new Error(`Compact navigation title mismatch for ${label}`);
+    await navButton.focus();
+    if (!(await navButton.evaluate((node) => document.activeElement === node))) {
+      throw new Error(`Compact navigation icon is not keyboard focusable: ${label}`);
+    }
+
+    await hiddenControl.click();
+    await page.waitForTimeout(220);
+    if (!(await shell.evaluate((node) => node.classList.contains("sidebar-hidden")))) {
+      throw new Error("Sidebar did not enter Hide mode");
+    }
+
+    const restore = await firstVisible(page.getByRole("button", { name: /Ana menüyü aç|Open main navigation|Menüyü göster|Show navigation/i }));
+    if (!restore) throw new Error("Hidden sidebar cannot be restored");
+    const restoreContrast = await verifyRestoreContrast(page, restore);
+    await page.keyboard.press("Enter");
+    await expect(shell).not.toHaveClass(/sidebar-hidden/);
+    const hideAgain = await firstVisible(page.getByRole("button", { name: /Menüyü gizle|Hide navigation/i }));
+    if (!hideAgain) throw new Error("Navigation did not restore after keyboard activation");
+    await hideAgain.click();
+    await expect(restore).toBeVisible();
+    await restore.click();
+    await page.waitForTimeout(220);
+    if (await shell.evaluate((node) => node.classList.contains("sidebar-hidden"))) {
+      throw new Error("Sidebar remained hidden after restore");
+    }
+
+    return {
+      passed: true,
+      modes: ["expanded", "compact", "hidden", "restored"],
+      expandedWidth,
+      compactWidth,
+      sampleNavigationLabel: label,
+      sampleNavigationTitle: title,
+      keyboardFocusable: true,
+      keyboardRestore: true,
+      restoreContrast,
+    };
+  } finally {
+    await context.close();
+  }
+}
+
+async function verifyResponsiveLocale(browser, viewport, locale) {
+  const context = await browser.newContext({
+    viewport: { width: viewport.width, height: viewport.height },
+    colorScheme: "light",
+  });
+  try {
+    await configureContext(context);
+    await login(context);
+    const page = await context.newPage();
+    await waitForApp(page);
+    const transition = await switchLocale(page, locale);
+    await page.waitForTimeout(250);
+
+    const expectedLang = locale === "en" ? "en" : "tr";
+    const expectedHeading = locale === "en" ? "Dashboard" : "Gösterge Paneli";
+    const expectedNav = expectedHeading;
+    const lang = ((await page.locator("html").getAttribute("lang")) || "").toLowerCase();
+    const heading = ((await page.locator("h1").first().textContent()) || "").trim();
+    const navMatch = await page.locator(`#fornost-navigation button[aria-label=${JSON.stringify(expectedNav)}]`).count();
+    const overflow = await page.evaluate(() => Math.max(0, document.documentElement.scrollWidth - innerWidth));
+
+    if (!lang.startsWith(expectedLang)) throw new Error(`HTML lang mismatch: expected=${expectedLang}, actual=${lang || "unset"}`);
+    if (heading !== expectedHeading) throw new Error(`Heading mismatch: expected=${expectedHeading}, actual=${heading || "empty"}`);
+    if (!navMatch) throw new Error(`Localized navigation label missing: ${expectedNav}`);
+    if (overflow > 4) throw new Error(`Responsive page overflows viewport by ${overflow}px`);
+
+    return {
+      passed: true,
+      viewport: viewport.name,
+      width: viewport.width,
+      height: viewport.height,
+      locale,
+      lang,
+      heading,
+      transition,
+      overflow,
+    };
+  } finally {
+    await context.close();
+  }
+}
+
+if (!accessClientId || !accessClientSecret || !smokeEmail || !smokePassword) {
+  throw new Error("Production QA gate requires Cloudflare Access and smoke-account credentials.");
+}
+
+const browser = await chromium.launch({ headless: true, executablePath: process.env.QA_CHROMIUM_PATH || undefined });
+let sidebarVerification = { passed: false, error: "not-run" };
+const responsiveLocaleVerifications = {};
+try {
+  try { sidebarVerification = await verifySidebarContract(browser); }
+  catch (error) { sidebarVerification = { passed: false, error: error instanceof Error ? error.message : String(error) }; }
+
+  for (const viewport of responsiveViewports) {
+    for (const locale of ["tr", "en"]) {
+      const key = verificationKey(viewport.name, locale);
+      try { responsiveLocaleVerifications[key] = await verifyResponsiveLocale(browser, viewport, locale); }
+      catch (error) {
+        responsiveLocaleVerifications[key] = {
+          passed: false,
+          viewport: viewport.name,
+          locale,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
+  }
+} finally {
+  await browser.close();
+}
+
+const rawFailedRequests = Array.isArray(report.runtime?.failedRequests) ? report.runtime.failedRequests : [];
+const effectiveFailedRequests = rawFailedRequests;
+const rawConsoleErrors = Array.isArray(report.runtime?.consoleErrors) ? report.runtime.consoleErrors : [];
+const effectiveConsoleErrors = rawConsoleErrors;
+const legacyReport = JSON.parse(await fs.readFile(legacyReportPath, "utf8"));
+// Legacy includes dark module views absent from v2. Keep all its findings,
+// including runtime/network errors; no blanket abort or analytics exclusions.
+const excluded = [];
+const effectiveFindings = [...(report.findings || []), ...(legacyReport.findings || [])];
+
+if (!sidebarVerification.passed) {
+  effectiveFindings.push({
+    severity: "high",
+    area: "sidebar",
+    title: "Sidebar Full / Icons / Hide runtime contract failed",
+    detail: sidebarVerification.error || "unknown",
+  });
+}
+for (const [key, verification] of Object.entries(responsiveLocaleVerifications)) {
+  if (verification.passed) continue;
+  effectiveFindings.push({
+    severity: "high",
+    area: `responsive:${verification.viewport || key}`,
+    title: `Responsive ${String(verification.locale || "").toUpperCase()} locale runtime contract failed`,
+    detail: verification.error || "unknown",
+  });
+}
+
+effectiveFindings.sort((a, b) => ({ critical: 5, high: 4, medium: 3, low: 2, info: 1 }[b.severity] || 0) - ({ critical: 5, high: 4, medium: 3, low: 2, info: 1 }[a.severity] || 0));
+const gate = {
+  version: "1.2",
+  sourceReport: path.relative(process.cwd(), reportPath),
+  generatedAt: new Date().toISOString(),
+  sidebarVerification,
+  responsiveLocaleVerifications,
+  runtimeNormalization: {
+    rawConsoleErrors: rawConsoleErrors.length,
+    effectiveConsoleErrors,
+    rawFailedRequests: rawFailedRequests.length,
+    effectiveFailedRequests,
+  },
+  excluded,
+  effectiveFindings,
+  summary: {
+    critical: effectiveFindings.filter((x) => x.severity === "critical").length,
+    high: effectiveFindings.filter((x) => x.severity === "high").length,
+    medium: effectiveFindings.filter((x) => x.severity === "medium").length,
+    low: effectiveFindings.filter((x) => x.severity === "low").length,
+    excludedHarnessNoise: excluded.length,
+    responsiveContractsPassed: Object.values(responsiveLocaleVerifications).filter((x) => x.passed).length,
+    responsiveContractsTotal: Object.keys(responsiveLocaleVerifications).length,
+  },
+};
+await fs.writeFile(gatePath, JSON.stringify(gate, null, 2));
+
+console.log("FULL_QA_PRODUCTION_GATE", JSON.stringify(gate.summary));
+console.log("SIDEBAR_VIEW_CONTRACT", JSON.stringify(sidebarVerification));
+console.log("RESPONSIVE_LOCALE_CONTRACTS", JSON.stringify(responsiveLocaleVerifications));
+for (const item of effectiveFindings.slice(0, 80)) {
+  console.log(`${String(item.severity).toUpperCase()} [${item.area}] ${item.title}${item.detail ? ` — ${item.detail}` : ""}`);
+}
+
+const blocking = effectiveFindings.some((item) => item.severity === "critical" || item.severity === "high");
+process.exitCode = blocking ? 2 : 0;

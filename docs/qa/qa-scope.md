@@ -1,0 +1,1 @@
+Scope: production browser rendering, light/dark visual consistency, responsive layouts, keyboard/accessibility semantics, runtime/network errors, security headers, D1/R2 health, auth boundaries, and representative module navigation.

@@ -1,0 +1,160 @@
+.ai-datasets {
+  padding: 22px;
+  color: var(--text-primary);
+}
+.ai-datasets > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+.ai-datasets h3 {
+  font-size: 23px;
+  margin: 4px 0;
+}
+.ai-datasets p {
+  color: var(--text-secondary);
+}
+.ai-datasets a,
+.ai-datasets button {
+  border: 1px solid #b7652a;
+  background: #8f451b;
+  color: #fff;
+  border-radius: 7px;
+  padding: 9px 12px;
+  font-weight: 750;
+}
+.ai-dataset-stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.ai-dataset-stats article,
+.ai-dataset-form,
+.ai-dataset-list > article {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+}
+.ai-dataset-stats b {
+  display: block;
+  font-size: 21px;
+}
+.ai-dataset-stats span {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.ai-dataset-form {
+  margin-bottom: 12px;
+}
+.ai-dataset-form .grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.ai-dataset-form label,
+.ai-datasets .decision {
+  display: grid;
+  gap: 5px;
+  margin: 7px 0;
+  font-size: 11px;
+}
+.ai-datasets input,
+.ai-datasets select,
+.ai-datasets textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-primary);
+}
+.ai-dataset-form .checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+.ai-dataset-form .checks label {
+  display: flex;
+  align-items: center;
+}
+.ai-dataset-form .checks input {
+  width: auto;
+}
+.ai-dataset-notice {
+  padding: 10px;
+  border: 1px solid #b7652a;
+  border-radius: 7px;
+  margin-bottom: 10px;
+}
+.ai-dataset-list {
+  display: grid;
+  gap: 10px;
+}
+.ai-dataset-list header {
+  display: flex;
+  justify-content: space-between;
+}
+.ai-dataset-list small {
+  display: block;
+  color: var(--text-secondary);
+}
+.ai-dataset-list header span {
+  font-size: 10px;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 5px 8px;
+}
+.ai-dataset-list dl {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.ai-dataset-list dt {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+.ai-dataset-list dd {
+  margin: 2px 0;
+}
+.ai-dataset-list footer {
+  display: flex;
+  gap: 7px;
+}
+.ai-dataset-list .warn {
+  background: #765621;
+}
+.ai-dataset-list .danger {
+  background: #762f2b;
+}
+.ai-dataset-list .blockers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 9px 0;
+}
+.ai-dataset-list .blockers span {
+  font-size: 10px;
+  color: #e28b61;
+  border: 1px solid #87503b;
+  border-radius: 99px;
+  padding: 4px 7px;
+}
+.ai-dataset-list .decision {
+  border-left: 3px solid #b7652a;
+  padding-left: 10px;
+}
+@media (max-width: 800px) {
+  .ai-dataset-form .grid,
+  .ai-dataset-list dl,
+  .ai-dataset-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ai-datasets > header {
+    display: block;
+  }
+}

@@ -1,0 +1,301 @@
+"use client";
+import { executionConflictMessage } from "./evidence/execution-feedback";
+import { sourceCreationConflictMessage } from "./evidence/source-save-feedback";
+import { ruleCreationConflictMessage } from "./evidence/rule-save-feedback";
+import { safeWebHref } from "./safe-web-href";
+
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { withBasePath } from "./base-path";
+import { requestJsonWithDeadline } from "./bounded-json-request";
+import EvidenceHistoryPanel from "./evidence-history-panel";
+import ContinuousAssuranceDashboardPanel from "./continuous-assurance-dashboard-panel";
+import "./evidence-automation.css";
+import {SourceAssetField,useAutomationCatalog} from "./connectors/automation-catalog";
+import {AutomationPolicyFields} from "./connectors/automation-policy-fields";
+import ConnectorOnboardingWizard from "./connector-onboarding-wizard";
+import { ControlQueue, SourcePicker, SourceWorkbench } from "./connectors/evidence-workspace";
+import { FORNOST_FOCUS_EVENT, peekPendingFornostFocus, type FornostNavigationRequest } from "./navigation-focus";
+import MappingAgentPanel, {type MappingSelection} from "./connectors/mapping-agent-panel";
+import ReadyControlForm from "./connectors/ready-control-form";
+import ControlRunDetail from "./connectors/control-run-detail";
+import ConnectorFields from "./connectors/fields";
+import { connectorProfile, connectorProfiles, newConnectorDraft, type ConnectorDraft } from "./connectors/catalog";
+import {matchesSource, sourceMethod, sourceMethods, type SourceMethod} from "./connectors/source-method";
+import { connectorGuides, type ConnectorGuide } from "./connectors/guides";
+
+type Lang = "tr" | "en";
+export type AutomationSource = {
+  assetCode?:string; id:string; name:string; vendor:string; category:string; driver:string; enabled:boolean;
+  config:Record<string,string>; hasSecret:boolean; lastTestStatus?:string; lastTestAt?:string;
+};
+export type AutomationRule = {
+  id:string; name:string; sourceId:string; controlRefs:string; jsonPath:string; operator:string; expected:string;
+  schedule:string; enabled:boolean; lastStatus?:string; lastRunAt?:string; freshnessHours:number;
+  updatedAt?:string; reviewer?:string; lastRunId?:string; lastErrorCode?:string; evidenceRunId?:string;
+  failureThreshold:number; consecutiveFailures:number; autoFinding:boolean; remediationOwner:string;
+  remediationDueDays:number; nextRunAt?:string; lastEvidenceAt?:string; freshness:string; health:string;
+};
+type Source = AutomationSource;
+type Rule = AutomationRule;
+type Run = {
+  ruleId:string;
+  id:string; ruleName:string; sourceName:string; status:string; score:number; detail:string; evidenceId?:string;
+  createdAt:string; triggerType?:string; durationMs?:number; errorCode?:string; hasAssessment?:boolean;
+};
+type Finding = {
+  id:string; ruleId:string; evidenceId?:string; title:string; severity:string; owner:string; dueDate:string;
+  status:string; detail:string; occurrenceCount:number; createdAt:string; acknowledgedBy?:string;
+};
+type PromotionDraft = {
+  finding: Finding;
+  targetControlRef: string;
+  reviewer: string;
+  dueDate: string;
+  rootCause: string;
+  correctiveAction: string;
+  preventiveAction: string;
+};
+
+const catalog = [
+ ...connectorProfiles.map(p=>[p.category,p.name,p.id] as const),
+ ...connectorGuides.map(p=>[p.category,p.name,p.referenceOnly?"reference":"guide"] as const),
+ ["Work & Custom","Generic REST / JSON API","rest-json"],
+ ["Work & Custom","On-prem HTTPS Collector Bridge","https-bridge"],
+] as const;
+
+function splitControlRefs(value:string){
+  const refs:string[]=[];const seen=new Set<string>();
+  for(const part of String(value||"").split(/[;,|\n]+/).map(entry=>entry.trim()).filter(Boolean)){
+    const key=part.normalize("NFKC").toLocaleLowerCase("tr-TR");
+    if(seen.has(key))continue;seen.add(key);refs.push(part);
+  }
+  return refs;
+}
+
+export default function EvidenceAutomation({lang,currentUser}:{lang:Lang;currentUser:{role:string;email?:string}}){
+  const tr=lang==="tr";
+  const [tab,setTab]=useState<"overview"|"sources"|"rules"|"runs"|"findings"|"assurance"|"history">("sources");
+  const [loading,setLoading]=useState(true);
+  const [loadFailed,setLoadFailed]=useState(false);
+  const [reloadKey,setReloadKey]=useState(0);
+  type Metrics={connected:number;active:number;failed:number;pending:number;generated:number};
+  const [metrics,setMetrics]=useState<Metrics|null>(null);
+  const [sources,setSources]=useState<Source[]>([]);
+  const [rules,setRules]=useState<Rule[]>([]);
+  const [runs,setRuns]=useState<Run[]>([]);
+  const [findings,setFindings]=useState<Finding[]>([]);
+  const [wizardProfile,setWizardProfile]=useState("");
+  const [addingSource,setAddingSource]=useState(false);
+  const [selectedSource,setSelectedSource]=useState("");
+  const [expandedRule,setExpandedRule]=useState("");
+  const [focusVersion,setFocusVersion]=useState(0);
+
+  useEffect(()=>{
+    const focus=(request?:FornostNavigationRequest|null)=>{
+      if(request?.module!=="Kanıt Otomasyonu")return;
+      if(request.kind==="connector-setup"){setTab("sources");setWizardProfile("microsoft-graph");return;}
+      if(request.filter?.sourceRef){setTab("sources");setSelectedSource(request.filter.sourceRef);setAddingSource(false);}
+      else if(request.filter?.ruleRef){setTab("rules");setExpandedRule(request.filter.ruleRef);}
+      else if(request.filter?.findingRef)setTab("findings");
+      else return;
+      setWizardProfile(""); setFocusVersion(n=>n+1);
+    };
+    focus(peekPendingFornostFocus());
+    const listener=(e:Event)=>focus((e as CustomEvent<FornostNavigationRequest>).detail);
+    window.addEventListener(FORNOST_FOCUS_EVENT,listener);
+    return ()=>window.removeEventListener(FORNOST_FOCUS_EVENT,listener);
+  },[]);
+  const [busy,setBusy]=useState("");
+  const actionPending=useRef(false);
+  const [message,setMessage]=useState("");
+  const [sourceOpen,setSourceOpen]=useState(false);
+  const sourceCatalog=useAutomationCatalog(sourceOpen);
+  const [sourceId,setSourceId]=useState("");
+  const sourceRequestId=useRef("");
+  const [conflictingSourceId,setConflictingSourceId]=useState("");
+  const [guide,setGuide]=useState<ConnectorGuide|null>(null);
+  const [method,setMethod]=useState<SourceMethod|"all">("all");
+  const [catalogQuery,setCatalogQuery]=useState("");
+  const [policyRule,setPolicyRule]=useState<Rule|null>(null);
+  const [policyReviewer,setPolicyReviewer]=useState(""),[policyHours,setPolicyHours]=useState(24);
+  const [ruleOpen,setRuleOpen]=useState(false);
+  const ruleRequestId=useRef("");
+  const [conflictingRuleId,setConflictingRuleId]=useState("");
+  const [mappingSource,setMappingSource]=useState<string|null>(null);
+  const [mappingSelection,setMappingSelection]=useState<MappingSelection|undefined>();
+  const [readySource,setReadySource]=useState<string|null>(null);
+  const [detailRun,setDetailRun]=useState<{id:string;ruleId:string}|null>(null);
+  const [closing,setClosing]=useState<Finding|null>(null);
+  const [promotion,setPromotion]=useState<PromotionDraft|null>(null);
+  const [closure,setClosure]=useState({note:"",evidenceReference:"",evidenceSha256:"",confirmation:""});
+
+  const categoryLabel=(value:string)=>tr?({"Cloud & SaaS":"Bulut ve SaaS","Firewall & Network":"Güvenlik Duvarı ve Ağ","XDR, EDR & SIEM":"XDR, EDR ve SIEM","IAM, PAM & IGA":"IAM, PAM ve IGA","Data, DB & Application":"Veri, Veritabanı ve Uygulama","Work & Custom":"İş Akışı ve Özel"}[value]||value):value;
+  const formatDate=(value:string)=>{const date=new Date(value);return Number.isNaN(date.getTime())?value:new Intl.DateTimeFormat(tr?"tr-TR":"en-GB",{dateStyle:"short",timeStyle:"short"}).format(date)};
+
+  const [source,setSource]=useState<ConnectorDraft>(newConnectorDraft());
+  const [rule,setRule]=useState({reviewer:"",name:"",sourceId:"",controlRefs:"",jsonPath:"",operator:"exists",expected:"",schedule:"daily",freshnessHours:24,failureThreshold:2,remediationOwner:"",remediationDueDays:7,autoFinding:true});
+
+  const applyData=useCallback((j:{metrics?:Metrics;sources?:Source[];rules?:Rule[];runs?:Run[];findings?:Finding[]})=>{
+    setMetrics(j.metrics||null);setSources(j.sources||[]);setRules(j.rules||[]);setRuns(j.runs||[]);setFindings(j.findings||[]);
+  },[]);
+  const readController=useRef<AbortController|null>(null);
+  const load=useCallback(async()=>{
+    readController.current?.abort();
+    const controller=new AbortController();readController.current=controller;
+    try{
+      const {response,body}=await requestJsonWithDeadline(withBasePath("/api/evidence-automation"),{cache:"no-store",signal:controller.signal},fetch,10_000);
+      if(!response.ok||!Array.isArray(body.sources)||!Array.isArray(body.rules))throw new Error("Evidence sources unavailable");
+      if(!controller.signal.aborted&&readController.current===controller){applyData(body);setLoadFailed(false)}
+    }catch{if(!controller.signal.aborted&&readController.current===controller)setLoadFailed(true)}
+    finally{if(!controller.signal.aborted&&readController.current===controller)setLoading(false)}
+  },[applyData]);
+  useEffect(()=>{
+    const timer=window.setTimeout(()=>void load(),0);
+    return()=>{window.clearTimeout(timer);readController.current?.abort()};
+  },[load,reloadKey]);
+
+  async function refreshControls(){
+    if(actionPending.current)return;
+    actionPending.current=true;setBusy("refresh");
+    try{await load();}finally{actionPending.current=false;setBusy("")}
+  }
+
+  async function api(body:Record<string,unknown>){
+    if(actionPending.current)return false;
+    actionPending.current=true;setBusy(String(body.action||"save"));setMessage("");
+    try{
+      const r=await fetch(withBasePath("/api/evidence-automation"),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)}),j=await r.json().catch(()=>({}));
+      if(j.code==="SOURCE_CREATION_CONFLICT"){setMessage(sourceCreationConflictMessage(tr));setConflictingSourceId(typeof j.sourceId==="string"?j.sourceId:"");}
+      else if(j.code==="RULE_CREATION_CONFLICT"){setMessage(ruleCreationConflictMessage(tr));setConflictingRuleId(typeof j.ruleId==="string"?j.ruleId:"");}
+      else if(j.code==="EXECUTION_CONFLICT")setMessage(executionConflictMessage(tr));
+      else if(!r.ok&&typeof j.code==="string"&&j.code.startsWith("MAPPING_"))setMessage(tr?"AI eşlemesi artık kullanılamıyor. Kaynağı ve mevcut kontrolleri inceleyin; güncel verilerle yeniden analiz edin.":"This AI mapping is no longer available. Review the source and existing controls, then analyse current data again.");
+      else if(j.code==="INDEPENDENT_REVIEWER_REQUIRED")setMessage(tr?"Aktif ve bağımsız bir kanıt inceleyeni seçin.":"Select an active, independent evidence reviewer.");
+      else if(!r.ok)setMessage(j.code==="REFERENCE_UNAVAILABLE"?(tr?"Bağlı kontrol kaydı bulunamadı veya yanlış modüle ait. Eşlemeyi düzeltip tekrar kaydedin.":"A mapped control record is unavailable or belongs to another module. Correct the mapping and save again."):(j.error||(tr?"İşlem başarısız.":"Operation failed.")));
+      else if(j.reassessmentRequired)setMessage(tr?"Kaynak güncellendi. Bağlı kontroller için yeni değerlendirme gerekiyor; kanıt geçmişi korundu.":"Source updated. Linked controls need a new assessment; evidence history was preserved.");
+      else if(body.action==="run-due")setMessage(tr?`${j.recorded} sonuç kaydedildi; ${j.unrecorded} çalışma kaydedilemedi; ${j.skipped} çalışma atlandı.`:`${j.recorded} results saved; ${j.unrecorded} runs not recorded; ${j.skipped} runs skipped.`);
+      else setMessage(j.message||(tr?"İşlem tamamlandı.":"Completed."));
+      if(r.ok||j.code==="EXECUTION_CONFLICT"||j.code==="SOURCE_CREATION_CONFLICT"||j.code==="RULE_CREATION_CONFLICT"||body.action==="test-source")await load();
+      return r.ok;
+    }catch{
+      setMessage(tr?"Sunucuya ulaşılamadı.":"Server unavailable.");return false;
+    }finally{actionPending.current=false;setBusy("")}
+  }
+  async function saveSource(e:FormEvent){e.preventDefault();if(!sourceId)sourceRequestId.current ||= crypto.randomUUID();setConflictingSourceId("");if(await api({action:"save-source",requestId:sourceId?undefined:sourceRequestId.current,sourceId:sourceId||undefined,...source})){sourceRequestId.current="";setSourceOpen(false);setSource(newConnectorDraft());setSourceId("")}}
+  async function saveRule(e:FormEvent){e.preventDefault();ruleRequestId.current ||= crypto.randomUUID();setConflictingRuleId("");if(await api({action:"save-rule",requestId:ruleRequestId.current,...rule})){ruleRequestId.current="";setRuleOpen(false);setRule({...rule,name:"",controlRefs:"",jsonPath:"",expected:""})}}
+  async function closeFinding(){if(!closing)return;if(await api({action:"close-finding",findingId:closing.id,...closure})){setClosing(null);setClosure({note:"",evidenceReference:"",evidenceSha256:"",confirmation:""})}}
+
+  function startPromotion(finding:Finding){
+    const mapped=splitControlRefs(rules.find(item=>item.id===finding.ruleId)?.controlRefs||"");
+    setPromotion({finding,targetControlRef:mapped.length===1?mapped[0]:"",reviewer:"",dueDate:finding.dueDate||"",rootCause:"",correctiveAction:"",preventiveAction:""});
+  }
+  async function promoteFinding(e:FormEvent){
+    e.preventDefault();if(!promotion)return;
+    setBusy("queue-capa-promotion");setMessage("");
+    try{
+      const {finding,...governance}=promotion;
+      const r=await fetch(withBasePath("/api/continuous-assurance"),{
+        method:"POST",
+        headers:{"content-type":"application/json"},
+        body:JSON.stringify({action:"queue-capa-promotion",findingId:finding.id,...governance}),
+      });
+      const j=await r.json().catch(()=>({})) as {message?:string;error?:string;candidate?:{reasons?:string[]}};
+      const reasonText=Array.isArray(j.candidate?.reasons)&&j.candidate.reasons.length?` ${j.candidate.reasons.join(" · ")}`:"";
+      setMessage(r.ok?(j.message||(tr?"CAPA inceleme kuyruğuna alındı.":"CAPA review queued.")):`${j.error||(tr?"CAPA inceleme kuyruğu işlemi başarısız.":"CAPA review queue failed.")}${reasonText}`);
+      if(r.ok)setPromotion(null);
+    }catch{setMessage(tr?"Sürekli güvence servisine ulaşılamadı.":"Continuous assurance service unavailable.")}
+    finally{setBusy("")}
+  }
+  function closeSource(){if(actionPending.current)return;sourceRequestId.current="";setConflictingSourceId("");setSourceOpen(false);setSource(newConnectorDraft());setSourceId("")}
+  function pick(entry:typeof catalog[number]){setMessage("");setSourceId("");if(entry[2]==="guide"||entry[2]==="reference"){setGuide(connectorGuides.find(p=>p.name===entry[1])||null);return;}setSource({...newConnectorDraft(entry[2]),name:entry[1],vendor:entry[1],category:entry[0],driver:connectorProfile(entry[2])?"provider-v1":entry[2]});setSourceOpen(true)}
+  function editSource(x:Source){sourceRequestId.current="";setConflictingSourceId("");setMessage("");setSourceId(x.id);setSource({...newConnectorDraft(x.config.providerId),name:x.name,assetRef:x.config.assetRef||"",vendor:x.vendor,category:x.category,driver:x.driver,baseUrl:x.config.baseUrl||"",authType:x.config.authType||"bearer",headerName:x.config.headerName||"x-api-key",dataset:x.config.dataset||"",providerConfig:x.config,credentials:{}});setSourceOpen(true)}
+  const filteredCatalog=catalog.filter(x=>(method==="all"||sourceMethod(x[2])===method)&&matchesSource(x[1],catalogQuery));
+
+  const tabNames = {
+    sources: tr?"Kanıt Kaynakları":"Evidence Sources", rules: tr?"Sürekli Kontroller":"Continuous Controls",
+    runs: tr?"Çalıştırma Geçmişi":"Run History", findings:tr?"Bulgular ve CAPA":"Findings & CAPA",
+    assurance:tr?"Güvence":"Assurance", history:tr?"Kanıt Geçmişi":"Evidence History", overview:tr?"Connector Kataloğu":"Connector Catalog",
+  };
+  function selectTab(next:typeof tab){
+    setTab(next); setAddingSource(false);
+
+  }
+  const tabButton=(id:typeof tab)=><button key={id} data-ea-tab={id} aria-pressed={tab===id} className={tab===id?"active":""} onClick={()=>selectTab(id)}>{tabNames[id]}</button>;
+  const connected=sources.filter(s=>s.enabled&&s.lastTestStatus==="success");
+  const prerequisite=tr?"Önce Kanıt Kaynakları sekmesinden bir kaynak bağlayın":"Connect a source from the Evidence Sources tab first";
+  const count=(key:keyof Metrics)=>!loading&&!loadFailed&&metrics&&Number.isSafeInteger(metrics[key])?String(metrics[key]):"—";
+  return <section className="ea-page ew-page">
+    <dl className="ea-metrics">
+      {[[tr?"Bağlı Kaynak":"Connected sources",count("connected")],[tr?"Aktif Sürekli Kontrol":"Active continuous controls",count("active")],
+        [tr?"Başarısız / İnceleme Bekleyen":"Failed / Pending review",count("failed")+" / "+count("pending")],
+        [tr?"Son 24s Üretilen Kanıt":"Evidence produced in 24h",count("generated")]].map(([label,value],index)=><div key={label} title={index===2?(tr?"Son çalışması başarısız veya hatalı kurallar / bağımsız inceleme bekleyen otomatik kanıtlar":"Rules whose latest run failed or errored / automated evidence awaiting independent review"):undefined}><dt>{label}</dt><dd>{value}</dd></div>)}
+    </dl>
+    <header className="ew-heading">{tab==="rules"&&<h2>{tr?"Sürekli Kontroller":"Continuous Controls"}</h2>}
+      {!wizardProfile&&!loading&&!loadFailed&&tab==="sources"&&sources.length>0&&currentUser.role==="Admin"&&
+        <button className={addingSource?"ghost":"primary"} onClick={()=>setAddingSource(!addingSource)}>{addingSource?(tr?"Kaynaklara dön":"Back to sources"):(tr?"+ Kaynak ekle":"+ Add source")}</button>}
+    </header>
+    {message&&<div className="ea-message" role="status"><span>{message}</span><button aria-label={tr?"Kapat":"Dismiss"} onClick={()=>setMessage("")}>×</button></div>}
+    {wizardProfile&&currentUser.role==="Admin"?<ConnectorOnboardingWizard profileId={wizardProfile} lang={lang} actor={currentUser.email||""} onClose={id=>{setWizardProfile("");setTab("sources");setAddingSource(false);if(id){setSelectedSource(id);void load();}}}/>:<>
+    <div className="ea-tabs ew-tabs">
+      {(["sources","rules","runs","findings","assurance","history","overview"] as const).map(tabButton)}
+    </div>
+    {tab==="assurance"&&<ContinuousAssuranceDashboardPanel lang={lang} currentUser={currentUser} showHistory={false}/>}
+    {tab==="history"&&<EvidenceHistoryPanel lang={lang} currentUser={currentUser}/>}
+    {tab==="overview"&&<><div className="connector-catalog-search"><input aria-label={tr?"Connector ara":"Search connectors"} placeholder={tr?"Ürün ara…":"Search products…"} value={catalogQuery} onChange={e=>setCatalogQuery(e.target.value)}/><label>{tr?"Bağlantı yöntemi":"Connection method"} <select value={method} onChange={e=>setMethod(e.target.value as SourceMethod|"all")}><option value="all">{tr?"Tümü":"All methods"}</option>{(Object.keys(sourceMethods) as SourceMethod[]).map(key=><option key={key} value={key}>{sourceMethods[key][lang]}</option>)}</select></label></div>{filteredCatalog.length===0&&<p>{tr?"Eşleşen ürün bulunamadı.":"No matching product."}</p>}<div className="ea-catalog">{Array.from(new Set(filteredCatalog.map(x=>x[0]))).map(group=><article key={group}><header><h3>{categoryLabel(group)}</h3><span>{filteredCatalog.filter(x=>x[0]===group).length}</span></header><div>{filteredCatalog.filter(x=>x[0]===group).map(entry=><button key={entry[1]} disabled={currentUser.role!=="Admin"&&entry[2]!=="guide"&&entry[2]!=="reference"} onClick={()=>pick(entry)}><b>{entry[1]}</b><small>{sourceMethods[sourceMethod(entry[2])][lang]}</small></button>)}</div></article>)}</div></>}
+    {loading&&<p role="status">{tr?"Kaynaklar yükleniyor…":"Loading sources…"}</p>}
+    {loadFailed&&<div className="workspace-empty" role="alert"><b>{tr?"Kaynak bilgileri alınamadı":"Source information unavailable"}</b><p>{tr?"Bağlantıyı kontrol edip yeniden deneyin.":"Check the connection and try again."}</p><button onClick={()=>{setLoading(true);setLoadFailed(false);setReloadKey(value=>value+1)}}>{tr?"Yeniden dene":"Retry"}</button></div>}
+    {tab==="sources"&&!loading&&!loadFailed&&(sources.length===0||addingSource?
+      <SourcePicker openGuide={setGuide} lang={lang} first={!sources.length} configure={currentUser.role==="Admin"?id=>{setMessage("");setWizardProfile(id);}:undefined} browse={()=>selectTab("overview")}/>:
+      <SourceWorkbench key={focusVersion} lang={lang} sources={sources} rules={rules} selected={selectedSource} select={setSelectedSource}
+        canManage={currentUser.role==="Admin"} busy={!!busy} test={id=>void api({action:"test-source",sourceId:id})} edit={editSource}
+        mapping={id=>setMappingSource(id)} ready={id=>{setMappingSelection(undefined);setMessage("");setReadySource(id);}} openRun={(id,ruleId)=>setDetailRun({id,ruleId})} openRule={id=>{setExpandedRule(id);setTab("rules");}}/>)}
+    {tab==="rules"&&!loading&&!loadFailed&&<div className="ew-review"><div className="ea-section-action ew-queue-head"><h3>{tr?"Kontrol inceleme kuyruğu":"Control review queue"}</h3><div>
+      {currentUser.role!=="Viewer"&&<button className="ghost" disabled={!!busy||!rules.length} onClick={()=>api({action:"run-due"})}>{tr?"Zamanı Gelenleri Çalıştır":"Run Due"}</button>}
+      {currentUser.role==="Admin"&&<><button className="primary" disabled={!sources.length} onClick={()=>{setMappingSelection(undefined);setMessage("");setReadySource("")}}>+ {tr?"Hazır Kontrol":"Ready Control"}</button>
+      <span title={!connected.length?prerequisite:undefined} tabIndex={!connected.length?0:undefined}><button className="ghost" disabled={!connected.length} aria-label={!connected.length?(tr?"+ Kural Oluştur":"+ Create Rule")+" · "+prerequisite:undefined} onClick={()=>{setMessage("");setRuleOpen(true)}}>+ {tr?"Kural Oluştur":"Create Rule"}</button></span></>}</div></div>
+      <ControlQueue key={focusVersion} lang={lang} sources={sources} rules={rules} expanded={expandedRule} expand={setExpandedRule} busy={!!busy} role={currentUser.role}
+        editPolicy={r=>{setMessage("");setPolicyRule(r);setPolicyReviewer(r.reviewer||"");setPolicyHours(r.freshnessHours)}} connectSource={!connected.length?()=>selectTab("sources"):undefined} refresh={refreshControls} openSource={id=>{setSelectedSource(id);setAddingSource(false);setTab("sources");}}
+        run={id=>void api({action:"run-rule",ruleId:id})} toggle={r=>void api({action:"toggle-rule",ruleId:r.id,enabled:!r.enabled})}/>
+    </div>}
+    {tab==="runs"&&!loading&&!loadFailed&&<DataTable empty={tr?"Henüz çalıştırma kaydı yok.":"No collection runs yet."} heads={[tr?"Kural":"Rule",tr?"Kaynak":"Source",tr?"Sonuç":"Result",tr?"Tetikleyici":"Trigger",tr?"Süre":"Duration",tr?"Açıklama":"Detail",tr?"Zaman":"Time",""]} rows={runs.map(x=>[x.ruleName,x.sourceName,<Status key="status" value={x.status} lang={lang}/>,x.triggerType||"manual",`${x.durationMs||0} ms`,x.detail,formatDate(x.createdAt),<button key="detail" className="ghost" onClick={()=>setDetailRun({id:x.id,ruleId:x.ruleId})}>{tr?"Sonuçları Gör":"View Results"}</button>])}/>}
+    {tab==="findings"&&!loading&&!loadFailed&&<DataTable empty={tr?"Açık veya geçmiş kontrol bulgusu yok.":"No current or historical control findings."} heads={[tr?"Bulgu":"Finding",tr?"Önem":"Severity",tr?"Sahip / termin":"Owner / due",tr?"Tekrar":"Occurrences",tr?"Durum":"Status",tr?"Yönetim":"Governance"]} rows={findings.map(x=>[
+      <span key="finding"><b>{x.title}</b><small>{x.detail}</small></span>,
+      x.severity,
+      <span key="owner"><b>{x.owner}</b><small>{x.dueDate}</small></span>,
+      x.occurrenceCount,
+      <Status key="status" value={x.status} lang={lang}/>,
+      <div key="actions" className="ea-row-actions">
+        {x.status!=="closed"&&currentUser.role!=="Viewer"&&<button className="primary" disabled={!!busy} onClick={()=>startPromotion(x)}>{tr?"CAPA İncelemesine Gönder":"Queue CAPA Review"}</button>}
+        {x.status==="open"&&<button className="ghost" disabled={!!busy||currentUser.role==="Viewer"} onClick={()=>api({action:"acknowledge-finding",findingId:x.id})}>{tr?"Sahiplen":"Acknowledge"}</button>}
+        {x.status!=="open"&&x.status!=="closed"&&currentUser.role==="Admin"&&<button className="ghost" disabled={!!busy} onClick={()=>setClosing(x)}>{tr?"Kanıtla Kapat":"Close with Evidence"}</button>}
+        {x.status==="closed"&&<span>—</span>}
+      </div>,
+    ])}/>}
+
+    </>}
+    {guide&&<Modal title={guide.name} closeLabel={tr?"Pencereyi kapat":"Close dialog"} onClose={()=>setGuide(null)}><div className="ea-form"><div className="connector-guide wide"><b>{sourceMethods[guide.referenceOnly?"reference":"collector"][lang]}</b><p>{tr?guide.requirements:guide.requirementsEn}</p>{!guide.referenceOnly&&<p>{tr?"Bu ürün için doğrudan bağlantı sürücüsü henüz yok. Fornost kanıtı mevcut collector’ın HTTPS JSON adresinden okur.":"There is no native driver for this product yet. Fornost reads evidence from the HTTPS JSON endpoint of an existing collector."}</p>}<a href={safeWebHref(guide.docs)} target="_blank" rel="noreferrer">{tr?"Ürün belgesi ↗":"Product documentation ↗"}</a></div><footer><button className="ghost" onClick={()=>setGuide(null)}>{tr?"Kapat":"Close"}</button>{!guide.referenceOnly&&currentUser.role==="Admin"&&<button className="primary" onClick={()=>{setSource({...newConnectorDraft(),name:guide.name+" collector",vendor:guide.name,category:guide.category,driver:"https-bridge"});setSourceId("");setGuide(null);setSourceOpen(true)}}>{tr?"Mevcut HTTPS collector bağla":"Connect existing HTTPS collector"}</button>}</footer></div></Modal>}
+    {sourceOpen&&<Modal title={sourceId?(tr?"Kanıt kaynağını düzenle":"Edit evidence source"):(tr?"Kanıt kaynağı ekle":"Add evidence source")} closeLabel={tr?"Pencereyi kapat":"Close dialog"} onClose={closeSource}><form className="ea-form" onSubmit={saveSource}><ConnectorFields value={source} onChange={setSource} lang={lang} existing={!!sourceId}/><SourceAssetField tr={tr} assetId={source.assetRef||""} assets={sourceCatalog.assets} choose={assetRef=>setSource({...source,assetRef})}/>{sourceCatalog.catalogFailed&&<button type="button" onClick={sourceCatalog.retry}>{tr?"Varlık listesini yeniden yükle":"Reload asset list"}</button>}{message&&<p className="wide" role="status">{message}</p>}{conflictingSourceId&&<button type="button" className="ghost wide" disabled={!!busy} onClick={()=>{const id=conflictingSourceId;closeSource();setTab("sources");setAddingSource(false);setSelectedSource(id);setFocusVersion(n=>n+1)}}>{tr?"Kaydedilen kaynağı aç":"Open saved source"}</button>}<footer><button type="button" className="ghost" disabled={!!busy} onClick={closeSource}>{tr?"Vazgeç":"Cancel"}</button><button className="primary" disabled={!!busy}>{tr?"Kaynağı Kaydet":"Save Source"}</button></footer></form></Modal>}
+
+    {mappingSource&&<Modal title={tr?"Kanıt eşleştirme ajanı":"Evidence mapping agent"} closeLabel={tr?"Pencereyi kapat":"Close dialog"} onClose={()=>setMappingSource(null)}><MappingAgentPanel sourceId={mappingSource} sourceName={sources.find(s=>s.id===mappingSource)?.name||""} lang={lang} onPrepare={selection=>{setMappingSource(null);setMappingSelection(selection);setMessage("");setReadySource(selection.sourceId)}}/></Modal>}
+    {readySource!==null&&<Modal title={tr?"Hazır kontrol etkinleştir":"Enable ready control"} closeLabel={tr?"Pencereyi kapat":"Close dialog"} onClose={()=>{if(!busy){setReadySource(null);setMappingSelection(undefined)}}}><ReadyControlForm actor={currentUser.email||""} mapping={mappingSelection} sources={sources} initialSourceId={readySource} lang={lang} busy={!!busy} message={message} onSave={api} onCancel={()=>{setReadySource(null);setMappingSelection(undefined);setTab("rules")}}/></Modal>}
+    {detailRun&&<Modal title={tr?"Kontrol sonuçları":"Control results"} closeLabel={tr?"Pencereyi kapat":"Close dialog"} onClose={()=>setDetailRun(null)}><ControlRunDetail runId={detailRun.id} expectedRuleId={detailRun.ruleId} lang={lang} onNavigate={()=>setDetailRun(null)}/></Modal>}
+
+    {policyRule&&<Modal title={tr?"Kanıt inceleme ayarları":"Evidence review settings"} closeLabel={tr?"Kapat":"Close"} onClose={()=>{if(!busy)setPolicyRule(null)}}>
+      <form className="ea-form" onSubmit={async e=>{e.preventDefault();if(await api({action:"save-rule-policy",ruleId:policyRule.id,expectedUpdatedAt:policyRule.updatedAt,
+        expectedReviewer:policyRule.reviewer||"",freshnessHours:policyHours,reviewer:policyReviewer}))setPolicyRule(null);}}>
+        <b className="wide">{policyRule.name}</b>
+        <AutomationPolicyFields tr={tr} actor={currentUser.email||""} owner={policyRule.remediationOwner} reviewer={policyReviewer} select={setPolicyReviewer} hours={policyHours} changeHours={setPolicyHours}/>
+        {message&&<p className="wide" role="alert">{message}</p>}
+        <footer><button type="button" className="ghost" disabled={!!busy} onClick={()=>setPolicyRule(null)}>{tr?"Vazgeç":"Cancel"}</button>
+          <button className="primary" disabled={!!busy||!policyReviewer||![24,168,720,2160].includes(policyHours)}>{tr?"Kaydet":"Save"}</button></footer>
+      </form></Modal>}
+    {ruleOpen&&<Modal title={tr?"Sürekli kontrol tanımla":"Define continuous control"} closeLabel={tr?"Pencereyi kapat":"Close dialog"} onClose={()=>setRuleOpen(false)}><form className="ea-form" onSubmit={saveRule}><label className="wide">{tr?"Kontrol testi adı":"Control test name"}<input required value={rule.name} onChange={e=>setRule({...rule,name:e.target.value})}/></label><label>{tr?"Kanıt kaynağı":"Evidence source"}<select required value={rule.sourceId} onChange={e=>setRule({...rule,sourceId:e.target.value})}><option value="">—</option>{connected.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label><label>{tr?"Zamanlama":"Schedule"}<select value={rule.schedule} onChange={e=>setRule({...rule,schedule:e.target.value})}><option value="hourly">{tr?"Saatlik":"Hourly"}</option><option value="daily">{tr?"Günlük":"Daily"}</option><option value="weekly">{tr?"Haftalık":"Weekly"}</option><option value="monthly">{tr?"Aylık":"Monthly"}</option></select></label><label className="wide">{tr?"Bağlı kontrol/maddeler":"Mapped controls"}<input required placeholder="CC6.1, A.5.15, PCI 8.4.2" value={rule.controlRefs} onChange={e=>setRule({...rule,controlRefs:e.target.value})}/></label><label>JSON path<input placeholder="data.compliantPercentage" value={rule.jsonPath} onChange={e=>setRule({...rule,jsonPath:e.target.value})}/></label><label>{tr?"Operatör":"Operator"}<select value={rule.operator} onChange={e=>setRule({...rule,operator:e.target.value})}><option value="exists">{tr?"mevcut":"exists"}</option><option value="eq">{tr?"eşittir":"equals"}</option><option value="gte">≥</option><option value="lte">≤</option><option value="contains">{tr?"içerir":"contains"}</option></select></label><label className="wide">{tr?"Beklenen değer":"Expected value"}<input value={rule.expected} onChange={e=>setRule({...rule,expected:e.target.value})}/></label><AutomationPolicyFields tr={tr} actor={currentUser.email||""} owner={rule.remediationOwner} reviewer={rule.reviewer} select={reviewer=>setRule({...rule,reviewer})} hours={rule.freshnessHours} changeHours={freshnessHours=>setRule({...rule,freshnessHours})}/><label>{tr?"Ardışık hata eşiği":"Consecutive failure threshold"}<input required type="number" min="1" max="20" value={rule.failureThreshold} onChange={e=>setRule({...rule,failureThreshold:Number(e.target.value)})}/></label><label>{tr?"Düzeltme sahibi":"Remediation owner"}<input type="email" value={rule.remediationOwner} onChange={e=>setRule({...rule,remediationOwner:e.target.value,reviewer:e.target.value.trim().toLowerCase()===rule.reviewer?"":rule.reviewer})}/></label><label>{tr?"Düzeltme süresi (gün)":"Remediation due (days)"}<input required type="number" min="1" max="365" value={rule.remediationDueDays} onChange={e=>setRule({...rule,remediationDueDays:Number(e.target.value)})}/></label><label className="wide ea-check"><input type="checkbox" checked={rule.autoFinding} onChange={e=>setRule({...rule,autoFinding:e.target.checked})}/><span>{tr?"Eşik aşılınca otomatik bulgu ve risk kaydı oluştur":"Create a finding and risk record when threshold is reached"}</span></label>{message&&<p className="wide" role="alert">{message}</p>}{conflictingRuleId&&<button type="button" className="ghost wide" onClick={()=>{ruleRequestId.current="";setRule({...rule,name:"",controlRefs:"",jsonPath:"",expected:""});setRuleOpen(false);setTab("rules");setExpandedRule(conflictingRuleId);setConflictingRuleId("")}}>{tr?"Kaydedilen kontrolü aç":"Open saved control"}</button>}<footer><button type="button" className="ghost" onClick={()=>setRuleOpen(false)}>{tr?"Vazgeç":"Cancel"}</button><button className="primary" disabled={!!busy}>{tr?"Sürekli Kontrolü Kaydet":"Save Continuous Control"}</button></footer></form></Modal>}
+
+    {promotion&&<Modal title={tr?"CAPA inceleme kuyruğuna gönder":"Queue for CAPA review"} closeLabel={tr?"Pencereyi kapat":"Close dialog"} onClose={()=>setPromotion(null)}><form className="ea-form" onSubmit={promoteFinding}><div className="wide"><small>{tr?"KAYNAK SÜREKLİ GÜVENCE BULGUSU":"SOURCE CONTINUOUS ASSURANCE FINDING"}</small><b>{promotion.finding.title}</b><small>{rules.find(x=>x.id===promotion.finding.ruleId)?.controlRefs||promotion.finding.ruleId}</small></div><label>{tr?"Hedef kontrol":"Target control"}<select required value={promotion.targetControlRef} onChange={e=>setPromotion({...promotion,targetControlRef:e.target.value})}><option value="">—</option>{splitControlRefs(rules.find(x=>x.id===promotion.finding.ruleId)?.controlRefs||"").map(controlRef=><option key={controlRef} value={controlRef}>{controlRef}</option>)}</select></label><label>{tr?"Bağımsız reviewer e-posta":"Independent reviewer email"}<input required type="email" value={promotion.reviewer} onChange={e=>setPromotion({...promotion,reviewer:e.target.value})}/></label><label>{tr?"CAPA termini":"CAPA due date"}<input required type="date" value={promotion.dueDate} onChange={e=>setPromotion({...promotion,dueDate:e.target.value})}/></label><label className="wide">{tr?"Kök neden":"Root cause"}<textarea required value={promotion.rootCause} onChange={e=>setPromotion({...promotion,rootCause:e.target.value})}/></label><label className="wide">{tr?"Düzeltici aksiyon":"Corrective action"}<textarea required value={promotion.correctiveAction} onChange={e=>setPromotion({...promotion,correctiveAction:e.target.value})}/></label><label className="wide">{tr?"Önleyici aksiyon":"Preventive action"}<textarea required value={promotion.preventiveAction} onChange={e=>setPromotion({...promotion,preventiveAction:e.target.value})}/></label><div className="wide"><small>{tr?"Hedef kontrol sunucuda otomasyon kuralının gerçek eşlemelerine karşı doğrulanır; risk, otomasyon kuralı ve SHA-256 kaynak kanıt izi de sunucuda çözülür. Kayıt doğrudan CAPA oluşturmaz; bağımsız Admin onayına gider ve işi kuyruğa alan kişi kendi kaydını onaylayamaz.":"The target control is validated server-side against the automation rule's actual mappings; risk, automation rule and SHA-256 source-evidence lineage are also resolved server-side. This does not create CAPA directly; an independent Admin must approve it, and the queue actor cannot approve their own item."}</small></div><footer><button type="button" className="ghost" onClick={()=>setPromotion(null)}>{tr?"Vazgeç":"Cancel"}</button><button className="primary" disabled={!!busy}>{tr?"CAPA İncelemesini Kuyruğa Al":"Queue CAPA Review"}</button></footer></form></Modal>}
+
+    {closing&&<Modal title={tr?"Bulguyu bağımsız kanıtla kapat":"Close finding with independent evidence"} closeLabel={tr?"Pencereyi kapat":"Close dialog"} onClose={()=>setClosing(null)}><div className="ea-form"><label className="wide">{tr?"Kapanış ve doğrulama notu":"Closure and verification note"}<input value={closure.note} onChange={e=>setClosure({...closure,note:e.target.value})}/></label><label>{tr?"Kanıt referansı":"Evidence reference"}<input value={closure.evidenceReference} onChange={e=>setClosure({...closure,evidenceReference:e.target.value})}/></label><label>SHA-256<input maxLength={64} value={closure.evidenceSha256} onChange={e=>setClosure({...closure,evidenceSha256:e.target.value})}/></label><label className="wide">{tr?'Onay için "BULGUYU KAPAT" yazın':'Type "BULGUYU KAPAT" to confirm'}<input value={closure.confirmation} onChange={e=>setClosure({...closure,confirmation:e.target.value})}/></label><footer><button className="ghost" onClick={()=>setClosing(null)}>{tr?"Vazgeç":"Cancel"}</button><button className="primary" disabled={!!busy} onClick={()=>void closeFinding()}>{tr?"Kanıtla Kapat":"Close with Evidence"}</button></footer></div></Modal>}
+  </section>;
+}
+
+function Status({value,lang}:{value:string;lang:Lang}){const tr=lang==="tr";if(value==="pass")return <span className="ea-status pass">{tr?"Uygun":"Passed"}</span>;const labels:Record<string,string>={fresh:tr?"Güncel":"Fresh",unknown:tr?"Doğrulanamadı":"Unverified",fail:tr?"Başarısız":"Failed",success:tr?"Bağlı":"Connected",error:tr?"Hata":"Error",healthy:tr?"Sağlıklı":"Healthy",failing:tr?"Başarısız":"Failing",stale:tr?"Kanıt eski":"Stale",missing:tr?"Kanıt eksik":"Missing",expiring:tr?"Süresi doluyor":"Expiring",paused:tr?"Duraklatıldı":"Paused",open:tr?"Açık":"Open",acknowledged:tr?"Sahiplenildi":"Acknowledged",closed:tr?"Kapalı":"Closed"};return <span className={`ea-status ${value}`}>{labels[value]||(tr?"Test edilmedi":"Not tested")}</span>}
+function DataTable({heads,rows,empty}:{heads:string[];rows:React.ReactNode[][];empty:string}){return <div className="ea-table"><div className="table-wrap"><table><thead><tr>{heads.map((x,i)=><th key={`${x}-${i}`}>{x}</th>)}</tr></thead><tbody>{rows.length?rows.map((row,i)=><tr key={i}>{row.map((cell,j)=><td key={j}>{cell}</td>)}</tr>):<tr><td colSpan={heads.length} className="empty">{empty}</td></tr>}</tbody></table></div></div>}
+function Modal({title,closeLabel="Close dialog",onClose,children}:{title:string;closeLabel?:string;onClose:()=>void;children:React.ReactNode}){return <div className="overlay" onMouseDown={onClose}><div data-escape-layer className="modal ea-modal" role="dialog" aria-modal="true" aria-label={title} onMouseDown={e=>e.stopPropagation()}><div className="modal-head"><h2>{title}</h2><button data-escape-close type="button" aria-label={closeLabel} onClick={onClose}>×</button></div>{children}</div></div>}
