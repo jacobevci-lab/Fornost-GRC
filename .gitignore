@@ -59,3 +59,5 @@ __pycache__/
 
 /services/identity-bridge/node_modules/
 /enterprise-login-qa-artifacts/
+
+/report-localization-qa-artifacts/
