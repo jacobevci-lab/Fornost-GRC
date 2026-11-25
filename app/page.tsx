@@ -1,4 +1,5 @@
 "use client";
+import EnterpriseLogin from "./authentication/login";
 import {QuestionnaireCopilot} from "./ai/grc/questionnaire-ui";
 import {EvidenceAiReview} from "./ai/grc/evidence-ui";
 
@@ -1020,8 +1021,7 @@ export default function Home() {
 
 function AuthGate() {
   const [state, setState] = useState<any>(null),
-    [error, setError] = useState(""),
-    [showLogin, setShowLogin] = useState(false);
+    [error, setError] = useState("");
   const identityRequest = useRef<{ id: number; controller?: AbortController }>({ id: 0 });
   const submission = useRef<AbortController | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -1059,141 +1059,15 @@ function AuthGate() {
       await submitLocalAuthentication(withBasePath("/api/auth"), input, { signal: controller.signal });
       if (!controller.signal.aborted) await check(true);
     } catch (e) {
-      if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Giriş başarısız. Oturum durumunu kontrol edin.");
+      if (!controller.signal.aborted) setError(e instanceof Error ? ((e as Error & {code?:string}).code ? (e as Error & {code:string}).code+"|" : "")+e.message : "Giriş başarısız. Oturum durumunu kontrol edin.");
     } finally {
       if (submission.current === controller) submission.current = null;
       if (!controller.signal.aborted) setSubmitting(false);
     }
   }
-  async function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    await authenticate({
-      action: state.bootstrapRequired && !showLogin ? "bootstrap" : "login",
-      name: String(fd.get("name") || ""), email: String(fd.get("email") || ""), password: String(fd.get("password") || ""),
-    });
-  }
-  async function demoLogin() { await authenticate({ action: "demo_login" }); }
-  if (!state)
-    return (
-      <div className="auth-screen">
-        <div className="auth-card">
-          <b>Fornost GRC</b>
-          <p>Güvenli oturum hazırlanıyor…</p>
-        </div>
-      </div>
-    );
-  if (state.loadFailed)
-    return (
-      <div className="auth-screen">
-        <div className="auth-card">
-          <div className="auth-mark">F</div>
-          <small>FORNOST GRC</small>
-          <h1>Oturum hazırlanamadı</h1>
-          <p>
-            Kimlik servisi geçici olarak yanıt veremedi. Birkaç saniye sonra
-            tekrar deneyin.
-          </p>
-          {error && <div className="auth-error">{error}</div>}
-          <button
-            className="primary"
-            onClick={() => {
-              setState(null);
-              check();
-            }}
-          >
-            Tekrar Dene
-          </button>
-        </div>
-      </div>
-    );
-  if (state.authenticated && state.user?.orgScope?.restricted) return <ScopedWorkspace user={state.user} key={JSON.stringify([state.user.id,state.user.orgScope])}/>;
-  if (state.authenticated) return <FornostApp key={JSON.stringify([state.user.id,state.user.role,state.user.moduleAccess])} currentUser={state.user} />;
-  return (
-    <div className="auth-screen">
-      <form className="auth-card" onSubmit={submit} aria-busy={submitting}>
-        <div className="auth-mark">F</div>
-        <small>FORNOST GRC</small>
-        <h1>
-          {state.bootstrapRequired && !showLogin
-            ? "Fornost GRC İlk Kurulum"
-            : "Yerel Hesapla Giriş"}
-        </h1>
-        <p>
-          {state.bootstrapRequired && !showLogin
-            ? "Kurulumu tamamlamak için ilk yerel yönetici hesabını oluşturun. Bu hesap sistem yöneticisi yetkisine sahip olacaktır."
-            : "Fornost hesabınızın e-posta adresi ve parolasıyla giriş yapın."}
-        </p>
-        {state.bootstrapRequired && !showLogin && (
-          <div className="setup-progress" aria-label="İlk kurulum adımları">
-            <span className="active">
-              <b>1</b> Yönetici
-            </span>
-            <span>
-              <b>2</b> Giriş
-            </span>
-            <span>
-              <b>3</b> Ayarlar
-            </span>
-          </div>
-        )}
-        {state.bootstrapRequired && !showLogin && (
-          <label>
-            Ad Soyad
-            <input name="name" required autoComplete="name" />
-          </label>
-        )}
-        <label>
-          E-posta
-          <input name="email" type="email" required autoComplete="username" />
-        </label>
-        <label>
-          Parola
-          <input
-            name="password"
-            type="password"
-            required
-            minLength={12}
-            autoComplete={
-              state.bootstrapRequired && !showLogin
-                ? "new-password"
-                : "off"
-            }
-          />
-        </label>
-        {state.bootstrapRequired && !showLogin && (
-          <em>En az 12 karakter; büyük/küçük harf, sayı ve özel karakter.</em>
-        )}
-        {error && <div className="auth-error" role="alert">{error}<button type="button" className="ghost" disabled={submitting} onClick={() => void check()}>Oturum Durumunu Kontrol Et</button></div>}
-        <button className="primary" disabled={submitting}>
-          {submitting ? "İşlem sürüyor…" : state.bootstrapRequired && !showLogin
-            ? "Yönetici Hesabını Oluştur"
-            : "Giriş Yap"}
-        </button>
-        {state.demoAccount && (
-          <div className="demo-login-box">
-            <b>Demo Editor Hesabı</b>
-            <span>{state.demoAccount.email}</span>
-            <button type="button" className="ghost" disabled={submitting} onClick={demoLogin}>
-              Demo Hesapla Giriş Yap
-            </button>
-          </div>
-        )}
-        {state.bootstrapRequired && (
-          <button
-            type="button"
-            className="auth-switch"
-            disabled={submitting}
-            onClick={() => setShowLogin((x) => !x)}
-          >
-            {showLogin
-              ? "İlk yönetici oluşturma ekranına dön"
-              : "Mevcut yerel hesapla giriş yap"}
-          </button>
-        )}
-      </form>
-    </div>
-  );
+  if (state?.authenticated && state.user?.orgScope?.restricted) return <ScopedWorkspace user={state.user} key={JSON.stringify([state.user.id,state.user.orgScope])}/>;
+  if (state?.authenticated) return <FornostApp key={JSON.stringify([state.user.id,state.user.role,state.user.moduleAccess])} currentUser={state.user} />;
+  return <EnterpriseLogin state={state} error={error} busy={submitting} onAuthenticate={authenticate} onCheck={()=>void check()} onRetry={()=>{setState(null);void check()}}/>;
 }
 
 function returnsToDecisionQueue(request?: FornostNavigationRequest | null) {
@@ -2309,7 +2183,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
                 <b>{currentUser.name || currentUser.email}</b>
                 <small>
                   {currentUser.role} ·{" "}
-                  {currentUser.source === "local" ? (lang === "tr" ? "Yerel" : "Local") : "Entra SSO"}
+                  {currentUser.authenticationMethod === "directory" ? "AD / LDAP" : currentUser.authenticationMethod === "sso" ? "SSO" : currentUser.source === "local" ? (lang === "tr" ? "Yerel" : "Local") : "Entra SSO"}
                 </small>
               </div>
             </div>

@@ -31,7 +31,7 @@ for (const [key, fallback] of Object.entries({
   FORNOST_DEMO_MODE: "false", FORNOST_SETTINGS_ENCRYPTION_KEY: "", FORNOST_DOSSIER_SIGNING_KEY: "",
   FORNOST_SCHEDULER_TOKEN: "", FORNOST_ALLOW_PRIVATE_CONNECTORS: "false",
   FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS: "false", FORNOST_AI_ALLOW_LOOPBACK: "false",
-  FORNOST_TRUST_PLATFORM_IDENTITY: "false",
+  FORNOST_TRUST_PLATFORM_IDENTITY: "false", FORNOST_IDENTITY_BRIDGE_TOKEN: "",
 })) args.push("--var", `${key}:${env[key] || fallback}`);
 const child = spawn(process.execPath, args, { env, stdio: "inherit" });
 let stopping = false;

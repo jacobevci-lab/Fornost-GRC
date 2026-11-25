@@ -1,0 +1,246 @@
+.enterprise-login.auth-screen {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 76px 18px 32px;
+  background: var(--ws-bg, #f4f6f5) !important;
+  color: var(--ws-ink, #172e2e);
+  position: relative;
+}
+.enterprise-login .auth-card {
+  width: min(100%, 440px);
+  min-width: 0;
+  max-width: 440px;
+  margin: 0;
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid var(--ws-line);
+  border-radius: 14px;
+  background: var(--ws-surface) !important;
+  background-image: none !important;
+  color: var(--ws-ink) !important;
+  box-shadow: 0 12px 32px #071e1810;
+}
+.enterprise-login .login-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.enterprise-login .auth-mark {
+  width: 38px;
+  height: 38px;
+  margin: 0;
+  flex: 0 0 38px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: #087b77 !important;
+  background-image: none !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+.enterprise-login h1 {
+  margin: 4px 0 0;
+  letter-spacing: 0;
+  line-height: 1.3;
+}
+.enterprise-login p {
+  margin: 0;
+  color: var(--ws-muted);
+}
+.enterprise-login small {
+  color: var(--ws-muted);
+}
+.enterprise-login .login-brand small {
+  letter-spacing: 0.12em;
+  color: var(--ws-brand-2);
+}
+.login-preferences {
+  position: absolute;
+  right: 24px;
+  top: 20px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.login-preferences .language-switch {
+  display: flex;
+  gap: 2px;
+  border: 1px solid var(--ws-line);
+  border-radius: 8px;
+  padding: 2px;
+  background: var(--ws-surface);
+}
+.login-preferences button {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ws-muted);
+}
+.login-preferences button[aria-pressed="true"] {
+  background: var(--ws-brand-soft);
+  color: var(--ws-brand-2);
+}
+.enterprise-login .login-sso {
+  display: grid;
+  gap: 8px;
+  text-align: center;
+}
+.enterprise-login button {
+  cursor: pointer;
+  white-space: normal;
+}
+.enterprise-login button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+.enterprise-login .login-sso > button {
+  width: 100%;
+  border-radius: 7px;
+  min-height: 32px;
+}
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ws-muted);
+}
+.login-divider:before,
+.login-divider:after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--ws-line);
+}
+.login-methods {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--ws-surface-2);
+  border: 1px solid var(--ws-line);
+  padding: 3px;
+  border-radius: 8px;
+  gap: 3px;
+}
+.login-methods button {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ws-muted);
+  text-align: center;
+}
+.login-methods button[aria-selected="true"] {
+  border-color: var(--ws-line-strong);
+  background: var(--ws-surface);
+  color: var(--ws-ink);
+  box-shadow: 0 1px 3px #071e1810;
+}
+.enterprise-login .login-fields {
+  display: grid;
+  gap: 12px;
+}
+.enterprise-login label {
+  display: grid;
+  gap: 5px;
+  color: var(--ws-ink);
+  margin: 0;
+}
+.enterprise-login label input {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--ws-line-strong);
+  border-radius: 6px;
+}
+.enterprise-login .login-note,
+.login-discovery {
+  padding: 10px;
+  border: 1px solid var(--ws-line);
+  border-radius: 7px;
+  background: var(--ws-surface-2);
+  color: var(--ws-muted);
+}
+.login-discovery {
+  display: grid;
+  gap: 8px;
+  border-color: var(--ws-brand);
+  background: var(--ws-brand-soft);
+  color: var(--ws-ink);
+}
+.login-discovery button,
+.login-submit {
+  border: 1px solid var(--ws-brand);
+  border-radius: 6px;
+  background: var(--ws-brand-soft);
+  color: var(--ws-brand-2);
+}
+.enterprise-login .auth-error {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  color: var(--ws-danger);
+  background: var(--ws-danger-soft, var(--ws-surface-2));
+  border: 1px solid var(--ws-danger);
+  border-radius: 7px;
+  padding: 10px;
+  overflow-wrap: anywhere;
+}
+.enterprise-login .auth-error button {
+  background: var(--ws-surface);
+  border: 1px solid var(--ws-line-strong);
+  border-radius: 6px;
+  color: var(--ws-ink);
+}
+.login-trust {
+  padding-top: 14px;
+  border-top: 1px solid var(--ws-line);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.login-trust a {
+  color: var(--ws-brand-2);
+  text-decoration: none;
+}
+.login-trust a:hover {
+  text-decoration: underline;
+}
+@media (max-width: 480px) {
+  .enterprise-login.auth-screen {
+    align-items: flex-start;
+    padding: 68px 12px 24px;
+  }
+  .enterprise-login .auth-card {
+    padding: 18px;
+    gap: 14px;
+  }
+  .login-preferences {
+    right: 14px;
+    top: 16px;
+  }
+}
+
+/* Scope legacy authentication styles to the compact workspace contract. */
+.enterprise-login.auth-screen .auth-card {
+  padding: 24px !important;
+  border-radius: 14px !important;
+  border-color: var(--ws-line) !important;
+  box-shadow: 0 12px 32px #071e1810 !important;
+}
+.enterprise-login.auth-screen .auth-card :is(p, button, label, input) {
+  margin: 0 !important;
+}
+.enterprise-login.auth-screen .auth-card p {
+  color: var(--ws-muted) !important;
+}
+.enterprise-login.auth-screen .demo-login-box {
+  margin: 0;
+  background: var(--ws-surface-2) !important;
+  border-color: var(--ws-line) !important;
+  box-shadow: none !important;
+}
+.enterprise-login.auth-screen .demo-login-box b { color: var(--ws-ink) !important; }
+.enterprise-login.auth-screen .demo-login-box span { color: var(--ws-muted) !important; }
+@media (max-width: 480px) {
+  .enterprise-login.auth-screen .auth-card { padding: 18px !important; }
+}

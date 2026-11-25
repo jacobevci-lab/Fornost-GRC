@@ -1,4 +1,5 @@
 import {orgCookie,resolveScope,scopeRoute,type Scope} from '../../enterprise/scope';
+import {ensureAuthentication} from '../../authentication/schema';
 import { readLiveSession } from './live-session';
 import { completedInitialization } from "../../completed-initialization";
 import { ensurePasswordIterationsColumn } from "./password-column";
@@ -10,7 +11,7 @@ import { ensureModuleAccessSchema, readModuleAccess } from "../users/access-stor
 import { cleanupExpiredSessions, SESSION_EXPIRY_INDEX_SQL, SESSION_USER_INDEX_SQL } from "./session-storage";
 
 export type AppRole = "Admin" | "Editor" | "Viewer";
-export type Actor = { id: string; email: string; name: string; role: AppRole; source: "local" | "entra"; moduleAccess?: ModuleAccess; orgScope?:Scope };
+export type Actor = { id: string; email: string; name: string; role: AppRole; source: "local" | "entra"; authenticationMethod?:'local'|'sso'|'directory'; moduleAccess?: ModuleAccess; orgScope?:Scope };
 
 // Cloudflare Workers WebCrypto rejects PBKDF2 requests above 100,000 iterations in production.
 // Keep the local credential format at that runtime ceiling until the password KDF is migrated.
@@ -42,6 +43,7 @@ export async function identityDb() {
       ]);
       await ensureModuleAccessSchema(env.DB);
       await ensurePasswordIterationsColumn(env.DB);
+      await ensureAuthentication(env.DB);
   });
   return env.DB;
 }
@@ -102,6 +104,10 @@ function forwardedOrigin(req: NextRequest) {
   }
 }
 
+export function requestOrigin(req: NextRequest) {
+  return forwardedOrigin(req) || req.nextUrl.origin;
+}
+
 export function requestIsSecure(req: NextRequest) {
   return req.nextUrl.protocol === "https:" || forwardedOrigin(req)?.startsWith("https://") === true;
 }
@@ -135,7 +141,9 @@ async function sessionActor(req: NextRequest): Promise<Actor | null> {
   const token = req.cookies.get("fornost_session")?.value;
   if (!token) return null;
   const current = await readLiveSession(await identityDb(), await sha256(token));
-  return current ? { ...current, role: current.role as AppRole } : null;
+  if(!current)return null;
+  const method=await (await identityDb()).prepare('SELECT method FROM authentication_session_methods WHERE id_hash=?').bind(await sha256(token)).first<{method:'local'|'sso'|'directory'}>();
+  return { ...current, role: current.role as AppRole, authenticationMethod:method?.method||'local' };
 }
 
 export async function actor(req:NextRequest):Promise<Actor|null>{
@@ -161,11 +169,12 @@ async function readSessionTimeout(db: Awaited<ReturnType<typeof identityDb>>) {
   return sessionTimeoutMinutes(row?.config_json);
 }
 
-export async function createSession(db: Awaited<ReturnType<typeof identityDb>>, userId: string, expectedRole?:AppRole) {
+export async function createSession(db: Awaited<ReturnType<typeof identityDb>>, userId: string, expectedRole?:AppRole, authRevision?:string) {
   const minutes = await readSessionTimeout(db);
   const token = bytesToHex(crypto.getRandomValues(new Uint8Array(32))), now = new Date(), expires = new Date(now.getTime() + minutes * 60_000);
   await cleanupExpiredSessions(db, now.toISOString());
-  const inserted=await db.prepare("INSERT INTO local_sessions(id_hash,user_id,expires_at,created_at,last_seen_at) SELECT ?,id,?,?,? FROM local_users WHERE id=? AND status='Active' AND (? IS NULL OR role=?)").bind(await sha256(token),expires.toISOString(),now.toISOString(),now.toISOString(),userId,expectedRole??null,expectedRole??null).run();
+  const guard=authRevision===undefined?'':" AND coalesce((SELECT revision FROM identity_login_config WHERE id=1),'')=?";
+  const inserted=await db.prepare("INSERT INTO local_sessions(id_hash,user_id,expires_at,created_at,last_seen_at) SELECT ?,id,?,?,? FROM local_users WHERE id=? AND status='Active' AND (? IS NULL OR role=?)"+guard).bind(await sha256(token),expires.toISOString(),now.toISOString(),now.toISOString(),userId,expectedRole??null,expectedRole??null,...(authRevision===undefined?[]:[authRevision])).run();
   if(!inserted.meta?.changes)return null;
   return { token, expires };
 }

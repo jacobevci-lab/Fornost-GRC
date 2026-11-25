@@ -1,0 +1,123 @@
+.enterprise-auth-settings {
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+.enterprise-auth-settings .iad-tabs {
+  flex-wrap: wrap;
+}
+.enterprise-auth-settings form,
+.enterprise-auth-settings fieldset {
+  min-width: 0;
+}
+.enterprise-auth-settings form > fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 14px;
+}
+.enterprise-auth-settings .identity-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.enterprise-auth-settings .identity-toggle input {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  margin: 0;
+}
+.enterprise-auth-settings .identity-wide {
+  grid-column: 1/-1;
+}
+.enterprise-auth-settings textarea {
+  width: 100%;
+  resize: vertical;
+}
+.enterprise-auth-settings .identity-emergency {
+  padding: 12px;
+  border: 1px solid var(--ws-line);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+}
+.enterprise-auth-settings .identity-emergency small {
+  display: block;
+  color: var(--ws-muted);
+}
+.enterprise-auth-settings footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ws-line);
+}
+.enterprise-auth-settings footer > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.authentication-audit {
+  margin: 14px 0;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--ws-line);
+  border-radius: 10px;
+  background: var(--ws-surface);
+}
+.authentication-audit > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.authentication-audit h3 {
+  margin: 0;
+}
+.authentication-audit .audit-scroll {
+  overflow: auto;
+  min-width: 0;
+}
+.authentication-audit td {
+  overflow-wrap: anywhere;
+}
+.authentication-audit td:nth-child(3) {
+  max-width: 250px;
+}
+.authentication-audit > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+@media (max-width: 640px) {
+  .enterprise-auth-settings .iad-fields {
+    grid-template-columns: 1fr;
+  }
+  .enterprise-auth-settings footer > div {
+    width: 100%;
+  }
+  .enterprise-auth-settings footer > div > button {
+    flex: 1;
+  }
+  .authentication-audit {
+    padding: 12px;
+  }
+}
+
+.enterprise-auth-settings .identity-toggle {
+  flex-direction: row !important;
+  justify-content: flex-start;
+  text-align: left;
+}
+.enterprise-auth-settings .identity-toggle input[type="checkbox"] {
+  width: 14px !important;
+  min-width: 14px !important;
+  height: 14px !important;
+  min-height: 14px !important;
+  padding: 0 !important;
+}

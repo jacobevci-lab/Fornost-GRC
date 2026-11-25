@@ -56,3 +56,6 @@ __pycache__/
 /public/fornost-ocr/
 
 /ai-grc-qa-artifacts/
+
+/services/identity-bridge/node_modules/
+/enterprise-login-qa-artifacts/

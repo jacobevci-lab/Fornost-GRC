@@ -321,3 +321,9 @@ Only the assigned active independent Admin reviewer may replan an open/in-progre
 **Yönetim → Kimlik ve Erişim → Yerel hesaplar** üzerinden hesap oluşturun. Bir satırda görünen adı, rolü, durumu veya modül yetkilerini değiştirip **Kaydet** düğmesine basın. Rol, durum veya modül yetkisi değiştiğinde ilgili kullanıcının açık yerel oturumları kapanır.
 
 **Sil → Hesabı sil** seçilen hesabı, yerel giriş bilgilerini, oturumlarını ve modül izinlerini kaldırır. Silme işlemi ve hedef e-posta erişim geçmişinde görünür. Yönetici kendi hesabını silemez. Son aktif yönetici silinemez, devre dışı bırakılamaz veya daha düşük bir role geçirilemez. Geçici erişim kesintisi için **Devre dışı** durumunu seçin.
+
+### Enterprise workspace sign-in
+
+The login screen supports TR/EN, light/dark, configured-provider OIDC/SAML SSO, AD/LDAP, local emergency access, exact-domain SSO suggestions and the public Trust Center link. Configure **Identity & Access → Enterprise SSO and SCIM → SSO / Active Directory / LDAP / Emergency access**. New methods default to disabled; existing local accounts continue to work. Only existing active accounts can authenticate, with their current roles and entity scope.
+
+Native OIDC uses `/api/auth/callback`; SAML uses `/api/auth/saml`. Include the deployment's base path when registering these URLs. SAML/LDAP require the optional [identity bridge](../services/identity-bridge/README.md). Secrets are encrypted and never returned to the browser; blank secret inputs retain saved values. Connection tests do not prove user sign-in or MFA. Verify a real user before requiring SSO and retain tested, explicitly authorized Break-Glass administrators. Audit Trail lists successes and failures by method. Legacy integration-profile metadata is imported for editing but never automatically enables authentication.

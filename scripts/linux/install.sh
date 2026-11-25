@@ -37,6 +37,7 @@ start_runtime_stack() {
     --env FORNOST_SETTINGS_ENCRYPTION_KEY \
     --env FORNOST_DOSSIER_SIGNING_KEY \
     --env FORNOST_SCHEDULER_TOKEN \
+    --env FORNOST_IDENTITY_BRIDGE_TOKEN \
     --env FORNOST_ALLOW_PRIVATE_CONNECTORS \
     --env FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS \
     --env FORNOST_AI_ALLOW_LOOPBACK \
@@ -118,6 +119,7 @@ tls_hostname="$(read_setting FORNOST_TLS_HOSTNAME '')"
 state_dir_setting="${FORNOST_STATE_DIR:-$(read_setting FORNOST_STATE_DIR '')}"
 settings_encryption_key="${FORNOST_SETTINGS_ENCRYPTION_KEY:-$(read_setting FORNOST_SETTINGS_ENCRYPTION_KEY '')}"
 dossier_signing_key="${FORNOST_DOSSIER_SIGNING_KEY:-$(read_setting FORNOST_DOSSIER_SIGNING_KEY '')}"
+identity_bridge_token="${FORNOST_IDENTITY_BRIDGE_TOKEN:-$(read_setting FORNOST_IDENTITY_BRIDGE_TOKEN '')}"
 scheduler_token="${FORNOST_SCHEDULER_TOKEN:-$(read_setting FORNOST_SCHEDULER_TOKEN '')}"
 allow_private_connectors="${FORNOST_ALLOW_PRIVATE_CONNECTORS:-$(read_setting FORNOST_ALLOW_PRIVATE_CONNECTORS false)}"
 ai_allow_private_endpoints="${FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS:-$(read_setting FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS false)}"
@@ -229,6 +231,11 @@ fi
   echo "FORNOST_SCHEDULER_TOKEN must contain at least 32 characters." >&2
   exit 64
 }
+if [[ -n "${identity_bridge_token}" && ${#identity_bridge_token} -lt 32 ]]; then
+  echo "FORNOST_IDENTITY_BRIDGE_TOKEN must contain at least 32 characters." >&2
+  exit 64
+fi
+export FORNOST_IDENTITY_BRIDGE_TOKEN="${identity_bridge_token}"
 export FORNOST_SCHEDULER_TOKEN="${scheduler_token}"
 export FORNOST_ALLOW_PRIVATE_CONNECTORS="${allow_private_connectors}"
 export FORNOST_AI_ALLOW_PRIVATE_ENDPOINTS="${ai_allow_private_endpoints}"
