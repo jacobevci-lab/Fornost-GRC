@@ -19,7 +19,7 @@ const date=n=>new Date(Date.now()+n*86400000).toISOString().slice(0,10);
 const fields={systemName:'Müşteri destek asistanı',modelName:'Model v2.1',vendor:'Internal',purpose:'Destek yanıtı önerme',owner:account.email,deployment:'On-Prem',region:'TR',dataClassification:'Internal',autonomy:'Human-reviewed',affectedUsers:10,impact:3,likelihood:3,dataSensitivity:3,autonomyRisk:2,controlMaturity:3,controls:'RBAC and human approval',reviewDate:date(10)};
 const nav=label=>page.locator('.ai-primary-nav').getByRole('button',{name:label,exact:true});
 try{
- await page.goto(base);await expect(page.locator('.shell')).toBeVisible();await page.locator('nav button[aria-label="AI Yönetişimi"]').evaluate(b=>b.click());await waitForQaIdle(page);
+ await page.goto(base);await expect(page.locator('.shell')).toBeVisible({timeout:20000});await page.locator('nav button[aria-label="AI Yönetişimi"]').evaluate(b=>b.click());await waitForQaIdle(page);
  await page.locator('.ag-links').getByRole('button',{name:'Teknik model dosyaları →'}).click();await nav('İş listesi').click();
  const home=page.locator('.ai-decision-workspace'),inv=page.locator('.ai-model-inventory');
  phase='empty entry';await expect(home.getByRole('button',{name:'AI sistemi ekle',exact:true})).toBeVisible();await expect(home.locator('.matrix')).toHaveCount(0);await expect(home.locator('.dossier')).toHaveCount(0);

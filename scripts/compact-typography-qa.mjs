@@ -28,7 +28,14 @@ async function check(p,name,{screenshot=true}={}){
    const s=getComputedStyle(el),size=parseFloat(s.fontSize)/scale;
    if(s.fontFamily!==body.fontFamily&&!el.closest('code,pre,samp,.code,.font-mono,[data-typography=code]'))fonts.push({element:describe(el),font:s.fontFamily});
    if(![10,10.5,11,12,13,15,17].some(expected=>Math.abs(expected-size)<.1))sizes.push({element:describe(el),size});
-   if(el.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea,button:not(.nav-group-trigger):not(.tag):not(.badge):not(.status-pill):not(.status-badge):not(.priority-badge):not(.risk)')&&Math.abs(size-12)>.1&&!(el.matches('button')&&size===10&&/(badge|pill|state|status)/.test(el.className)))controls.push({element:describe(el),size});
+   if(el.closest('th,td')&&size>13)sizes.push({element:describe(el),size,reason:'oversized table text'});
+   if(el.closest('form,.form')&&!el.closest('h1,h2,h3,h4,h5,h6')&&size>13)sizes.push({element:describe(el),size,reason:'oversized form text'});
+   // A clickable record code or card heading retains its text role. Ordinary
+   // fields/actions still have an exact twelve-pixel contract.
+   const controlSize=el.matches('button.domain-link')?13
+    :el.matches('button.code')&&el.closest('td')?10.5
+    :el.matches('button.nav-group-trigger,button.tag,button.risk')||(el.matches('button')&&/(badge|pill|state|status)/.test(el.className))?10:12;
+   if(el.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea,button')&&Math.abs(size-controlSize)>.1)controls.push({element:describe(el),size,expected:controlSize});
    if(el.matches('h1,h2,h3,h4,h5,h6')&&(size>15||s.fontWeight!=='600'))headings.push({element:describe(el),size,weight:s.fontWeight});
    if(el.matches('h1,h2,h3,h4,h5,h6,th,td,label,input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea,button')){
     const expected=size*(el.matches('h1,h2,h3,h4,h5,h6')?(size===15?1.3:1.35):1.35);
