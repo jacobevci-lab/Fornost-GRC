@@ -24,7 +24,8 @@ async function linkDocument(p,kind,code){
  await p.getByRole('button',{name:'Save requirement sources',exact:true}).click();await waitForQaIdle(p);
 }
 try{
- await api('/api/auth',{action:'login',email:owner,password:qaPassword()});
+ assert.equal((await api('/api/auth')).bootstrapRequired,true,'Requires a fresh isolated QA database');
+ await api('/api/auth',{action:'bootstrap',name:'Direct QA Admin',email:owner,password:qaPassword()});
  await api('/api/users',{name:'Direct reviewer',email:reviewEmail,password:qaPassword(),role:'Editor'},201);
  await api('/api/auth',{action:'login',email:reviewEmail,password:qaPassword()},200,reviewer);
  await api(endpoint,{action:'enroll',name:iso});

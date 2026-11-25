@@ -29,14 +29,14 @@ const statusHelp = {
     'Kanıt Kütüphanesi’nde destekleyen kontrolün referansına bağlı güncel kanıtı onaylayın.',
     'In the Evidence Library, approve current evidence linked to the supporting control’s reference.',
   ],
-  verification: ['Kontrol sahibi dışında yetkili bir insan, güncel kanıtla kontrol etkinliğini doğrulamalıdır.','An authorized human other than the control owner must verify effectiveness against current evidence.'],
+  verification: ['Yetkili bağımsız doğrulayıcı, doğrudan kaynakların maddeyi karşıladığını veya ortak kontrolün etkinliğini doğrulamalıdır.','An authorized independent reviewer must verify that direct sources substantiate the requirement or that the shared control is effective.'],
   decision: [
-    'Destekleyen kontrolün onaylı kanıtı var. SoA Kapsam sütunundan Uygulanabilirlik (SoA) kararını kaydedin.',
-    'The supporting control has approved evidence. Save the applicability decision in the SoA scope column.',
+    'Doğrulanmış kaynaklar mevcut. SoA Kapsam sütunundan Uygulanabilirlik (SoA) kararını kaydedin.',
+    'Verified sources are available. Save the applicability decision in the SoA scope column.',
   ],
   covered: [
-    'Kapsamdaki bu maddeyi destekleyen kontrol, güncel ve onaylı kanıtla bağımsız olarak doğrulandı. Maddeyi “Tüm maddeler” listesinde bulabilirsiniz.',
-    'A supporting control was independently verified against current approved evidence for this in-scope requirement. Find it under “All requirements”.',
+    'Kapsamdaki bu madde, doğrudan kaynaklarla veya ortak kontrol üzerinden bağımsız olarak doğrulandı. Maddeyi “Tüm maddeler” listesinde bulabilirsiniz.',
+    'This in-scope requirement was independently verified through direct sources or a shared control. Find it under “All requirements”.',
   ],
   excluded: [
     'SoA kararına göre bu madde kapsam dışında. Kapsam değiştiğinde uygulanabilirlik kararını ve gerekçesini güncelleyin.',
