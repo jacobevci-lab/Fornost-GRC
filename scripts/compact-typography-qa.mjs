@@ -28,6 +28,7 @@ async function check(p,name,{screenshot=true}={}){
    const s=getComputedStyle(el),size=parseFloat(s.fontSize)/scale;
    if(s.fontFamily!==body.fontFamily&&!el.closest('code,pre,samp,.code,.font-mono,[data-typography=code]'))fonts.push({element:describe(el),font:s.fontFamily});
    if(![10,10.5,11,12,13,15,17].some(expected=>Math.abs(expected-size)<.1))sizes.push({element:describe(el),size});
+   if(el.matches('.ex-tag,.ag-tag,.tag,.badge,.status-pill,.state-pill')&&Math.abs(size-10)>.1)sizes.push({element:describe(el),size,reason:'badge must use the ten-pixel role'});
    if(el.closest('th,td')&&size>13)sizes.push({element:describe(el),size,reason:'oversized table text'});
    if(el.closest('form,.form')&&!el.closest('h1,h2,h3,h4,h5,h6')&&size>13)sizes.push({element:describe(el),size,reason:'oversized form text'});
    // A clickable record code or card heading retains its text role. Ordinary

@@ -37,7 +37,7 @@
 }
 :where(.tag, .badge, .status-pill, .status-badge, .priority-badge, .risk,
   .entity-badge, .source-badge, .kpi-percent,
-  .admin-badge, .ai-settings-status, .bcp-status, .ca-state, .cm-status,
+  .ex-tag, .ag-tag, .admin-badge, .ai-settings-status, .bcp-status, .ca-state, .cm-status,
   .control-run-status, .delivery-state, .dispatch-state, .ea-status, .ed10-status,
   .executive-status, .finding-badge, .finding-state, .iad-badge,
   .incident-badge, .incident-state, .live-badge, .mw2-state, .plm-state,
