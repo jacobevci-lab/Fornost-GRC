@@ -97,7 +97,7 @@
   .module-overview>div>article, .rap-metrics>article, .rap-metrics>div,
   .continuity-kpis>article, .plm-metrics>article, .tprm-metrics>article,
   .ri-metrics>article, .incident-kpis>article, .finding-kpis>button,
-  .connected-kpis>article, .mw2-metrics>article, .work-metrics>article,
+  .connected-kpis>article, .mw2-metrics>article, .mw2-metrics>button, .work-metrics>article,
   .ag-kpis>button, .policy-kpis>article, .audit-kpis>article,
   .audit-portfolio-kpis>section, .apw-metric, .ic-kpis>div, .ec-kpis>button,
   .audit-detail-kpis>article, .audit-evidence-metrics>article,
@@ -119,7 +119,7 @@
   .kpi>span, .kpi>small, .executive-kpi em, .risk-metrics article span,
   .rap-metrics span, .continuity-kpis span, .plm-metrics span, .tprm-metrics span,
   .ri-metrics span, .incident-kpis span, .finding-kpis span, .connected-kpis span,
-  .ag-kpis span, .policy-kpis span, .audit-portfolio-kpis span,
+  .ag-kpis span, .policy-kpis span, .audit-portfolio-kpis span, .mw2-metrics span,
   .ic-kpis span, .ec-kpis span, .rg-summary span
 ) {
   font-size: var(--grc-text-caption) !important;

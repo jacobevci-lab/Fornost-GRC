@@ -50,7 +50,7 @@ async function check(p,name,{screenshot=true}={}){
    // in buttons/labels/headings, without flagging ellipsis or hidden file inputs.
    if(el.matches('button,label,h1,h2,h3,h4')&&el.clientHeight>2&&['hidden','clip'].includes(s.overflowY)&&el.scrollHeight>el.clientHeight+2)clipped.push({element:describe(el),height:el.clientHeight,content:el.scrollHeight});
   }
-  for(const el of root.querySelectorAll('.risk-metrics b,.executive-kpi>strong,.ag-kpis strong,.policy-kpis b,.audit-portfolio-kpis strong,.ic-kpis strong,.ec-kpis b')){
+  for(const el of root.querySelectorAll('.risk-metrics b,.executive-kpi>strong,.ag-kpis strong,.policy-kpis b,.audit-portfolio-kpis strong,.ic-kpis strong,.ec-kpis b,.mw2-metrics strong')){
    if(!visible(el))continue;const s=getComputedStyle(el);
    if(parseFloat(s.fontSize)/scale!==17||s.fontWeight!=='600'||s.fontVariantNumeric!=='tabular-nums')metrics.push({element:describe(el),size:s.fontSize,weight:s.fontWeight,numerals:s.fontVariantNumeric});
   }
@@ -61,7 +61,7 @@ async function check(p,name,{screenshot=true}={}){
    if(el.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=file]):not([type=color]),select:not([multiple]):not([size])')&&(el.matches('.register-search input,.mw2-search input')?(height<28||height>32.2):Math.abs(height-32)>.2))density.push({element:describe(el),height,expected:el.matches('.register-search input,.mw2-search input')?'28–32 inside a 32px field':32});
    if(el.matches('.nav-group-items>button')&&!el.closest('.sidebar-compact,.sidebar-collapsed')&&(Math.abs(parseFloat(s.paddingTop)/scale-6)>.1||Math.abs(parseFloat(s.fontSize)/scale-12)>.1))density.push({element:describe(el),padding:s.paddingTop,font:s.fontSize});
   }
-  for(const el of root.querySelectorAll('.risk-metrics>article,.executive-kpi,.ag-kpis>button,.policy-kpis>article,.audit-portfolio-kpis>section,.ic-kpis>div,.ec-kpis>button')){
+  for(const el of root.querySelectorAll('.risk-metrics>article,.executive-kpi,.ag-kpis>button,.policy-kpis>article,.audit-portfolio-kpis>section,.ic-kpis>div,.ec-kpis>button,.mw2-metrics>button')){
    if(!visible(el))continue;const s=getComputedStyle(el);
    if([s.paddingTop,s.paddingRight,s.paddingBottom,s.paddingLeft].some(v=>Math.abs(parseFloat(v)/scale-12)>.1))density.push({element:describe(el),padding:[s.paddingTop,s.paddingRight,s.paddingBottom,s.paddingLeft]});
   }
