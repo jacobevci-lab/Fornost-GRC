@@ -1,6 +1,0 @@
-.control-field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:14px}
-.control-field-grid>.wide{grid-column:1/-1}.control-field-grid>*{min-width:0}
-.control-editor>.risk-mode-link{margin:12px 0}.control-editor .control-framework{display:grid;gap:8px}
-.control-editor .risk-pills button{overflow-wrap:anywhere;max-width:100%}
-.control-evidence-cell{display:grid;gap:4px;justify-items:start}.control-evidence-cell button{color:var(--ws-brand-2);background:var(--ws-surface);border:1px solid var(--ws-line);border-radius:6px;padding:4px 7px}
-@media(max-width:680px){.control-field-grid{grid-template-columns:minmax(0,1fr)}}

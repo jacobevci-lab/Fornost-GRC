@@ -23,7 +23,7 @@ async function check(p,name,{screenshot=true}={}){
   const body=getComputedStyle(root),scale=parseFloat(getComputedStyle(document.documentElement).fontSize)/16;
   const elements=[...root.querySelectorAll('h1,h2,h3,h4,h5,h6,th,td,p,small,label,input,select,textarea,button,summary,code,pre,dt,dd,b,strong,span')].filter(visible);
   const describe=el=>`${el.tagName}.${String(el.className).slice(0,70)} ${(el.innerText||el.getAttribute('aria-label')||'').trim().slice(0,65)}`;
-  const fonts=[],sizes=[],controls=[],headings=[],lineHeights=[],clipped=[];
+  const fonts=[],sizes=[],controls=[],headings=[],metrics=[],lineHeights=[],clipped=[];
   for(const el of elements){
    const s=getComputedStyle(el),size=parseFloat(s.fontSize)/scale;
    if(s.fontFamily!==body.fontFamily&&!el.closest('code,pre,samp,.code,.font-mono,[data-typography=code]'))fonts.push({element:describe(el),font:s.fontFamily});
@@ -32,11 +32,19 @@ async function check(p,name,{screenshot=true}={}){
    if(el.matches('h1,h2,h3,h4,h5,h6')&&(size>16||s.fontWeight!=='600'))headings.push({element:describe(el),size,weight:s.fontWeight});
    if(el.matches('h1,h2,h3,h4,h5,h6,th,td,label,input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea,button')){
     const expected=size*(el.matches('h1,h2,h3,h4,h5,h6')?(size===16?1.3:1.35):1.45);
-    if(Math.abs(parseFloat(s.lineHeight)/scale-expected)>.15)lineHeights.push({element:describe(el),actual:s.lineHeight,expected});
+    // Chromium reports native select line-height as normal even with an author
+    // line-height; check its usable height instead of silently accepting NaN.
+    if(el.matches('select')&&s.lineHeight==='normal'){
+     if(el.clientHeight/scale<expected)clipped.push({element:describe(el),height:el.clientHeight,expected});
+    }else if(!Number.isFinite(parseFloat(s.lineHeight))||Math.abs(parseFloat(s.lineHeight)/scale-expected)>.15)lineHeights.push({element:describe(el),actual:s.lineHeight,expected});
    }
    // Long tables intentionally scroll. Detect vertical clipping of actual text
    // in buttons/labels/headings, without flagging ellipsis or hidden file inputs.
    if(el.matches('button,label,h1,h2,h3,h4')&&el.clientHeight>2&&['hidden','clip'].includes(s.overflowY)&&el.scrollHeight>el.clientHeight+2)clipped.push({element:describe(el),height:el.clientHeight,content:el.scrollHeight});
+  }
+  for(const el of root.querySelectorAll('.risk-metrics b,.executive-kpi>strong,.ag-kpis strong,.policy-kpis b,.audit-portfolio-kpis strong,.ic-kpis strong,.ec-kpis b')){
+   if(!visible(el))continue;const s=getComputedStyle(el);
+   if(parseFloat(s.fontSize)/scale!==20||s.fontWeight!=='600'||s.fontVariantNumeric!=='tabular-nums')metrics.push({element:describe(el),size:s.fontSize,weight:s.fontWeight,numerals:s.fontVariantNumeric});
   }
   const brand=root.querySelector('.brand small');
   if(brand&&visible(brand)){
@@ -44,10 +52,10 @@ async function check(p,name,{screenshot=true}={}){
    const text=range.getBoundingClientRect(),bounds=brand.closest('aside').getBoundingClientRect();
    if(text.right>bounds.right-4)clipped.push({element:'brand caption',right:text.right,boundary:bounds.right});
   }
-  return {font:body.fontFamily,fontCount:elements.length,fonts,sizes,controls,headings,lineHeights,clipped,pageOverflow:document.documentElement.scrollWidth>innerWidth+2};
+  return {font:body.fontFamily,fontCount:elements.length,fonts,sizes,controls,headings,metrics,lineHeights,clipped,pageOverflow:document.documentElement.scrollWidth>innerWidth+2};
  });
  report.checks.push({name,...result});
- for(const key of ['fonts','sizes','controls','headings','lineHeights','clipped'])if(result[key].length)report.failures.push({name,kind:key,items:result[key]});
+ for(const key of ['fonts','sizes','controls','headings','metrics','lineHeights','clipped'])if(result[key].length)report.failures.push({name,kind:key,items:result[key]});
  if(result.pageOverflow)report.failures.push({name,kind:'page overflow'});
  if(screenshot)await p.screenshot({path:`${out}/${slug(name)}.png`,fullPage:true,animations:'disabled'});
 }
