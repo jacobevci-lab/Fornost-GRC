@@ -28,7 +28,7 @@ test("management preview uses readable codes while exports retain record identit
   const reports = page.slice(page.indexOf("function Reports"), page.indexOf("function ModuleFilter"));
   assert.doesNotMatch(reports, /r\.id,<\/b>/);
   assert.match(reports, /displayRecordCode\(r\)/);
-  assert.match(reports, /"Kayıt kimliği" : "Record ID"/);
+  assert.match(reports, /"Kayıt kimliği"\s*:\s*"Record ID"/);
 });
 
 test("management reporting offers separate exports for every operational module", () => {
@@ -37,7 +37,7 @@ test("management reporting offers separate exports for every operational module"
   assert.match(page, /"Risk Assessment",[\s\S]*"BIA",[\s\S]*"Varlık Envanteri",[\s\S]*"Uyum"/);
   assert.match(page, /"Tedarikçiler",\s*"Kontroller",\s*"Kanıtlar",\s*"Denetim Yönetimi"/);
   assert.match(reports, /aria-label=\{tr\?'Rapor modülü':'Report module'\}/);
-  assert.match(reports, /module === all \|\| r\.module === module/);
+  assert.match(reports, /module\s*===\s*all\s*\|\|\s*r\.module\s*===\s*module/);
   assert.match(reports, /buildReportCsv\(reportTitle,filtered,metrics,tr,snapshotOptions\)/);
 });
 
