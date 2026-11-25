@@ -57,4 +57,11 @@ module styles continue owning layout and color. This covers detached/top-layer
 surfaces without IDs or escalating specificity. Root-relative units honor text
 scaling. Code/hash styles are explicit semantic exceptions.
 
-Implementation and final browser validation in progress.
+Local validation passed: lint, TypeScript, production build, all 2,098 unit /
+regression tests, on-prem installer smoke and D1 migration preflight. The D1
+preflight retains its existing historical-schema warning; no migration changed.
+Existing UI regression expectations for larger dashboard/AI KPI values and
+headings are updated to the same explicit compact values, preserving interaction,
+contrast and overflow checks.
+
+Final browser matrix and deployment verification in progress.

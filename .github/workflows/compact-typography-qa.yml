@@ -1,14 +1,12 @@
 name: Compact Typography QA
 on:
   workflow_dispatch:
-  push:
-    branches: [feature/risk-typography-standard]
   pull_request:
     paths: ['app/**/*.css', 'app/**/*.tsx', 'scripts/*typography*.mjs', '.github/workflows/compact-typography-qa.yml']
 permissions:
   contents: read
 concurrency:
-  group: compact-typography-${{ github.ref }}
+  group: compact-typography-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 jobs:
   browser:

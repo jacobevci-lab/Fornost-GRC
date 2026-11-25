@@ -29,7 +29,7 @@
   .assurance-chain li[data-stage="2"] { margin-inline-start:20px; }
 }
 
-/* Operational tables use a dense type scale. The relationship workspace has its own reading scale. */
+/* Relationship layouts share the global compact Risk typography. */
 html[data-theme] body .shell > main .record-workspace li[data-present="false"] .chain-node strong {
   font-size:15px!important; font-weight:500!important;
 }

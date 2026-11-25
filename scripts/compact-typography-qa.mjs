@@ -38,6 +38,12 @@ async function check(p,name,{screenshot=true}={}){
    // in buttons/labels/headings, without flagging ellipsis or hidden file inputs.
    if(el.matches('button,label,h1,h2,h3,h4')&&el.clientHeight>2&&['hidden','clip'].includes(s.overflowY)&&el.scrollHeight>el.clientHeight+2)clipped.push({element:describe(el),height:el.clientHeight,content:el.scrollHeight});
   }
+  const brand=root.querySelector('.brand small');
+  if(brand&&visible(brand)){
+   const range=document.createRange();range.selectNodeContents(brand);
+   const text=range.getBoundingClientRect(),bounds=brand.closest('aside').getBoundingClientRect();
+   if(text.right>bounds.right-4)clipped.push({element:'brand caption',right:text.right,boundary:bounds.right});
+  }
   return {font:body.fontFamily,fontCount:elements.length,fonts,sizes,controls,headings,lineHeights,clipped,pageOverflow:document.documentElement.scrollWidth>innerWidth+2};
  });
  report.checks.push({name,...result});
@@ -117,7 +123,7 @@ try{
  await page.setViewportSize({width:1536,height:1100});await switchQaLocale(page,'tr');await openQaModule(page,'Risk Değerlendirmesi');
  await page.addStyleTag({content:'@layer fornost-typography {html {font-size:125%!important}}'});
  await expect(page.locator('.risk-table tbody td').first()).toHaveCSS('font-size','16.25px');await check(page,'risk-text-scale-125');
- assert.deepEqual(report.errors,[]);assert.deepEqual(report.failures,[]);assert.ok(report.dialogs.includes('Risk Değerlendirmesi'));
+ assert.deepEqual(report.errors,[]);assert.equal(report.failures.length,0,JSON.stringify(report.failures.slice(0,3)));assert.ok(report.dialogs.includes('Risk Değerlendirmesi'));
  console.log(`COMPACT_TYPOGRAPHY_QA_PASS: ${report.checks.length} views, ${report.dialogs.length} dialog types`);
 }catch(error){report.failures.push({phase,error:error.message});await page.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});throw error;}
 finally{await writeFile(`${out}/matrix.json`,JSON.stringify(report,null,2));await browser.close();}

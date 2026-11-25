@@ -45,8 +45,14 @@ body {
   line-height: var(--grc-leading-data) !important;
 }
 :where(button, summary, label, [role="tab"]) { font-weight: 500 !important; }
+::file-selector-button {
+  font-family: var(--font-sans) !important;
+  font-size: var(--grc-text-data) !important;
+  font-weight: 500 !important;
+  line-height: var(--grc-leading-data) !important;
+}
 :where(b, strong, th, legend) { font-weight: 600 !important; }
-:where(small, time, figcaption, caption, thead th, dt, .module-kicker, .header-context>small) {
+:where(small, time, figcaption, caption, thead th, .module-kicker, .header-context>small) {
   font-size: var(--grc-text-caption) !important;
   line-height: var(--grc-leading-data) !important;
 }
@@ -83,6 +89,10 @@ body {
   .audit-readiness-metrics strong, .audit-readiness-state strong,
   .control-assurance-kpis strong, .eql-health strong, .eql-metrics strong,
   .ea-stats b, .ca-score strong, .ca-metrics strong, .eh-metrics strong,
+  .asr-metrics b, .aec-metrics b, .ag-metrics b, .ea-assessment-counts b,
+  .audit-work-queues strong, .ca-attention-summary strong,
+  .connected-domain-posture strong, .cm-health strong, .cgw-targets b,
+  .cow-launch-metrics>i strong, .iov-summary strong, .iov-card-state>strong,
   .assurance-notification-kpis b, .connected-lifecycle-posture article strong,
   .executive-delivery-posture article b, .executive-kpi strong,
   .attention-breakdown strong, .assurance-score-row strong,
@@ -90,10 +100,15 @@ body {
   .decision-signals .decision-signal-total strong,
   .dashboard-metric strong, .ed4-metric>strong, .ed6-summary-item>span strong,
   .ed9-health-item strong, .ed9-domain-metrics strong,
+  .edh-score b, .ed6-posture-score b, .ed4-action-counters strong,
+  .ed4-score-ring b, .ed4-assurance-grid strong, .ed4-audit-summary strong,
+  .executive-owner-accountability article>strong, .fll-score b,
+  .finding-source-strip>span b, .mw-assurance-groups strong,
   .posture-ring strong, .rail-metric strong, .exposure-total strong,
   .posture-dial b, .command-stat>div>b,
   .ai-decision-metrics strong, .ai-inventory-stats b, .ai-metric-grid strong,
   .fornost-ai-metric-grid article>b, .ai-control-summary b,
+  .fornost-ai-feedback-summary article>b, .fornost-ai-knowledge-summary b,
   .ai-assurance .stats b, .ai-dataset-stats b, .ai-decommission .stats b,
   .ai-exceptions .stats b, .ai-findings .stats b, .ai-literacy .stats b,
   .ai-portfolio .stats b, .ai-red-team .stats b, .ai-red-team .score strong,

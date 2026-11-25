@@ -1,4 +1,4 @@
-/* One application font and scale, including top-layer dialogs, in all administration views. */
+/* Administration layout. Typography is owned by the global compact layer. */
 #admin-workspace {color:var(--ws-ink)}
 #admin-workspace [hidden]{display:none!important}
 #admin-workspace :where(table){width:100%;font-variant-numeric:tabular-nums}
