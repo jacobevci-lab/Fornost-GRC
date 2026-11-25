@@ -1,3 +1,9 @@
+/* Keep the complete brand caption visible at the shared 12px caption size. */
+.shell>aside .brand>div{min-width:0}
+.shell>aside .brand small{white-space:normal!important;overflow-wrap:anywhere}
+/* Resizable headers may wrap instead of hiding a long TR/EN label. */
+.resizable-column>span:first-child{white-space:normal;overflow-wrap:anywhere}
+
 .sidebar-icon-tooltip{
   position:fixed;
   z-index:160;

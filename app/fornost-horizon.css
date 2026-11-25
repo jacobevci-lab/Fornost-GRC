@@ -60,7 +60,7 @@ html[data-theme="dark"]{
 }
 
 html,body{background:var(--hz-bg)!important;color:var(--hz-text)!important}
-body{font-family:var(--font-sans)!important;font-size:15px!important;letter-spacing:-.006em!important}
+body{font-size:15px!important;letter-spacing:-.006em!important}
 ::selection{background:color-mix(in srgb,var(--hz-primary) 24%,transparent);color:var(--hz-text)}
 :focus-visible{outline:2px solid var(--hz-primary)!important;outline-offset:2px!important}
 

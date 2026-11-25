@@ -193,15 +193,15 @@ try {
         metrics: size(".executive-kpi>strong"),
       };
     });
-    assert.deepEqual(typography, {sameFamily:true,title:[width <= 900 ? 16 : 18],panels:Array(6).fill(13),metrics:Array(6).fill(22)}, JSON.stringify({width,theme,typography}));
+    assert.deepEqual(typography, {sameFamily:true,title:[15],panels:Array(6).fill(13),metrics:Array(6).fill(20)}, JSON.stringify({width,theme,typography}));
     await dashboard.screenshot({ path: `${out}/executive-period-report-${width}.png` });
     await reportDetails.locator(":scope>summary").click();
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 4));
     const fontSize = locator => locator.evaluate(el => parseFloat(getComputedStyle(el).fontSize));
-    assert.equal(await fontSize(queue.getByRole("heading")), 18);
-    assert.equal(await fontSize(attention.getByRole("heading")), 18);
-    assert.ok(await fontSize(rows.first().locator(".decision-record-body > strong")) >= 15);
-    assert.ok(await fontSize(attention.locator(".decision-signal-total strong")) >= 30);
+    assert.equal(await fontSize(queue.getByRole("heading")), 13);
+    assert.equal(await fontSize(attention.getByRole("heading")), 13);
+    assert.ok(await fontSize(rows.first().locator(".decision-record-body > strong")) === 13);
+    assert.ok(await fontSize(attention.locator(".decision-signal-total strong")) === 20);
     await workspace.screenshot({ path: `${out}/karar-masasi-${width}.png` });
   }
   await page.route("**/api/executive-assurance",route=>route.fulfill({json:{

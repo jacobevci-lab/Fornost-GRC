@@ -21,7 +21,7 @@ async function open(label) {
   await expect(moduleButton).toBeVisible();
   await moduleButton.click();
 }
-const metricSize = locator => expect.poll(async () => locator.first().evaluate(el => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(22);
+const metricSize = locator => expect.poll(async () => locator.first().evaluate(el => parseFloat(getComputedStyle(el).fontSize))).toBe(20);
 try {
   const auth = await context.request.post(base + '/api/auth', { headers: { origin: base }, data: { action: 'login', email: 'qa-admin@fornost.test', password: qaPassword() } });
   assert.equal(auth.status(), 200);

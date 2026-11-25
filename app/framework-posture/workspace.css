@@ -16,7 +16,7 @@
   padding:0; border:0; background:none; color:var(--ws-ink); font:inherit;
   --posture-pad:clamp(12px,1.4vw,20px);
 }
-.posture-home :is(button,input,select,textarea) {font-family:inherit;max-width:100%;min-width:0}
+.posture-home :is(button,input,select,textarea) {max-width:100%;min-width:0}
 .posture-home button {cursor:pointer}
 .posture-home button:disabled {cursor:default}
 .posture-home :is(button,summary,input,select,textarea):focus-visible {outline:2px solid var(--ws-brand);outline-offset:2px}

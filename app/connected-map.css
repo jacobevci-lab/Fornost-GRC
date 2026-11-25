@@ -38,7 +38,7 @@ html[data-theme] body .shell>main .cm-workspace .cm-health strong{white-space:no
 .cm-plane{position:relative;transform-origin:top left}.cm-lane{position:absolute;top:14px;transform:translateX(-50%);white-space:nowrap;padding:2px 8px;border-radius:6px;background:var(--ws-surface-2);color:var(--ws-muted)}.cm-lane span{margin-inline-start:5px;font-variant-numeric:tabular-nums}
 .cm-network .cm-wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .cm-wire{fill:none;stroke:var(--ws-muted);stroke-opacity:.42;stroke-width:1.35}.cm-tip-quiet{fill:var(--ws-muted);opacity:.65}.cm-wire[data-active=true]{stroke:var(--ws-brand);stroke-opacity:1;stroke-width:2.5}.cm-tip-active{fill:var(--ws-brand)}.cm-wire[data-dim=true]{opacity:.16}
-.cm-wire-pill rect{fill:var(--ws-surface);stroke:var(--ws-brand);stroke-width:1}.cm-wire-pill text{font:600 11px system-ui;fill:var(--ws-brand-2)}
+.cm-wire-pill rect{fill:var(--ws-surface);stroke:var(--ws-brand);stroke-width:1}.cm-wire-pill text{fill:var(--ws-brand-2)}
 .cm-network button.cm-node{position:absolute;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;align-content:center;align-items:center;gap:6px;min-height:0;max-height:none;border:1px solid var(--ws-line-strong);border-radius:10px;padding:12px 15px 12px 18px;background:var(--ws-surface);color:var(--ws-ink);box-shadow:0 2px 6px #0000000b;overflow:hidden;text-align:start}
 .cm-node::before{content:'';position:absolute;inset:0 auto 0 0;width:4px;background:var(--cm-node-tone)}
 .cm-network .cm-node[data-root=true]{border:2px solid var(--ws-brand);background:var(--ws-brand-soft);box-shadow:0 0 0 4px color-mix(in srgb,var(--ws-brand) 13%,transparent)}

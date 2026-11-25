@@ -17,7 +17,6 @@
 .module-trail .trail-empty { color:var(--ws-muted); }
 .module-trail-body > p { padding:16px; }
 .cg-detail .module-trail { padding:12px 0 18px; }
-html[data-theme] body .shell > main .module-trail .chain-node strong { font:650 clamp(16px,1.3vw,20px)/1.3 Inter,system-ui,sans-serif!important; }
 .module-trail li[data-stage="0"][data-present="true"] .chain-node { border-color:var(--ws-line-strong); background:var(--ws-surface); }
 .module-trail li[data-stage="0"][data-present="true"] svg { color:var(--ws-brand); }
 @media(max-width:740px) {

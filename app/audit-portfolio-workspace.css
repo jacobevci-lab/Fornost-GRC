@@ -2,7 +2,7 @@
 .apw-index,.apw-inspector,.apw-global{min-width:0;border:1px solid var(--ws-line);border-radius:12px;background:var(--ws-surface);color:var(--ws-ink)}
 .apw-index,.apw-inspector{padding:clamp(14px,1.5vw,22px)}
 .apw-index-heading,.apw-head,.apw-meta,.apw-global>summary{display:flex;align-items:center;gap:10px}
-.apw h3,.apw h4,.apw h5{margin:0;color:var(--ws-ink);font-family:inherit;letter-spacing:normal}
+.apw h3,.apw h4,.apw h5{margin:0;color:var(--ws-ink);letter-spacing:normal}
 .apw h3{font-size:1.05rem}.apw h4{font-size:.92rem;margin:20px 0 10px}.apw p{margin:6px 0;color:var(--ws-muted);font-size:.85rem}
 .apw-index-heading span{background:var(--ws-surface-2);border-radius:6px;padding:2px 7px;font-size:.75rem}
 .apw-index input{width:100%;margin:12px 0;padding:9px 10px;border:1px solid var(--ws-line);border-radius:7px;background:var(--ws-surface-2);color:inherit;font:inherit;font-size:.85rem}
