@@ -18,3 +18,7 @@ Canlı uygulamanın kompakt tipografi, form ve tema sözleşmesini kaynakta da a
 ## Geri dönüş
 
 Bu değişiklik veri migration'ı içermez. Önceki uygulama revizyonuna dönülebilir; silinen kaynak denemeleri Git geçmişindedir. Kabul kanıtları PR ve CI artifact'larında tutulur.
+
+## Doğrulama bulgusu
+
+Yerel taramada 384 görünüm, 14 dialog türü ve 49.414 metin/alan ölçümü hatasız geçti; sidebar kontrolü beş görünümü doğruladı. Ayrı Connected GRC testi, genel buton yoğunluk kuralının diyagram kartlarının hesaplanmış yüksekliğini ezdiğini ortaya çıkardı. Diyagram düğümleri bu genel geometri kuralından ayrıldı; metinleri ortak kompakt ölçeği kullanmaya devam eder. Nihai revizyon testleri ve yayın kanıtı PR #491’de izlenir.

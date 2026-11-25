@@ -1,7 +1,8 @@
 /* Same first cascade layer as typography: one density contract at 100% zoom.
  * Do not set overflow or fixed heights on multiline content/card actions.
  * Native hidden fields, toggles, range controls and resize handles keep their
- * component geometry. All values scale with the user's default text size.
+ * component geometry. Diagram nodes retain the layout engine's dimensions so
+ * edges and centering agree with their rendered bounds. All text still scales.
  */
 :root {
   --grc-control-height: 2rem;
@@ -13,7 +14,7 @@
 :where(th, td) {
   padding: var(--grc-cell-y) var(--grc-cell-x) !important;
 }
-:where(button):not(:where([role="switch"], .column-resize-handle, .resize-handle)) {
+:where(button):not(:where([role="switch"], .column-resize-handle, .resize-handle, .cm-node)) {
   min-height: var(--grc-action-height) !important;
   height: auto !important;
   padding: .25rem .5rem !important;

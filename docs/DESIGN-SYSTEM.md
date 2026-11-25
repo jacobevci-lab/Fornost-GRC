@@ -18,7 +18,7 @@ Tek font ailesi `var(--font-sans)`; kod/hash için `var(--font-mono)`. Font dı�
 
 - Tek satırlı input/select 32px; sıradan aksiyon en az 28px. Uzun aksiyon metni satıra geçer ve yüksekliği büyür.
 - Tablo hücreleri 6px × 10px, KPI iç boşluğu 12px, navigasyon öğeleri dikey 6px.
-- Çok satırlı alanlar, dosya seçiciler, checkbox/radio/range ve resize tutamaçları kendi geometrisini korur.
+- Çok satırlı alanlar, dosya seçiciler, checkbox/radio/range ve resize tutamaçları ve diyagram kartları kendi geometrisini korur; bağlantı çizgileri kartın hesaplanan sınırlarıyla hizalanır.
 - Ekranlar, portallar, modallar ve çekmeceler aynı sözleşmeye tabidir. PDF/HTML rapor çıktısı kendi sayfa geometrisini ve gömülü Unicode fontunu kullanır.
 
 ## Kaynak sahipliği

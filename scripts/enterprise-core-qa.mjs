@@ -30,7 +30,7 @@ try{
  await page.getByLabel('Dizin değeri',{exact:true}).fill('risk-team');
  await page.getByRole('button',{name:'Kuralları kaydet'}).click();
  await token.waitFor();await page.getByLabel('Örnek kullanıcı').fill('simulated@fornost.test');await page.getByLabel('Gruplar (virgülle)').fill('risk-team');
- await page.getByRole('button',{name:'Bağlantıyı Test Et',exact:true}).click();await page.getByText(/Önizleme · Katılımcı · Holding/).waitFor();
+ await page.locator('form').filter({has:page.getByLabel('Örnek kullanıcı',{exact:true})}).getByRole('button',{name:'Bağlantıyı Test Et',exact:true}).click();await page.getByText(/Önizleme · Katılımcı · Holding/).waitFor();
  await page.reload();const select=page.getByLabel('Kurumsal çalışma alanı').first();await select.selectOption({label:'Enterprise QA Subsidiary'});
  await page.getByRole('heading',{name:'Kapsam Genel Bakışı'}).waitFor();await page.locator('.ec-navigation').getByRole('button',{name:'Risk',exact:true}).click();await page.getByRole('heading',{name:'Kapsam kayıtları'}).waitFor();await page.getByRole('button',{name:'EN',exact:true}).click();
  await page.getByRole('button',{name:'Dark theme',exact:true}).click();assert.equal(await page.locator('html').getAttribute('data-theme'),'dark');
