@@ -1,4 +1,7 @@
-# Risk typography standard
+# Risk typography standard — PR #483
+
+Historical delivery record. The current, denser scale requested after PR #483
+is defined in [Compact density at 100% zoom](compact-density-100.md).
 
 ## Delivery brief
 

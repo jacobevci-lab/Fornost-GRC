@@ -265,7 +265,7 @@ async function auditLocale(page, locale) {
           };
         });
         if (hierarchy.surfaces !== 1 || hierarchy.layout !== 'period-report' || hierarchy.metrics !== 6
-          || !hierarchy.workspaceFont || hierarchy.metricFontSizes.some(size => size !== 20) || hierarchy.headerOverlapsMetrics) {
+          || !hierarchy.workspaceFont || hierarchy.metricFontSizes.some(size => size !== 17) || hierarchy.headerOverlapsMetrics) {
           finding('high', area, 'Dashboard layout or metric hierarchy regressed', JSON.stringify(hierarchy));
         }
       }
