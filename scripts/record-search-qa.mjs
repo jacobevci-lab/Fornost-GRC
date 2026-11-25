@@ -129,9 +129,11 @@ try {
         await expect(dialog.locator('#record-search-results').getByRole('option').first()).toBeVisible();
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2));
         assert.ok(await dialog.evaluate(node => node.scrollWidth <= node.clientWidth + 2));
-        const violations = (await new AxeBuilder({ page }).include('.command-palette').analyze()).violations.filter(v => ['serious','critical'].includes(v.impact));
-        await writeFile(`${out}/accessibility-${lang}-${theme}-${width}.json`, JSON.stringify(violations, null, 2));
-        assert.equal(violations.length, 0, JSON.stringify(violations));
+        const audit = await new AxeBuilder({ page }).include('.command-palette').analyze();
+        const { violations, incomplete } = audit;
+        await writeFile(`${out}/accessibility-${lang}-${theme}-${width}.json`, JSON.stringify({ violations, incomplete }, null, 2));
+        const blockers = violations.filter(v => ['serious', 'critical'].includes(v.impact));
+        assert.deepEqual(blockers, [], `Record search accessibility: ${lang}/${theme}/${width}`);
         await page.screenshot({ path: `${out}/search-${lang}-${theme}-${width}.png` }); await input(page).press('Escape');
       }
     }

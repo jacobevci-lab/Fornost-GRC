@@ -30,6 +30,7 @@
     "test:onprem:container": "bash tests/onprem-container-integration.sh",
     "typecheck": "tsc --noEmit",
     "test": "npm run typecheck && npm run build && node --import tsx --test tests/*.test.* && bash tests/onprem-install-smoke.sh",
+    "test:axe-scanner": "node scripts/qa-accessibility-regression.mjs",
     "test:unit": "node --import tsx --test tests/security-validation.test.ts",
     "validate:artifact": "bash scripts/validate-artifact.sh",
     "db:validate": "node scripts/validate-d1-migrations.mjs",
