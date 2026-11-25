@@ -23,21 +23,25 @@ async function check(p,name,{screenshot=true}={}){
   const body=getComputedStyle(root),scale=parseFloat(getComputedStyle(document.documentElement).fontSize)/16;
   const elements=[...root.querySelectorAll('h1,h2,h3,h4,h5,h6,th,td,p,small,label,input,select,textarea,button,summary,code,pre,dt,dd,b,strong,span')].filter(visible);
   const describe=el=>`${el.tagName}.${String(el.className).slice(0,70)} ${(el.innerText||el.getAttribute('aria-label')||'').trim().slice(0,65)}`;
-  const fonts=[],sizes=[],controls=[],headings=[],clipped=[];
+  const fonts=[],sizes=[],controls=[],headings=[],lineHeights=[],clipped=[];
   for(const el of elements){
    const s=getComputedStyle(el),size=parseFloat(s.fontSize)/scale;
    if(s.fontFamily!==body.fontFamily&&!el.closest('code,pre,samp,.code,.font-mono,[data-typography=code]'))fonts.push({element:describe(el),font:s.fontFamily});
    if(![12,13,15,16,20].some(expected=>Math.abs(expected-size)<.1))sizes.push({element:describe(el),size});
    if(el.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea,button')&&Math.abs(size-13)>.1)controls.push({element:describe(el),size});
    if(el.matches('h1,h2,h3,h4,h5,h6')&&(size>16||s.fontWeight!=='600'))headings.push({element:describe(el),size,weight:s.fontWeight});
+   if(el.matches('h1,h2,h3,h4,h5,h6,th,td,label,input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea,button')){
+    const expected=size*(el.matches('h1,h2,h3,h4,h5,h6')?(size===16?1.3:1.35):1.45);
+    if(Math.abs(parseFloat(s.lineHeight)/scale-expected)>.15)lineHeights.push({element:describe(el),actual:s.lineHeight,expected});
+   }
    // Long tables intentionally scroll. Detect vertical clipping of actual text
    // in buttons/labels/headings, without flagging ellipsis or hidden file inputs.
    if(el.matches('button,label,h1,h2,h3,h4')&&el.clientHeight>2&&['hidden','clip'].includes(s.overflowY)&&el.scrollHeight>el.clientHeight+2)clipped.push({element:describe(el),height:el.clientHeight,content:el.scrollHeight});
   }
-  return {font:body.fontFamily,fontCount:elements.length,fonts,sizes,controls,headings,clipped,pageOverflow:document.documentElement.scrollWidth>innerWidth+2};
+  return {font:body.fontFamily,fontCount:elements.length,fonts,sizes,controls,headings,lineHeights,clipped,pageOverflow:document.documentElement.scrollWidth>innerWidth+2};
  });
  report.checks.push({name,...result});
- for(const key of ['fonts','sizes','controls','headings','clipped'])if(result[key].length)report.failures.push({name,kind:key,items:result[key]});
+ for(const key of ['fonts','sizes','controls','headings','lineHeights','clipped'])if(result[key].length)report.failures.push({name,kind:key,items:result[key]});
  if(result.pageOverflow)report.failures.push({name,kind:'page overflow'});
  if(screenshot)await p.screenshot({path:`${out}/${slug(name)}.png`,fullPage:true,animations:'disabled'});
 }
@@ -56,6 +60,8 @@ try{
  await expect(page.locator('.risk-table tbody td').first()).toHaveCSS('font-size','13px');
  await expect(page.locator('.risk-table thead th').first()).toHaveCSS('font-size','12px');
  await expect(page.locator('.header-context h1')).toHaveCSS('font-size','16px');
+ await expect(page.locator('.risk-metrics article b').first()).toHaveCSS('font-size','20px');
+ await expect(page.locator('.risk-metrics article b').first()).toHaveCSS('font-variant-numeric','tabular-nums');
  for(const lang of ['tr','en'])for(const t of ['light','dark'])for(const label of modules){
   await page.setViewportSize({width:1536,height:1100});await switchQaLocale(page,'tr');await openQaModule(page,label);await switchQaLocale(page,lang);await theme(page,t);await waitForQaIdle(page);
   await check(page,`${label}-${lang}-${t}`);

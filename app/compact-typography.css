@@ -31,7 +31,7 @@ body {
  * drawers, SVG labels, and the unauthenticated vendor/Trust Center routes.
  * Descendants inherit the semantic role of their parent (e.g. a heading link).
  */
-body :where(*) {
+:where(body *) {
   font-family: inherit !important;
   font-size: inherit !important;
   font-weight: inherit !important;
