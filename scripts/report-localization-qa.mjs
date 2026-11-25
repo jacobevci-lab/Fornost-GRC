@@ -17,19 +17,16 @@ async function api(method,path,data){const r=await context.request.fetch(base+pa
 async function seed(){
  const sql=new DatabaseSync(':memory:'),statements=[];
  try{
-  for(const file of ['0043_fornost_ai_model_inventory.sql','0070_policy_lifecycle_management.sql','0073_enterprise_incident_crisis.sql','0074_business_continuity_resilience.sql','0068_regulatory_change_intelligence.sql','0085_audit_request_workflow.sql']){
+  for(const file of ['0043_fornost_ai_model_inventory.sql','0070_policy_lifecycle_management.sql','0073_enterprise_incident_crisis.sql','0074_business_continuity_resilience.sql','0068_regulatory_change_intelligence.sql','0085_audit_request_workflow.sql','0078_core_grc_support_tables.sql','0071_enterprise_risk_appetite_kri.sql']){
    const schema=(await readFile(`drizzle/${file}`,'utf8')).replace(/CREATE TABLE (?!IF NOT EXISTS)/g,'CREATE TABLE IF NOT EXISTS ').replace(/CREATE INDEX (?!IF NOT EXISTS)/g,'CREATE INDEX IF NOT EXISTS ');sql.exec(schema);statements.push(schema);
   }
-  const extra=`CREATE TABLE IF NOT EXISTS simple_audits(id TEXT PRIMARY KEY,name TEXT,template TEXT,audit_type TEXT,auditor TEXT,audit_owner TEXT,status TEXT,created_at TEXT,updated_at TEXT);
-   CREATE TABLE IF NOT EXISTS risk_appetite_statements(id TEXT PRIMARY KEY,code TEXT,kri_name TEXT,statement TEXT,owner TEXT,reviewer TEXT,status TEXT,next_measurement TEXT,created_at TEXT,updated_at TEXT);`;
-  sql.exec(extra);statements.push(extra);
   const now=new Date().toISOString(),quote=v=>v==null?'NULL':typeof v==='number'?String(v):`'${String(v).replaceAll("'","''")}'`;
   const codes=['AIS-901','POL-901','INC-901','AUD-901','BCP-901','RGS-901','RGC-901','RAP-901','ARQ-901'];
   for(const [i,source] of reportSources.entries()){
    const id=`QA-REPORT-${i}`,columns=sql.prepare(`PRAGMA table_info(${source.table})`).all();
    const values={id,code:codes[i],title:'Yetki ve Erişim Yönetimi (IAM / SSO)',name:'Denetim Çıktısı',system_name:'AI Çıktısı',status:i===3?'in-progress':i===4?'cancelled':'draft',severity:'high',criticality:'critical',created_at:now,updated_at:now,audit_id:'QA-REPORT-3',owner:'qa-admin@fornost.test',reviewer:'reviewer@fornost.test',data_json:JSON.stringify({title:'Türkçe Kanıt Talebi',status:'submitted',owner:'qa-admin@fornost.test',reviewer:'reviewer@fornost.test',dueDate:'2026-12-15',periodStart:'2026-01-01',periodEnd:'2026-12-31',evidence:[{evidenceId:'QA-REPORT-EVD',versionNo:2,period:'2026',fileKey:'NEVER-EXPORTED'}]})};
    const fields=Object.fromEntries(columns.filter(c=>c.notnull||c.name in values).map(c=>[c.name,values[c.name]??(/INT|REAL/.test(c.type)?1:'QA')]));
-   const insert=`INSERT INTO ${source.table} (${Object.keys(fields).join(',')}) VALUES (${Object.values(fields).map(quote).join(',')});`;statements.push(insert);
+   const insert=`INSERT INTO ${source.table} (${Object.keys(fields).join(',')}) VALUES (${Object.values(fields).map(quote).join(',')});`;sql.exec(insert);statements.push(insert);
    const registry=source.key==='r.id'?id:source.key.replace(/\|\|r.id/,'').replaceAll("'",'')+id;
    statements.push(`INSERT INTO simple_grc_record_codes(record_id,module,code,created_at) VALUES (${quote(registry)},${quote(source.module)},${quote(codes[i])},${quote(now)});`);
   }
