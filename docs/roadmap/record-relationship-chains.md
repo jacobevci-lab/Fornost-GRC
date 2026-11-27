@@ -26,3 +26,5 @@ No schema or approval workflow change. Existing entity/module authorization, opt
 - Local browser suite passed: 16 TR/EN × light/dark × 1440×900 / 390×900 renders, multi-record disclosure and exact 16px guides; no page errors or horizontal overflow.
 - Real API writes: missing control and BCP links, refreshed display and audit events, draft status preserved. BIA → BCP → BIA opens actual record details. Failed continuity reads show unknown state. A separate Viewer browser has no link action and receives HTTP 403 on a direct write.
 - Tests use isolated local D1 and synthetic records; no live records are created or modified.
+- Existing register navigation/sorting suite: 11 checks passed. Dashboard source and cross-module chain regression passed after updating the old BCP inline-preview expectation to the native plan dossier.
+- Native BCP `submitted`, `cancelled` and `retired` states are explicitly localized; none implies positive assurance.

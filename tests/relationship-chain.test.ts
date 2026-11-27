@@ -4,7 +4,7 @@ import {relationshipStatus,assuranceBranches,chainLinkChoice} from '../app/relat
 import {buildConnectedGrcGraph,type ConnectedGrcRow as Row} from '../app/connected-grc-model';
 const row=(id:string,module:string,data:Record<string,unknown>={}):Row=>({id,code:id,module,data});
 test('status badges translate states and do not equate pending evidence with approval',()=>{
-  for(const [raw,tr,en,tone] of [['Taslak','Taslak','Draft','neutral'],['draft','Taslak','Draft','neutral'],['İncelemede','İncelemede','In Review','warning'],['pending-review','İncelemede','In Review','warning'],['In Review','İncelemede','In Review','warning'],['Reddedildi','Reddedildi','Rejected','warning'],['Bakımda','Bakımda','Maintenance','neutral'],['active','Aktif','Active','positive'],['approved','Onaylandı','Approved','positive'],['effective','Etkin','Effective','positive']]){
+  for(const [raw,tr,en,tone] of [['Taslak','Taslak','Draft','neutral'],['draft','Taslak','Draft','neutral'],['İncelemede','İncelemede','In Review','warning'],['pending-review','İncelemede','In Review','warning'],['submitted','İncelemede','In Review','warning'],['cancelled','İptal Edildi','Cancelled','neutral'],['retired','Yürürlükten Kaldırıldı','Retired','neutral'],['In Review','İncelemede','In Review','warning'],['Reddedildi','Reddedildi','Rejected','warning'],['Bakımda','Bakımda','Maintenance','neutral'],['active','Aktif','Active','positive'],['approved','Onaylandı','Approved','positive'],['effective','Etkin','Effective','positive']]){
     assert.deepEqual(relationshipStatus(row('CTL-001','Kontroller',{status:raw}),'tr'),{label:tr,tone});
     assert.deepEqual(relationshipStatus(row('CTL-001','Kontroller',{status:raw}),'en'),{label:en,tone});
   }

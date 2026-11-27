@@ -13,12 +13,13 @@ export function relationshipStatus(row:Row, lang:'tr'|'en', now=Date.now()) {
     'reddedildi':['rejected','Reddedildi','Rejected'],'rejected':['rejected','Reddedildi','Rejected'],
     'bakimda':['maintenance','Bakımda','Maintenance'],'maintenance':['maintenance','Bakımda','Maintenance'],
     'planlanan':['planned','Planlandı','Planned'],'archived':['archived','Arşivlendi','Archived'],'arşivlendi':['archived','Arşivlendi','Archived'],
+    'cancelled':['cancelled','İptal Edildi','Cancelled'],'retired':['retired','Yürürlükten Kaldırıldı','Retired'],
     'eol':['eol','Ömrünü Tamamladı','End of Life'],'uygulaniyor':['implementing','Uygulanıyor','Implemented'],'implemented':['implementing','Uygulanıyor','Implemented'],
     'izleniyor':['monitoring','İzleniyor','Monitoring'],'monitoring':['monitoring','İzleniyor','Monitoring'],
     'önlem-aliniyor':['treating','Önlem Alınıyor','Under Treatment'],'under-treatment':['treating','Önlem Alınıyor','Under Treatment'],
   };
   if(extra[normalized]){const value=extra[normalized];key=value[0];label=value[tr?1:2];}
-  if (['in-review','pending-review','incelemede','onay-bekliyor','onay-bekleyen','pending-approval','review'].includes(normalized)) { key='under-review';label=tr?'İncelemede':'In Review'; }
+  if (['in-review','pending-review','incelemede','onay-bekliyor','onay-bekleyen','pending-approval','review','submitted'].includes(normalized)) { key='under-review';label=tr?'İncelemede':'In Review'; }
   const effective=['effective','etkin','verified','doğrulandı'].includes(normalized);
   if(effective){key='active';label=tr?(normalized==='verified'||normalized==='doğrulandı'?'Doğrulandı':'Etkin'):(normalized==='verified'||normalized==='doğrulandı'?'Verified':'Effective');}
   if (row.module===chainModules.evidence) {
