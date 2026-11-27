@@ -37,7 +37,7 @@ export function BusinessContextView({anchor,links,tr,openRecord,loading=false,pa
   return <section className="business-context" aria-label={tr?"Varlık, risk ve iş sürekliliği":"Asset, risk and continuity"}>
     <h4>{tr?"Varlık, risk ve iş sürekliliği":"Asset, risk and continuity"}</h4>
     <div className="business-context-stages">{groups.map(({stage,nodes})=>{
-      const module=modules[stage],source=sources.find(row=>canLink?.(row,module));
+      const targetModule=modules[stage],source=sources.find(row=>canLink?.(row,targetModule));
       const message=incomplete?(tr?"Kayıt bağlantıları doğrulanamadı.":"Record links could not be verified."):
         stage==="asset"&&anchor.module==="Risk Assessment"&&anchor.data.riskScope==="organization"?(tr?"Varlıktan bağımsız risk":"Asset-independent risk"):
         stage==="plan"&&loading?(tr?"Planlar yükleniyor…":"Loading plans…"):
@@ -49,7 +49,7 @@ export function BusinessContextView({anchor,links,tr,openRecord,loading=false,pa
           <RelationshipCard row={row} anchor={anchor} lang={tr?'tr':'en'} openRecord={openRecord}/>
           {!!via.length&&<small className="context-via">{tr?"Bağlantı yolu":"Via"} · {via.map(connectedTitle).join(" → ")}</small>}
         </li>}/>:<>
-          <MissingRelationship source={source} module={module} tr={tr} canLink={canLink} linkRecord={linkRecord} message={message||unavailable?.(module)}/>
+          <MissingRelationship source={source} module={targetModule} tr={tr} canLink={canLink} linkRecord={linkRecord} message={message||unavailable?.(targetModule)}/>
           {source&&source.id!==anchor.id&&!message&&<small className="context-via">{tr?'Bağlanacak kayıt':'Link from'} · {source.code} · {connectedTitle(source)}</small>}
         </>}
       </section>;

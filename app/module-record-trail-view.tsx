@@ -25,7 +25,7 @@ function optionLabel(row: Row) {
 
 type TrailView = {chosen:string[]; length:number};
 
-export function RecordTrail({root,links,lang,label,openRecord,view,onChange}: {
+export function RecordTrail({root,links,lang,openRecord,view,onChange}: {
   root:Row; links:ConnectedGrcLink[]; lang:Lang; label:Labels; openRecord?:(row:Row)=>void; view?:TrailView; onChange?:(view:TrailView)=>void;
 }) {
   const tr = lang === "tr";
