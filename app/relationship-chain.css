@@ -1,0 +1,24 @@
+/* Typography is inherited from the global compact contract. */
+.relationship-list{display:grid;gap:8px;list-style:none;margin:0;padding:0;min-width:0}
+.relationship-list>li{min-width:0;position:relative}
+.relationship-card.chain-node{width:100%;display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--ws-line-strong);border-radius:7px;background:var(--ws-surface);color:var(--ws-ink);text-align:start;box-sizing:border-box;min-height:48px;height:auto;white-space:normal}
+.relationship-card.chain-node .relationship-identity{display:grid;min-width:0;gap:4px;flex:1}
+.relationship-card.chain-node .relationship-meta{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;min-width:0}
+.relationship-card small{color:var(--ws-muted)}
+.relationship-card strong{overflow-wrap:anywhere;color:var(--ws-ink)}
+.relationship-card svg{flex:none;width:17px;height:17px;color:var(--ws-muted)}
+.relationship-card i{font-style:normal;flex:none}
+.relationship-card.chain-node[aria-current=true]{border-color:var(--ws-brand);box-shadow:0 0 0 1px color-mix(in srgb,var(--ws-brand) 20%,transparent);cursor:default}
+.relationship-card.chain-node:hover{border-color:var(--ws-brand)}
+.relationship-status{display:inline-block!important;width:fit-content;border-radius:4px;padding:2px 5px;border:1px solid var(--ws-line);background:var(--ws-bg);color:var(--ws-muted);overflow-wrap:anywhere}
+.relationship-status[data-tone=positive]{color:var(--ws-brand);background:var(--ws-brand-soft);border-color:color-mix(in srgb,var(--ws-brand) 35%,var(--ws-line))}
+.relationship-status[data-tone=warning]{color:var(--ws-warning);background:color-mix(in srgb,var(--ws-warning) 8%,var(--ws-surface));border-color:color-mix(in srgb,var(--ws-warning) 35%,var(--ws-line))}
+.relationship-empty,.relationship-more,.relationship-tree :is(.relationship-empty,.relationship-more){display:block;width:100%;box-sizing:border-box;padding:8px;border:1px dashed var(--ws-line-strong);border-radius:7px;color:var(--ws-muted);background:var(--ws-surface);text-align:start;white-space:normal;overflow-wrap:anywhere;margin:0;height:auto}
+.relationship-more{margin-top:8px;border-style:solid;color:var(--ws-ink)}
+button.relationship-empty:hover,.relationship-more:hover{border-color:var(--ws-brand);color:var(--ws-ink)}
+:is(.relationship-card,.relationship-more,button.relationship-empty):focus-visible{outline:2px solid var(--ws-brand);outline-offset:2px}
+.relationship-tree{margin:16px 0;min-width:0}
+.relationship-tree>h4{margin:0 0 10px}
+.relationship-tree-children{margin-top:8px;padding-inline-start:15px;border-inline-start:1px solid var(--ws-line-strong)}
+.relationship-tree-children>.relationship-list>li:before{content:'';position:absolute;inset-inline-start:-16px;top:24px;width:12px;border-top:1px solid var(--ws-line-strong)}
+.relationship-tree-label{display:block;margin:0 0 4px;color:var(--ws-muted)}

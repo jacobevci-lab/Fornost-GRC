@@ -319,7 +319,8 @@ async function auditLocale(page, locale) {
           await trigger.click();
           const inspector = register.locator(".record-inspector");
           await expect(inspector.locator("h3")).toBeFocused();
-          await expect(inspector.locator(".assurance-chain li")).toHaveCount(3);
+          await expect(inspector.locator('.relationship-tree [data-stage="0"] > .relationship-card[aria-current="true"]')).toBeVisible();
+          expect(await inspector.locator('.relationship-tree [data-stage="1"]').count()).toBeGreaterThanOrEqual(1);
           await expect(inspector.locator("[data-context-stage]")).toHaveCount(4);
           await expect(inspector.locator('[data-context-stage="risk"] button[aria-current="true"]')).toBeVisible();
           await snap(page, locale + "-risk-record-inspector");

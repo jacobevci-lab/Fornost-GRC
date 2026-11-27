@@ -5,6 +5,12 @@ on:
       - 'app/connected-grc*'
       - 'app/connected-map*'
       - 'app/api/connected-grc/**'
+      - 'app/relationship-chain*'
+      - 'app/business-context*'
+      - 'app/assurance-chain-view*'
+      - 'app/record-workspace.tsx'
+      - 'app/module-record-trail-view.tsx'
+      - 'scripts/relationship-chains-qa.mjs'
       - 'scripts/connected-workbench-qa.mjs'
       - '.github/workflows/connected-workbench-qa.yml'
   workflow_dispatch:
@@ -44,11 +50,14 @@ jobs:
           node scripts/connected-workbench-qa.mjs
           node scripts/connected-ai-grc-qa.mjs
           node scripts/connected-reference-integrity-qa.mjs
+          node scripts/relationship-chains-qa.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: connected-workbench-qa
           path: |
+            relationship-chains-qa-artifacts/*.png
+            relationship-chains-qa-artifacts/*.json
             connected-workbench-qa-artifacts/*.png
             connected-workbench-qa-artifacts/report.json
             connected-workbench-qa-artifacts/failure.json

@@ -11,6 +11,8 @@ import { AssuranceChain, hasAssuranceChain } from "./assurance-chain-view";
 import { assessedRiskScore, assessedResidualRiskScore } from "./risk-methodology";
 import { navigateToFornost } from "./navigation-focus";
 import {evidenceState} from "./evidence/intake";
+import {useChainLinkEditor} from "./relationship-chain-editor";
+import { nativeMapId } from "./connected-map-links";
 import { displayRecordCode } from "./record-codes";
 
 import { hasBusinessContext } from "./business-context";
@@ -81,6 +83,12 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
       return index < 0 ? [...current, id] : current.slice(0, index + 1);
     });
   }
+  function openLinked(row:ConnectedGrcRow){
+    if(row.data.kind==='continuity-plan')navigateToFornost({module:row.module,kind:'continuity-plan',ref:nativeMapId(row)});
+    else follow(row.id);
+  }
+  const linking=useChainLinkEditor({rows:records,links:graph?.links||[],lang,actor:context?.actor,openRecord:openLinked,
+    ready:context?.coreState==='ready',refresh:async()=>{const planOk=await continuity.refresh();const coreOk=await context?.refreshCore?.();return planOk&&!!coreOk;}});
   const linked = new Map<string, ConnectedGrcRow>();
   if (selected && graph) {
     for (const link of graph.links) {
@@ -111,9 +119,10 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
 
   return <>
     {children(inspect, open)}
+    {linking.editor}
     {selected && <section className="record-workspace" aria-label={tr ? "Kayıt inceleme" : "Record inspection"}
       onKeyDown={event => {
-        if (event.key === "Escape" && !event.defaultPrevented) { event.stopPropagation(); event.preventDefault(); close(); }
+        if (event.key === "Escape" && !event.defaultPrevented && !(event.target as HTMLElement).closest("dialog")) { event.stopPropagation(); event.preventDefault(); close(); }
       }}>
       <div className="record-master">
         <h3>{tr ? "Kayıtlar" : "Records"} <small>{visible.length}</small></h3>
@@ -133,11 +142,11 @@ export default function RecordWorkspace({ rows, visible, lang, moduleNames, form
         {selected.module==="Risk Assessment"&&<FairDetail tr={tr} value={selected.data.fairLite}/>}
         {selected.module==="Kanıtlar"&&evidenceReview?.(selected)}
         {allowPosture && selected.module==="Kontroller" && <FrameworkImpact controlId={selected.id} tr={tr}/>}
-        {business && graph && <BusinessContextView anchor={selected} links={graph.links} tr={tr} openRecord={row=>follow(row.id)}
+        {business && graph && <BusinessContextView anchor={selected} links={graph.links} tr={tr} openRecord={openLinked} {...linking.actions} incomplete={context?.coreState!=="ready"}
           loading={continuity.loading} partial={continuity.partial} scoped={context?.scoped} retry={continuity.retry}/>}
-        {showChain && graph && <AssuranceChain key={selected.id} inspector anchor={selected} links={graph.links} lang={lang} trail={path} openRecord={row => follow(row.id)}/>}
+        {showChain && graph && <AssuranceChain key={selected.id} inspector anchor={selected} links={graph.links} lang={lang} trail={path} openRecord={openLinked} {...linking.actions}/>}
         {!showChain && !business && graph && <RecordTrail key={selected.id} root={selected} links={graph.links} lang={lang}
-          label={module => moduleNames[module] || module} openRecord={row => follow(row.id)}/>}
+          label={module => moduleNames[module] || module} openRecord={openLinked}/>}
         {assetDependencies.length>0 && <section><h4>{tr?"Kritik bağımlılıklar":"Critical dependencies"}</h4><div className="asset-link-counts">
           {assetDependencies.map(row=><button key={row.id} type="button" onClick={()=>follow(row.id)}>{connectedTitle(row)}{row.code && row.code!==row.id ? " · "+row.code : ""}</button>)}</div></section>}
         <dl>{facts.map(([label, value]) => <div key={String(label)}><dt>{String(label)}</dt><dd>{formatValue(String(value), lang)}</dd></div>)}</dl>

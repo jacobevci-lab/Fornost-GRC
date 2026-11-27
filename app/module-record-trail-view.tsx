@@ -7,6 +7,10 @@ import { loadConnectedGrcSources } from "./connected-grc-loader";
 import { indexTrailLinks, moduleTrailSources, traceRecords } from "./module-record-trail";
 import { hasBusinessContext } from "./business-context";
 import { BusinessContextView } from "./business-context-view";
+import {RelationshipCard} from './relationship-chain-card';
+import {useChainLinkEditor, type ChainActor} from './relationship-chain-editor';
+import {navigateToFornost} from './navigation-focus';
+import {nativeMapId} from './connected-map-links';
 import NavIcon from "./nav-icon";
 import "./assurance-chain-view.css";
 import "./module-record-trail.css";
@@ -33,11 +37,9 @@ export function RecordTrail({root,links,lang,label,openRecord,view,onChange}: {
   return <div className="assurance-chain module-trail" aria-label={tr ? "Kayıt zinciri" : "Record chain"}>
     <ol>{nodes.map(({row,alternatives,edge},i) => {
       const description = edge && connectedTitle(edge.source) + " → " + (connectedRelationLabels[edge.relation]?.[lang] || edge.relation) + " → " + connectedTitle(edge.target);
-      const body = <><NavIcon module={row.module}/><span><small>{label(row.module)}{row.code && " · " + row.code}</small><strong>{connectedTitle(row)}</strong>
-        {edge && <small className="trail-edge">{edge.target.id===row.id ? "→ " : "← "}{connectedRelationLabels[edge.relation]?.[lang] || edge.relation}</small>}</span></>;
       return <li key={row.id} data-stage={Math.min(i,2)} data-present="true" data-connected={i ? "yes" : "no"}>
-        {openRecord && i > 0 ? <button type="button" className="chain-node" title={description} onClick={() => openRecord(row)}>{body}<i aria-hidden="true">›</i></button> :
-          <div className="chain-node" title={description}>{body}</div>}
+        <div title={description}><RelationshipCard row={row} anchor={root} lang={lang} openRecord={openRecord||(()=>{})}/></div>
+        {edge&&<small className="trail-edge">{edge.target.id===row.id?"→ ":"← "}{connectedRelationLabels[edge.relation]?.[lang]||edge.relation}</small>}
         {alternatives.length > 1 && <label className="trail-branch"><span>{tr ? "Bağlantı seç" : "Choose connection"}</span><select value={row.id}
           aria-label={tr ? i + ". bağlantıyı seç" : "Choose connection " + i}
           onChange={event => change({chosen:[...nodes.slice(1,i).map(node=>node.row.id),event.target.value],length:Math.max(3,i+1)})}>
@@ -53,7 +55,7 @@ export function RecordTrail({root,links,lang,label,openRecord,view,onChange}: {
   </div>;
 }
 
-type PanelProps = {module:string; rows:Row[]; lang:Lang; label:Labels; scoped:boolean; includeAi:boolean; coreState:"ready"|"loading"|"error"; retryCore:()=>void; focusedId?:string; pinned?:{kind:string;ref:string}};
+type PanelProps = {module:string; rows:Row[]; lang:Lang; label:Labels; scoped:boolean; includeAi:boolean; coreState:"ready"|"loading"|"error"; retryCore:()=>void; actor?:ChainActor; refreshCore?:()=>Promise<boolean>; focusedId?:string; pinned?:{kind:string;ref:string}};
 
 type TrailContextValue = Omit<PanelProps,"module"|"focusedId"|"pinned">;
 export const ModuleTrailContext = createContext<TrailContextValue | null>(null);
@@ -73,7 +75,7 @@ export function ModuleTrailPanel(props: PanelProps) {
   </details>;
 }
 
-function ModuleTrailBody({module,rows,lang,label,scoped,includeAi,coreState,retryCore,focusedId,pinned}: PanelProps) {
+function ModuleTrailBody({module,rows,lang,label,scoped,includeAi,coreState,retryCore,focusedId,pinned,actor,refreshCore}: PanelProps) {
   const tr = lang === "tr";
   const [selection,setSelection]=useState(focusedId || "");
   const [query,setQuery]=useState("");
@@ -102,6 +104,13 @@ function ModuleTrailBody({module,rows,lang,label,scoped,includeAi,coreState,retr
   const selected=pinned ? (pinnedMatches.length===1 ? pinnedMatches[0] : undefined) : options.find(row=>row.id===selection)||options[0];
   const pending=coreState==="loading" || (!scoped && sources.length>0 && !result);
   const partial=coreState==="error" || !!result?.issues.length;
+  async function refresh(){
+    const coreOk=refreshCore?await refreshCore():false;
+    if(scoped||!sources.length)return coreOk;
+    const data=await loadConnectedGrcSources({includeAi,sourceKeys:sources,signal:AbortSignal.timeout(15000)});
+    setSnapshot({revision,data});
+    return coreOk&&!data.issues.length;
+  }
   return <div className="module-trail-body">
     <div className="trail-picker"><h3>{label(module)}</h3>
       {!pinned && <label>{tr?"Kayıt ara":"Search records"}<input type="search" value={query} onChange={e=>setQuery(e.target.value)}/></label>}
@@ -110,12 +119,12 @@ function ModuleTrailBody({module,rows,lang,label,scoped,includeAi,coreState,retr
       {(pending||partial) && <p role="status">{pending?(tr?"Kaynaklar yükleniyor…":"Loading sources…"):(tr?"Bazı kaynaklar okunamadı. Zincir kısmi olabilir.":"Some sources could not be read. This chain may be partial.")}</p>}
       {!pending && <button type="button" onClick={()=>{retryCore();setRevision(revision+1);}}>{partial?(tr?"Yeniden dene":"Retry"):(tr?"Zinciri yenile":"Refresh chain")}</button>}
     </div>
-    {selected ? <TrailSession key={selected.id} root={selected} records={records} links={graph.links} lang={lang} label={label} scoped={scoped} partial={partial} loading={pending}/> :
+    {selected ? <TrailSession key={selected.id} root={selected} records={records} links={graph.links} lang={lang} label={label} scoped={scoped} partial={partial} loading={pending} actor={actor} refresh={refresh}/> :
       !pending && <p role="status">{pinned?(tr?"Seçili kaydın bağlantıları çözümlenemedi.":"The selected record could not be resolved.") : query?(tr?"Aramayla eşleşen kayıt yok.":"No records match your search."):(tr?"Yüklenen kaynaklarda bu modüle ait kayıt bulunamadı.":"No records for this module in the loaded sources.")}</p>}
   </div>;
 }
 
-function TrailSession({root,records,links,lang,label,scoped,partial,loading}:{root:Row;records:Row[];links:ConnectedGrcLink[];lang:Lang;label:Labels;scoped:boolean;partial:boolean;loading:boolean}) {
+function TrailSession({root,records,links,lang,label,scoped,partial,loading,actor,refresh}:{root:Row;records:Row[];links:ConnectedGrcLink[];lang:Lang;label:Labels;scoped:boolean;partial:boolean;loading:boolean;actor?:ChainActor;refresh:()=>Promise<boolean>}) {
   const [path,setPath] = useState<string[]>([]);
   const [views,setViews] = useState<Record<string,TrailView>>({});
   const selected = records.find(row=>row.id===path.at(-1)) || root;
@@ -124,9 +133,12 @@ function TrailSession({root,records,links,lang,label,scoped,partial,loading}:{ro
       if(row.id === root.id) setPath([]);
       else { const index=path.indexOf(row.id);setPath(index<0?[...path,row.id]:path.slice(0,index+1)); }
     }
+  const openDetail=(row:Row)=>navigateToFornost({module:row.module,ref:nativeMapId(row),kind:row.data.kind==='continuity-plan'?'continuity-plan':'record',source:'relationship-chain'});
+  const linking=useChainLinkEditor({rows:records,links,lang,actor,refresh,openRecord:openDetail,ready:!partial&&!loading});
   return <div className="trail-session">
     {!!path.length && <button type="button" onClick={()=>setPath(path.slice(0,-1))}>{tr?"Önceki kayda dön":"Back to previous record"}</button>}
-    {hasBusinessContext(selected) && <BusinessContextView anchor={selected} links={links} tr={tr} openRecord={follow} scoped={scoped} partial={partial} loading={loading}/>}
+    {hasBusinessContext(selected) && <BusinessContextView anchor={selected} links={links} tr={tr} openRecord={openDetail} scoped={scoped} partial={partial} loading={loading} incomplete={partial||loading} {...linking.actions}/>}
+    {linking.editor}
     <RecordTrail key={selected.id} root={selected} links={links} lang={lang} label={label} view={views[selected.id]} onChange={v=>setViews(previous=>({...previous,[selected.id]:v}))} openRecord={follow}/>
   </div>;
 }

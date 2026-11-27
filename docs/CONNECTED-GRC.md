@@ -47,3 +47,11 @@ BIA için plan bağlama yalnız mevcut taslak planın BIA referansını değişt
 Bağlantı dışa aktarımı arama/modül filtresine uyan tüm yüklü ilişkileri; etki dışa aktarımı seçili kaydın sınırlı inceleme yollarını; eksik dışa aktarımı filtreye uyan tüm takip konularını içerir. Kısmi kaynak durumu ve dışa aktarım zamanı korunur. Güvence sekmesindeki mevcut kontrol sonucu, onay ve eskalasyon iş akışları korunur.
 
 Güvence ve Kanıt Kapsamı, kontrolleri ve onlara bağlı riskleri güncel, sürümü onaylanmış kanıtlar, aktif denetimler ve açık kurumsal bulgular üzerinden gösterir. Haritada eklenen açıklayıcı ilişkiler denetim, kanıt onayı veya CAPA durumu üretmez. Kayıt ilişkisi, kontrolün etkin olduğu anlamına gelmez.
+
+## Kayıt detayındaki ilişki zincirleri
+
+Risk, BIA, Varlık ve BCP detayındaki yatay zincir ile Risk → Kontrol → Kanıt ağacı, her kaydın kısa kodunu ve TR/EN durum rozetini gösterir. Açık kaydın marka kenarlığı, onay rozeti değildir. Taslak/incelemede kayıtlar nötr veya amber, yalnız aktif/etkin/onaylı durumlar olumlu vurgulanır; süresi geçmiş veya yeni sürümü incelemede olan kanıt olumlu görünmez.
+
+Her kardeş listesi ilk iki kaydı gösterir; `+N kayıt daha` ile açılır. Kanıtlar kendi kontrolünün altında 16px girintili kılavuzla görünür. Kartlar ilgili detaya geçer. Eksik halka, yetkili kullanıcıya mevcut bağlantı modalını doğru ilişkiyle açar. BCP bağlamak için düzenlenebilir bir taslak plan seçilir; bağlantı onay yerine geçmez. Okunamayan veya kapsam dışındaki kaynaklar eksik ilişki olarak sunulmaz.
+
+Doğrulama: `tests/relationship-chain.test.ts` ve `scripts/relationship-chains-qa.mjs`; teslimat kapsamı: [record-relationship-chains.md](roadmap/record-relationship-chains.md).
