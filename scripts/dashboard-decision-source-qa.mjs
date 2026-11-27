@@ -318,7 +318,8 @@ try {
     record("rsk-trail","Risk Assessment","Yetkisiz erişim",{asset:"AST-TRAIL",existingControls:"CTL-014"}),
   ];
   records.push(record("bia-trail","BIA","Kimlik hizmeti",{process:"Kimlik hizmeti",asset:"AST-TRAIL"}));
-  await page.route("**/api/continuity",route=>route.fulfill({json:{plans:[{id:"plan-trail",code:"BCP-TRAIL",name:"Kimlik kurtarma planı",biaRef:"BIA-TRAIL"}],exercises:[],gaps:[]}}));
+  await page.route("**/api/continuity",route=>route.fulfill({json:{plans:[{id:"plan-trail",code:"BCP-TRAIL",name:"Kimlik kurtarma planı",biaRef:"BIA-TRAIL",status:"draft",owner:"qa-admin@fornost.test",reviewer:"reviewer@fornost.test",crisisLead:"crisis@fornost.test",createdBy:"qa-admin@fornost.test",rtoHours:4,rpoHours:1,mtpdHours:8}],exercises:[],gaps:[]}}));
+  await page.route("**/api/continuity?view=dossier&planId=plan-trail*",route=>route.fulfill({json:{latest:null,gaps:[],hasMore:false}}));
   await page.reload();
   await openQaModule(page,"Risk Değerlendirmesi");
   await page.locator(".risk-register .record-open").first().click();
@@ -328,8 +329,10 @@ try {
   await expect(business.locator('[data-context-stage="plan"] .context-via')).toHaveText(/Kimlik platformu.*Kimlik hizmeti/);
   await business.screenshot({path:out+"/asset-risk-bia-plan.png"});
   await business.getByRole("button",{name:/Kimlik kurtarma planı/}).click();
-  await expect(inspector.locator(":scope > h3")).toHaveText("Kimlik kurtarma planı");
-  await inspector.getByRole("button",{name:"Önceki kayıt"}).click();
+  await expect(page.locator(".cpd-file > header h3")).toHaveText("Kimlik kurtarma planı");
+  await expect(page.locator(".cpd-file .cpd-exercise")).toBeVisible();
+  await openQaModule(page,"Risk Değerlendirmesi");
+  await page.locator(".risk-register .record-open").first().click();
   await expect(inspector.locator(":scope > h3")).toHaveText("Yetkisiz erişim");
   await openQaModule(page,"Denetim Yönetimi");
   const trailPanel=page.locator("main > .module-trail-panel");

@@ -1384,7 +1384,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         const target = resolveCoreRecord(freshRows, recordRequest);
         const auditName = target?.module === "Denetim Yönetimi" ? String(target.data.auditName || "") : undefined;
         const fromDecisionQueue = returnsToDecisionQueue(recordRequest) || ["dashboard-action","my-work","my-work-assurance"].includes(recordRequest.source || "");
-        setFocusedRecord({ id: target?.id || "", ref: target?.code || coreRecordReference(recordRequest), auditName: fromDecisionQueue ? auditName : undefined, openDetail: ["dashboard-action","my-work","my-work-assurance"].includes(recordRequest.source || ""), request: target ? undefined : recordRequest });
+        setFocusedRecord({ id: target?.id || "", ref: target?.code || coreRecordReference(recordRequest), auditName: fromDecisionQueue ? auditName : undefined, openDetail: ["dashboard-action","my-work","my-work-assurance","relationship-chain"].includes(recordRequest.source || ""), request: target ? undefined : recordRequest });
         if (auditName !== undefined && !fromDecisionQueue) setSelectedAudit(auditName);
       } else {
         setFocusedRecord({ id: "", ref: coreRecordReference(recordRequest), state: "error", request: recordRequest });
@@ -2057,7 +2057,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
         </div>
       )}
       <ModuleTrailContext.Provider value={{rows:readableRows,lang,label:module => names[lang][module] || module,scoped,
-        includeAi:active==="AI Yönetişimi" && currentUser.role==="Admin",coreState:registerLoadState,retryCore:()=>void load()}}>
+        includeAi:active==="AI Yönetişimi" && currentUser.role==="Admin",coreState:registerLoadState,retryCore:()=>void load(),actor:currentUser,refreshCore:async()=>!!(await load())}}>
       <main>
         <RecordLinkEntry ready={pageRestored} lang={lang} scoped={scoped} />
         <header>
@@ -2217,7 +2217,7 @@ function FornostApp({ currentUser }: { currentUser: any }) {
           <ModuleTrailPanel key={JSON.stringify([active,currentUser.id,currentUser.role,currentUser.moduleAccess])}
             module={active} rows={readableRows} lang={lang} label={module => names[lang][module] || module}
             scoped={scoped} includeAi={active === "AI Yönetişimi" && currentUser.role === "Admin"} coreState={registerLoadState}
-            retryCore={() => void load()} focusedId={focusedRecord?.id}/>}
+            retryCore={() => void load()} actor={currentUser} refreshCore={async()=>!!(await load())} focusedId={focusedRecord?.id}/>}
         {pageRestored && canOpenModule(currentUser,"Benim İşlerim") && <MyWorkV2 key={currentUser.id} active={active==="Benim İşlerim"} lang={lang} actor={currentUser} />}
         {!canOpenModule(currentUser,active) ? <section className="module-scope-home"><h2>{lang==="tr"?"Bu modüle erişiminiz yok":"Module access is unavailable"}</h2><button onClick={()=>navigateToModule("Ana Sayfa")}>{lang==="tr"?"Ana sayfa":"Home"}</button></section> : active === "Ana Sayfa" && (!pageRestored || registerLoadState !== "ready") ? (
           <section className="module-scope-home" role="status" aria-busy={registerLoadState !== "error"}>

@@ -7,9 +7,10 @@ import { ChoiceInput } from './risk-editor-fields';
 import { mapCode,mapTitle } from './connected-map-model';
 import {contextId} from './connected-map-context';
 import {linkChoices,issueChoice,nativeMapId} from './connected-map-links';
+import './connected-grc-workbench.css';
 import { recordMatches,type WorkbenchIssue } from './connected-grc-workbench-model';
 
-type Props = {row:Row;rows:Row[];links:Link[];lang:'tr'|'en';actor:AccessSubject & {email:string};issue?:WorkbenchIssue;moduleLabel:(name:string)=>string;refresh:()=>Promise<boolean>;close:()=>void;openRecord:(row:Row)=>void};
+type Props = {row:Row;rows:Row[];links:Link[];lang:'tr'|'en';actor:AccessSubject & {email:string};issue?:WorkbenchIssue;initialChoiceKey?:string;moduleLabel:(name:string)=>string;refresh:()=>Promise<boolean>;close:()=>void;openRecord:(row:Row)=>void};
 const errors: Record<string, [string, string]> = {
   changed: ['Kayıt değişti. Listeyi yenileyin ve güncel kaydı yeniden seçin.', 'Record changed. Refresh and select the current record again.'],
   unavailable: ['Kayıt artık erişilebilir değil. Seçiminizi yenileyin.', 'Record is no longer available. Refresh your selection.'],
@@ -21,9 +22,9 @@ const errors: Record<string, [string, string]> = {
   unchanged: ['Bu bağlantı zaten mevcut.', 'This relationship already exists.'],
 };
 
-export default function ConnectedLinkEditor({row,rows,lang,actor,issue,moduleLabel,refresh,close,openRecord}:Props){
+export default function ConnectedLinkEditor({row,rows,lang,actor,issue,initialChoiceKey,moduleLabel,refresh,close,openRecord}:Props){
   const tr=lang==='tr',index=tr?0:1,choices=linkChoices(row,actor,[...new Set(rows.map(r=>r.module))]);
-  const initial=issueChoice(choices,issue);
+  const initial=choices.find(choice=>choice.key===initialChoiceKey)||issueChoice(choices,issue);
   const [targetModule,setTargetModule]=useState(initial?.module||''),[key,setKey]=useState(initial?.key||''),[targetId,setTargetId]=useState('');
   const [query,setQuery]=useState(''),[note,setNote]=useState(''),[busy,setBusy]=useState(false),[locked,setLocked]=useState(false),[message,setMessage]=useState('');
   const pending=useRef(false),dialog=useRef<HTMLDialogElement>(null);
